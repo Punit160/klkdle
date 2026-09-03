@@ -6,6 +6,7 @@ import { FiMoreVertical, FiRefreshCw } from 'react-icons/fi'
 import PageHeaderDate from '@/components/shared/pageHeader/PageHeaderDate'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import localApi from '../../../../api/localApi'
+import { app } from '../../../../api/routes'
 
 const SiteOverviewStatistics = ({ summary }) => {
   if (!summary) return null
@@ -308,7 +309,7 @@ const Dashboard = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await localApi.get('/klkdle/up/ssl-amc/dashboard/district')
+      const res = await localApi.get(app.ssl.dashboardDistrict('up'))
 
       if (res.data?.success) {
         setData(res.data)

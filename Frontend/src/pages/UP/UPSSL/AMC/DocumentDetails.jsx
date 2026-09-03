@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiArrowLeft, FiEyeOff, FiEye, FiFileText, FiEdit, FiCheck, FiX, FiLoader, FiCheckCircle, FiUploadCloud, FiMapPin, FiClock, FiLayers } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import localApi from '../../../../api/localApi'
+import { app } from '../../../../api/routes'
 import { getCompanyId } from '../../../../utils/auth'
 
 const getErrorMessage = (err, fallback = "Something went wrong. Please try again.") => {
@@ -365,7 +366,7 @@ const DocumentDetails = () => {
             setError('')
             try {
 
-                const res = await localApi.get('/klkdle/up/ssl-amc/view', {
+                const res = await localApi.get(app.ssl.view('up'), {
                     params: { id, company_id: companyId },
                 })
                 if (res.data?.success) {
@@ -452,7 +453,7 @@ const DocumentDetails = () => {
             if (editAmcFile) formData.append('amc_document', editAmcFile)
             if (editInvoiceFile) formData.append('invoice_document', editInvoiceFile)
 
-            const res = await localApi.post('/klkdle/up/ssl-amc/update', formData, {
+            const res = await localApi.post(app.ssl.update('up'), formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
 

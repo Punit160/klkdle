@@ -9,7 +9,8 @@ import useCardTitleActions from '@/hooks/useCardTitleActions'
 import CardLoader from '@/components/shared/CardLoader'
 import Pagination from '@/components/shared/Pagination'
 
-import axiosInstance from '../../../../api/axiosInstance'
+import externalApi from '../../../../api/externalApi'
+import { external } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 
 import { useSearch } from '../../../../contentApi/searchProvider'
@@ -78,7 +79,7 @@ const ViewComplaint = () => {
         }
 
         try {
-            const res = await axiosInstance.get('/dle/bihar/ssl-amc/complaint/view', {
+            const res = await externalApi.get(external.ssl.complaintView('bihar'), {
                 params: {
                     company_id: companyId,
                     user_id: userId,

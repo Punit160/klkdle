@@ -15,9 +15,10 @@ import {
 
 import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
-import axiosInstance from '../../../../api/axiosInstance'
+import externalApi from '../../../../api/externalApi'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 import localApi from '../../../../api/localApi'
+import { app, external } from '../../../../api/routes'
 
 
 
@@ -605,8 +606,8 @@ const UploadForm = ({
             try {
 
                 const res =
-                    await axiosInstance.get(
-                        '/dle/up/ssl-amc/district'
+                    await externalApi.get(
+                        external.ssl.district('up')
                     )
 
 
@@ -710,8 +711,8 @@ const UploadForm = ({
             try {
 
                 const res =
-                    await axiosInstance.get(
-                        '/dle/up/ssl-amc/blocks',
+                    await externalApi.get(
+                        external.ssl.blocks('up'),
                         {
                             params: {
                                 district:
@@ -825,8 +826,8 @@ const UploadForm = ({
             try {
 
                 const res =
-                    await axiosInstance.get(
-                        '/dle/up/ssl-amc/panchayat',
+                    await externalApi.get(
+                        external.ssl.panchayat('up'),
                         {
                             params: {
                                 district:
@@ -953,8 +954,8 @@ setPanchayatOptions(options)
                 try {
 
                     const res =
-                        await axiosInstance.get(
-                            '/dle/up/ssl-amc/details',
+                        await externalApi.get(
+                            external.ssl.details('up'),
                             {
                                 params: {
 
@@ -1436,7 +1437,7 @@ setPanchayatOptions(options)
 
             const res =
                 await localApi.post(
-                    "/klkdle/up/ssl-amc/create",
+                    app.ssl.create('up'),
 
                     formData,
 

@@ -2,10 +2,9 @@
 import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { FiLogOut, FiUser } from "react-icons/fi"
-import { LOCAL_API_BASE } from "../../../api/localApi"
+import { joinUrl, APP_API_BASE } from "../../../api/config"
+import { app } from "../../../api/routes"
 import { clearAuthData } from "../../../utils/auth"
-
-const BASE_URL = LOCAL_API_BASE
 
 const getInitials = (name = "") => {
     if (!name) return "U"
@@ -43,7 +42,7 @@ const ProfileModal = () => {
                 if (!token) return
 
                 const response = await fetch(
-                    `${BASE_URL}/klkdle/auth/profile`,
+                    joinUrl(APP_API_BASE, app.auth.profile),
                     {
                         method: "GET",
                         headers: {
@@ -82,7 +81,7 @@ const ProfileModal = () => {
         const token = localStorage.getItem("token");
 
         const response = await fetch(
-            `${BASE_URL}/klkdle/auth/logout`,
+            joinUrl(APP_API_BASE, app.auth.logout),
             {
                 method: "POST",
                 headers: {

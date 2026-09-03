@@ -2,10 +2,10 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiAlertCircle, FiArrowLeft, FiCalendar, FiImage, FiLoader, FiMapPin, FiUser, FiZap } from 'react-icons/fi'
-import axios from 'axios'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { getCompanyId } from '../../utils/auth'
-import { LOCAL_API_BASE } from '../../api/localApi'
+import localApi, { LOCAL_API_BASE } from '../../api/localApi'
+import { app } from '../../api/routes'
 
 const LOCAL_API = LOCAL_API_BASE
 
@@ -97,7 +97,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
             setLoading(true)
             setError('')
             try {
-                const res = await axios.get(`${LOCAL_API}/klkdle/light-amc/view/${recordId}`, {
+                const res = await localApi.get(app.lightAmc.view(recordId), {
                     params: { company_id: getCompanyId() },
                 })
                 const data = res?.data?.data
@@ -171,6 +171,8 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                         { label: 'Block', value: row.block },
                                         { label: 'Panchayat', value: row.panchayat },
                                         { label: 'Ward No', value: row.ward_no },
+                                        { label: 'AMC Latitude', value: row.latitude },
+                                        { label: 'AMC Longitude', value: row.longitude },
                                     ]}
                                 />
 

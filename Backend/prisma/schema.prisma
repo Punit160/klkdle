@@ -143,6 +143,8 @@ model BiharLightAmc {
   complaint_ref       String?   @db.VarChar(255)
   image_1             String?   @db.VarChar(255)
   image_2             String?   @db.VarChar(255)
+  latitude            String?   @db.VarChar(50)
+  longitude           String?   @db.VarChar(50)
   remarks             String?   @db.Text
   created_at          DateTime? @default(now()) @db.Timestamp(0)
   updated_at          DateTime? @default(now()) @db.Timestamp(0)

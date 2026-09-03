@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import localApi, { LOCAL_API_BASE } from "../../api/localApi";
+import { app } from "../../api/routes";
 import HorizontalProgress from "@/components/shared/HorizontalProgress";
 
 import EmployeeIdCard from "./dle-id-card";
@@ -285,7 +286,7 @@ export default function EmployeeRegistration() {
     }
 
     localApi
-      .get(`/klkdle/auth/profile`, { params: { userId: user.id } })
+      .get(app.auth.profile, { params: { userId: user.id } })
       .then(({ data }) => {
         if (data.success) {
           setEmployeeData(data.user);
@@ -340,7 +341,7 @@ export default function EmployeeRegistration() {
       setChangingPassword(true);
 
       const response = await localApi.patch(
-        `/klkdle/auth/change-password`,
+        app.auth.changePassword,
         {
           userId: employeeData.id,
           currentPassword,

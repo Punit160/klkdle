@@ -5,10 +5,9 @@ import { FiLogOut } from "react-icons/fi";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import Menus from './Menus';
 import { NavigationContext } from '../../../contentApi/navigationProvider';
-import { LOCAL_API_BASE } from '../../../api/localApi'
+import { joinUrl, APP_API_BASE } from '../../../api/config'
+import { app } from '../../../api/routes'
 import { clearAuthData } from '../../../utils/auth'
-
-const BASE_URL = LOCAL_API_BASE
 
 
 const getInitials = (name = "") => {
@@ -53,7 +52,7 @@ const imageUrl = user?.image_url || null
         try {
             const token = localStorage.getItem("token")
 
-            await fetch(`${BASE_URL}/klkdle/auth/logout`, {
+            await fetch(joinUrl(APP_API_BASE, app.auth.logout), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

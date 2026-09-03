@@ -14,7 +14,8 @@ import {
 } from 'react-icons/fi'
 import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
-import axiosInstance from '../../../../api/axiosInstance'
+import externalApi from '../../../../api/externalApi'
+import { external } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 
 const toOptions = (arr) => arr.map((item) => ({ value: item, label: item }))
@@ -214,7 +215,7 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
     const [submitSuccess, setSubmitSuccess] = useState(false)
     const [successMessage, setSuccessMessage] = useState("")
 
-    // Enrich Pole No options with unique_id from klkerp site details (one list call).
+    // Enrich Pole No options with unique_id from External API site details (one list call).
     useEffect(() => {
         if (!incomingSites.length) return
 
@@ -231,7 +232,7 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
 
         const enrichPoleOptions = async () => {
             try {
-                const res = await axiosInstance.get('/dle/bihar/ssl-amc/details', {
+                const res = await externalApi.get(external.ssl.details('bihar'), {
                     params: { district, block, panchayat, volume },
                 })
                 const list = Array.isArray(res?.data?.data) ? res.data.data : []
@@ -272,7 +273,7 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             setIsDetailsLoading(true)
             setDetailsError("")
             try {
-                const res = await axiosInstance.get('/dle/bihar/ssl-amc/complaint/details', {
+                const res = await externalApi.get(external.ssl.complaintDetails('bihar'), {
                     params: { ssl_id: selectedPole.value },
                 })
                 const data = res?.data?.data || res?.data || null
@@ -375,8 +376,8 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         setIsSubmitting(true)
 
         try {
-            const res = await axiosInstance.post(
-                '/dle/bihar/ssl-amc/complaint/store',
+            const res = await externalApi.post(
+                external.ssl.complaintStore('bihar'),
                 formData,
                 {
                     params: { company_id: companyId },

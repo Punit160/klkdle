@@ -10,6 +10,7 @@ import Pagination from '@/components/shared/Pagination'
 
 import { getCompanyId } from '../../../../utils/auth'
 import localApi from '../../../../api/localApi'
+import { app } from '../../../../api/routes'
 
 import { useSearch } from '../../../../contentApi/searchProvider'
 
@@ -100,7 +101,7 @@ const DocumentList = () => {
     }
 
     try {
-        const response = await localApi.get('/klkdle/up/ssl-amc/get')
+        const response = await localApi.get(app.ssl.get('up'))
         const res = response.data
 
         if (res?.success) {

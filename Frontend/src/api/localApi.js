@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { getToken, getCompanyId, clearAuthData } from '../utils/auth'
+import { APP_API_BASE } from './config'
+import { app } from './routes'
 
-export const LOCAL_API_BASE = String(import.meta.env.VITE_BASE_URL || '').replace(/\/$/, '')
-export const AUTH_PREFIX = '/klkdle/auth'
+export const LOCAL_API_BASE = APP_API_BASE
+export const AUTH_PREFIX = '/api/auth'
 
 const localApi = axios.create({
     baseURL: LOCAL_API_BASE || undefined,
@@ -36,7 +38,9 @@ localApi.interceptors.response.use(
     (error) => {
         const status = error.response?.status
         const url = String(error.config?.url || '')
-        const isAuthAttempt = url.includes('/klkdle/auth/login') || url.includes('/klkdle/auth/register') || url.includes('/dle/auth/login')
+        const isAuthAttempt =
+            url.includes(app.auth.login) ||
+            url.includes(app.auth.register)
 
         if (status === 401 && !isAuthAttempt) {
             clearAuthData()

@@ -14,14 +14,12 @@ import {
     FiX,
     FiZap,
 } from 'react-icons/fi'
-import axios from 'axios'
 import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
-import axiosInstance from '../../api/axiosInstance'
-import { LOCAL_API_BASE } from '../../api/localApi'
+import externalApi from '../../api/externalApi'
+import localApi from '../../api/localApi'
+import { app, external } from '../../api/routes'
 import { getCompanyId, getUser } from '../../utils/auth'
-
-const LOCAL_API = LOCAL_API_BASE
 
 const COMPLAINT_ISSUE_OPTIONS = [
     'Light Not Working',
@@ -47,6 +45,31 @@ const getErrorMessage = (err, fallback = 'Something went wrong. Please try again
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
+
+const captureCurrentLocation = () =>
+    new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Location is not supported on this device. Please use a phone or enable GPS.'))
+            return
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                resolve({
+                    latitude: String(position.coords.latitude),
+                    longitude: String(position.coords.longitude),
+                })
+            },
+            (error) => {
+                if (error?.code === 1) {
+                    reject(new Error('Please allow location access so AMC can save latitude and longitude.'))
+                    return
+                }
+                reject(new Error('Could not read current location. Turn on GPS and try again.'))
+            },
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+        )
+    })
 
 const addMonthsISO = (value, months) => {
     const date = new Date(value)
@@ -174,7 +197,7 @@ const FileBadge = ({ file, onRemove }) => (
 const LightAmcForm = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
     const isBihar = region === 'bihar'
-    const klkerpBase = isBihar ? '/dle/bihar/ssl-amc' : '/dle/up/ssl-amc'
+    const sslState = isBihar ? 'bihar' : 'up'
     const viewPath = isBihar ? '/bihar/ssl-amc/view-light-amc' : '/uttarpradesh/ssl-amc/view-light-amc'
     const stateName = isBihar ? 'Bihar' : 'Uttar Pradesh'
 
@@ -214,6 +237,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [lightWorking, setLightWorking] = useState('Yes')
     const [complaintIssue, setComplaintIssue] = useState(null)
     const [complaintText, setComplaintText] = useState('')
+    const [amcCoords, setAmcCoords] = useState(null)
+    const [isLocating, setIsLocating] = useState(false)
 
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [submitError, setSubmitError] = useState('')
@@ -231,7 +256,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         const fetchVolumes = async () => {
             setIsVolumeLoading(true)
             try {
-                const res = await axiosInstance.get(`${klkerpBase}/volume`)
+                const res = await externalApi.get(external.ssl.volume(sslState))
                 const list = res?.data?.data || []
                 setVolumeOptions(toOptions(list.map((item) => item.volume)))
             } catch (err) {
@@ -241,7 +266,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchVolumes()
-    }, [isBihar, klkerpBase])
+    }, [isBihar, sslState])
 
     useEffect(() => {
         if (isBihar && !selectedVolume) {
@@ -251,8 +276,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         const fetchDistricts = async () => {
             setIsDistrictLoading(true)
             try {
-                const res = await axiosInstance.get(
-                    isBihar ? `${klkerpBase}/district` : `${klkerpBase}/district`,
+                const res = await externalApi.get(
+                    external.ssl.district(sslState),
                     isBihar ? { params: { volume: selectedVolume.value } } : undefined
                 )
                 const list = res?.data?.data || []
@@ -265,7 +290,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchDistricts()
-    }, [isBihar, klkerpBase, selectedVolume])
+    }, [isBihar, sslState, selectedVolume])
 
     useEffect(() => {
         if (!selectedDistrict || (isBihar && !selectedVolume)) {
@@ -277,7 +302,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             try {
                 const params = { district: selectedDistrict.value }
                 if (isBihar) params.volume = selectedVolume.value
-                const res = await axiosInstance.get(`${klkerpBase}/blocks`, { params })
+                const res = await externalApi.get(external.ssl.blocks(sslState), { params })
                 const list = res?.data?.data || []
                 setBlockOptions(toOptions(list.map((item) => item.block)))
             } catch (err) {
@@ -288,7 +313,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchBlocks()
-    }, [selectedDistrict, selectedVolume, isBihar, klkerpBase])
+    }, [selectedDistrict, selectedVolume, isBihar, sslState])
 
     useEffect(() => {
         if (!selectedDistrict || !selectedBlock || (isBihar && !selectedVolume)) {
@@ -300,7 +325,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             try {
                 const params = { district: selectedDistrict.value, block: selectedBlock.value }
                 if (isBihar) params.volume = selectedVolume.value
-                const res = await axiosInstance.get(`${klkerpBase}/panchayat`, { params })
+                const res = await externalApi.get(external.ssl.panchayat(sslState), { params })
                 const list = res?.data?.data || []
                 setPanchayatOptions(toOptions(list.map((item) => item.panchyat || item.panchayat)))
             } catch (err) {
@@ -311,7 +336,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchPanchayats()
-    }, [selectedDistrict, selectedBlock, selectedVolume, isBihar, klkerpBase])
+    }, [selectedDistrict, selectedBlock, selectedVolume, isBihar, sslState])
 
     useEffect(() => {
         if (!selectedDistrict || !selectedBlock || !selectedPanchayat || (isBihar && !selectedVolume)) {
@@ -329,7 +354,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                     panchayat: selectedPanchayat.value,
                 }
                 if (isBihar) params.volume = selectedVolume.value
-                const res = await axiosInstance.get(`${klkerpBase}/details`, { params })
+                const res = await externalApi.get(external.ssl.details(sslState), { params })
                 setSiteDetails(res?.data?.data || [])
             } catch (err) {
                 setSiteDetails([])
@@ -339,7 +364,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchSites()
-    }, [selectedDistrict, selectedBlock, selectedPanchayat, selectedVolume, isBihar, klkerpBase])
+    }, [selectedDistrict, selectedBlock, selectedPanchayat, selectedVolume, isBihar, sslState])
 
     useEffect(() => {
         if (!selectedLight) {
@@ -358,7 +383,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             setDetailsError('')
             setSubmitError('')
             try {
-                const detailsRes = await axiosInstance.get(`${klkerpBase}/complaint/details`, {
+                const detailsRes = await externalApi.get(external.ssl.complaintDetails(sslState), {
                     params: { ssl_id: selectedLight.value },
                 })
                 const details = unwrapDetails(detailsRes?.data) || selectedLight.site || null
@@ -370,7 +395,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 setBeneficiaryContact(details.contact_no || details.mobile || details.phone || '')
 
                 try {
-                    const lastRes = await axios.get(`${LOCAL_API}/klkdle/light-amc/last`, {
+                    const lastRes = await localApi.get(app.lightAmc.last, {
                         params: { ssl_id: selectedLight.value, company_id: getCompanyId() },
                     })
                     const last = lastRes?.data?.data
@@ -409,7 +434,31 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         }
 
         loadLight()
-    }, [selectedLight?.value, klkerpBase])
+    }, [selectedLight?.value, sslState])
+
+    useEffect(() => {
+        if (!selectedLight) {
+            setAmcCoords(null)
+            return
+        }
+
+        let cancelled = false
+        setIsLocating(true)
+        captureCurrentLocation()
+            .then((coords) => {
+                if (!cancelled) setAmcCoords(coords)
+            })
+            .catch(() => {
+                if (!cancelled) setAmcCoords(null)
+            })
+            .finally(() => {
+                if (!cancelled) setIsLocating(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [selectedLight?.value])
 
     useEffect(() => {
         if (!amcDate || !periodStart) return
@@ -468,6 +517,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
         setIsSubmitting(true)
         try {
+            setIsLocating(true)
+            const coords = await captureCurrentLocation()
+            setAmcCoords(coords)
+
             let complaintRef = ''
             if (lightWorking === 'No') {
                 const complaintData = new FormData()
@@ -497,8 +550,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 complaintData.append('complaint_document', image1)
                 complaintData.append('complaint_document', image2)
 
-                const complaintRes = await axiosInstance.post(
-                    `${klkerpBase}/complaint/store`,
+                const complaintRes = await externalApi.post(
+                    external.ssl.complaintStore(sslState),
                     complaintData,
                     {
                         params: { company_id: companyId },
@@ -533,8 +586,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('date_of_installation', lightInfo?.date_of_installation || '')
             formData.append('image_1', image1)
             formData.append('image_2', image2)
+            formData.append('latitude', coords.latitude)
+            formData.append('longitude', coords.longitude)
 
-            const res = await axios.post(`${LOCAL_API}/klkdle/light-amc/store`, formData, {
+            const res = await localApi.post(app.lightAmc.store, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
 
@@ -544,6 +599,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         } catch (err) {
             setSubmitError(getErrorMessage(err, 'Failed to save AMC.'))
         } finally {
+            setIsLocating(false)
             setIsSubmitting(false)
         }
     }
@@ -709,8 +765,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                             { label: 'Battery Serial No.', value: lightInfo.battery_serial_no },
                                             { label: 'Module No.', value: lightInfo.module_no },
                                             { label: 'Date of Installation', value: formatDisplayDate(lightInfo.date_of_installation) },
-                                            { label: 'Latitude', value: lightInfo.latitude },
-                                            { label: 'Longitude', value: lightInfo.longitude },
+                                            { label: 'Site Latitude', value: lightInfo.latitude },
+                                            { label: 'Site Longitude', value: lightInfo.longitude },
+                                            { label: 'AMC Latitude', value: isLocating ? 'Capturing...' : (amcCoords?.latitude || 'Waiting for GPS') },
+                                            { label: 'AMC Longitude', value: isLocating ? 'Capturing...' : (amcCoords?.longitude || 'Waiting for GPS') },
                                         ]}
                                     />
 

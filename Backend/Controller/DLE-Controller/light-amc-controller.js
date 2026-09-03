@@ -206,6 +206,8 @@ export const storeLightAmc = async (req, res) => {
       complaint_ref,
       remarks,
       date_of_installation,
+      latitude,
+      longitude,
     } = req.body;
 
     if (!company_id || !user_id || !ssl_id || !amc_date || !beneficiary_name || !beneficiary_contact || !light_working) {
@@ -288,6 +290,8 @@ export const storeLightAmc = async (req, res) => {
       complaint_ref,
       image_1: `/uploads/light-amc/${image1.filename}`,
       image_2: `/uploads/light-amc/${image2.filename}`,
+      latitude: latitude ? String(latitude) : null,
+      longitude: longitude ? String(longitude) : null,
       remarks,
     });
 

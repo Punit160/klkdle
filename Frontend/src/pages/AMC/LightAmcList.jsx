@@ -2,16 +2,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiEye } from 'react-icons/fi'
-import axios from 'axios'
 import CardHeader from '@/components/shared/CardHeader'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import Pagination from '@/components/shared/Pagination'
 import CardLoader from '@/components/shared/CardLoader'
 import useCardTitleActions from '@/hooks/useCardTitleActions'
 import { getCompanyId } from '../../utils/auth'
-import { LOCAL_API_BASE } from '../../api/localApi'
+import localApi from '../../api/localApi'
+import { app } from '../../api/routes'
 
-const LOCAL_API = LOCAL_API_BASE
 const PER_PAGE = 20
 
 const formatDate = (value) => {
@@ -35,7 +34,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
         setLoading(true)
         setError('')
         try {
-            const res = await axios.get(`${LOCAL_API}/klkdle/light-amc/get`, {
+            const res = await localApi.get(app.lightAmc.get, {
                 params: { company_id: getCompanyId(), state: stateName },
             })
             setRows(res?.data?.data || [])

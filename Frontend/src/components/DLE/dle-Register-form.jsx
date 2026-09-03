@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import localApi from "../../api/localApi";
+import { app } from "../../api/routes";
 import {
   FaPhoneAlt,
   FaHeart,
@@ -201,7 +202,7 @@ const handleSubmit = async (e) => {
     }
 
     const response = await localApi.post(
-      "/klkdle/auth/register",
+      app.auth.register,
       data
     );
 

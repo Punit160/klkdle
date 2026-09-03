@@ -1,6 +1,6 @@
 import { useState } from "react";
-import axios from "axios";
-import { LOCAL_API_BASE, AUTH_PREFIX } from "../../api/localApi";
+import localApi from "../../api/localApi";
+import { app } from "../../api/routes";
 import {
   FiMail,
   FiLock,
@@ -36,13 +36,10 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post(
-        `${LOCAL_API_BASE}${AUTH_PREFIX}/login`,
-        {
-          email: formData.email,
-          password: formData.password,
-        }
-      );
+      const response = await localApi.post(app.auth.login, {
+        email: formData.email,
+        password: formData.password,
+      });
 
       console.log("LOGIN RESPONSE:", response.data);
 

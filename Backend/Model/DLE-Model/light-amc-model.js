@@ -131,6 +131,8 @@ export const createLightAmc = async (data) => {
       complaint_ref: data.complaint_ref || null,
       image_1: data.image_1 || null,
       image_2: data.image_2 || null,
+      latitude: data.latitude || null,
+      longitude: data.longitude || null,
       remarks: data.remarks || null,
     },
   });

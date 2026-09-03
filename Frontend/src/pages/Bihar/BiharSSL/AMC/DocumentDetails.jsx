@@ -3,11 +3,9 @@ import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiArrowLeft, FiEyeOff, FiEye, FiFileText, FiEdit, FiCheck, FiX, FiLoader, FiCheckCircle, FiUploadCloud, FiMapPin, FiClock, FiLayers, FiPlus } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
-import localApi, { LOCAL_API_BASE } from '../../../../api/localApi'
-import axios from 'axios'
+import localApi from '../../../../api/localApi'
+import { app } from '../../../../api/routes'
 import { getCompanyId } from '../../../../utils/auth'
-
-const LOCAL_API = LOCAL_API_BASE
 
 const getErrorMessage = (err, fallback = "Something went wrong. Please try again.") => {
     const data = err?.response?.data
@@ -377,10 +375,8 @@ const DocumentDetails = () => {
             setLoading(true)
             setError('')
             try {
-                // Same route family as DocumentList.jsx (/dle/bihar/ssl-amc/view) —
-                // pass id + company_id explicitly so the backend can filter this
-                // specific record for this specific company.
-                const res = await axios.get(`${LOCAL_API}/klkdle/bihar/ssl-amc/get`)
+                // Same app route family as DocumentList — list then pick this record.
+                const res = await localApi.get(app.ssl.get('bihar'))
                 if (res.data?.success) {
                     const list = res.data.data || []
                     const found = list.find((r) => String(r.id) === String(id)) || list[0]
@@ -489,8 +485,8 @@ const DocumentDetails = () => {
             if (editAmcFile) formData.append('amc_document', editAmcFile)
             if (editInvoiceFile) formData.append('invoice_document', editInvoiceFile)
 
-            // Same /dle prefix as every other AMC endpoint (view, store, volume, etc).
-            const res = await localApi.post('/klkdle/bihar/ssl-amc/update', formData, {
+            // App Node API — AMC document update
+            const res = await localApi.post(app.ssl.update('bihar'), formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
 

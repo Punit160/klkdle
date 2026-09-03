@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import authRoutes from "./Routes/DLE-Router/dle-auth-router.js";
 import adminRoutes from "./Routes/DLE-Router/admin-route.js";
 import biharSslAmcRoutes from "./Routes/DLE-Router/Bihar-SSL-Router/Bihar_amc_route.js";
@@ -16,6 +19,9 @@ if (typeof BigInt !== "undefined") {
 }
 
 const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendDist = path.resolve(__dirname, "../Frontend/dist");
+const hasFrontend = fs.existsSync(path.join(frontendDist, "index.html"));
 
 app.set("trust proxy", 1);
 
@@ -34,6 +40,8 @@ const allowedOrigins = new Set(
     "http://127.0.0.1:5175",
     "https://klkerp.com",
     "https://www.klkerp.com",
+    "https://klkdle.klkventures.cloud",
+    "http://klkdle.klkventures.cloud",
     process.env.FRONTEND_URL,
     process.env.APP_URL,
     ...extraOrigins,
@@ -61,6 +69,8 @@ app.use(
         if (
           hostname === "klkerp.com" ||
           hostname.endsWith(".klkerp.com") ||
+          hostname === "klkdle.klkventures.cloud" ||
+          hostname.endsWith(".klkventures.cloud") ||
           hostname === "localhost" ||
           hostname === "127.0.0.1"
         ) {
@@ -82,13 +92,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/uploads", express.static("uploads"));
 
-app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "DLE Backend API running",
-  });
-});
-
 app.get("/health", (req, res) => {
   res.json({
     success: true,
@@ -96,21 +99,49 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/dle/auth", authRoutes);
-app.use("/klkdle/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
+if (!hasFrontend) {
+  app.get("/", (req, res) => {
+    res.json({
+      success: true,
+      message: "DLE Backend API running",
+    });
+  });
+}
 
-app.use("/dle/bihar/ssl-amc", biharSslAmcRoutes);
-app.use("/klkdle/bihar/ssl-amc", biharSslAmcRoutes);
-app.use("/dle/Up/ssl-amc", UpSslAmcRoutes);
-app.use("/dle/UP/ssl-amc", UpSslAmcRoutes);
-app.use("/dle/up/ssl-amc", UpSslAmcRoutes);
-app.use("/klkdle/up/ssl-amc", UpSslAmcRoutes);
-app.use("/klkdle/Up/ssl-amc", UpSslAmcRoutes);
-app.use("/klkdle/UP/ssl-amc", UpSslAmcRoutes);
-app.use("/dle/light-amc", lightAmcRoutes);
-app.use("/klkdle/light-amc", lightAmcRoutes);
+app.get("/api/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "ok",
+  });
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/bihar/ssl-amc", biharSslAmcRoutes);
+app.use("/api/up/ssl-amc", UpSslAmcRoutes);
+app.use("/api/light-amc", lightAmcRoutes);
+
+if (hasFrontend) {
+  app.use(express.static(frontendDist));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      next();
+      return;
+    }
+
+    const requestPath = req.path || "";
+    if (
+      requestPath.startsWith("/api") ||
+      requestPath.startsWith("/uploads") ||
+      requestPath.startsWith("/health")
+    ) {
+      next();
+      return;
+    }
+
+    res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 

@@ -4,12 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { FiX, FiUploadCloud, FiMapPin, FiCalendar, FiPaperclip, FiCheckCircle, FiLoader, FiList } from 'react-icons/fi'
 import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
-import axiosInstance from '../../../../api/axiosInstance'
-import localApi, { LOCAL_API_BASE } from '../../../../api/localApi'
+import externalApi from '../../../../api/externalApi'
+import localApi from '../../../../api/localApi'
+import { app, external } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
-import axios from 'axios'
-
-const LOCAL_API = LOCAL_API_BASE
 
 const addMonthsToInput = (monthValue, monthsToAdd) => {
     if (!monthValue) return ''
@@ -242,7 +240,7 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         const fetchVolumes = async () => {
             setIsVolumeLoading(true)
             try {
-                const res = await axiosInstance.get('/dle/bihar/ssl-amc/volume')
+                const res = await externalApi.get(external.ssl.volume('bihar'))
                 const list = res?.data?.data || []
                 setVolumeOptions(toOptions(list.map((item) => item.volume)))
             } catch (err) {
@@ -264,7 +262,7 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         const fetchDistricts = async () => {
             setIsDistrictLoading(true)
             try {
-                const res = await axiosInstance.get('/dle/bihar/ssl-amc/district', {
+                const res = await externalApi.get(external.ssl.district('bihar'), {
                     params: { volume: selectedVolume.value },
                 })
                 const list = res?.data?.data || []
@@ -290,7 +288,7 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         const fetchBlocks = async () => {
             setIsBlockLoading(true)
             try {
-                const res = await axiosInstance.get('/dle/bihar/ssl-amc/blocks', {
+                const res = await externalApi.get(external.ssl.blocks('bihar'), {
                     params: { district: selectedDistrict.value, volume: selectedVolume.value },
                 })
                 const list = res?.data?.data || []
@@ -316,7 +314,7 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         const fetchPanchayats = async () => {
             setIsPanchayatLoading(true)
             try {
-                const res = await axiosInstance.get('/dle/bihar/ssl-amc/panchayat', {
+                const res = await externalApi.get(external.ssl.panchayat('bihar'), {
                     params: { district: selectedDistrict.value, block: selectedBlock.value, volume: selectedVolume.value },
                 })
                 const list = res?.data?.data || []
@@ -364,7 +362,7 @@ useEffect(() => {
                 end_month_year: endMonth,
             }
 
-            const res = await axiosInstance.get('/dle/bihar/ssl-amc/details', {
+            const res = await externalApi.get(external.ssl.details('bihar'), {
                 params,
             })
 
@@ -376,7 +374,7 @@ useEffect(() => {
             let note = ""
 
             try {
-                const statusRes = await axios.get(`${LOCAL_API}/klkdle/light-amc/period-status`, {
+                const statusRes = await localApi.get(app.lightAmc.periodStatus, {
                     params: {
                         company_id: getCompanyId(),
                         district: selectedDistrict.value,
@@ -688,7 +686,7 @@ useEffect(() => {
     try {
 
         const res = await localApi.post(
-            "/klkdle/bihar/ssl-amc/store",
+            app.ssl.store('bihar'),
             formData,
             {
                 headers: {
