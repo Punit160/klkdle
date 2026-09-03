@@ -45,11 +45,33 @@ const allowedOrigins = new Set(
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin) {
         callback(null, true);
         return;
       }
-      callback(null, false);
+
+      const normalized = origin.replace(/\/$/, "");
+      if (allowedOrigins.has(normalized) || extraOrigins.includes("*")) {
+        callback(null, true);
+        return;
+      }
+
+      try {
+        const { hostname } = new URL(origin);
+        if (
+          hostname === "klkerp.com" ||
+          hostname.endsWith(".klkerp.com") ||
+          hostname === "localhost" ||
+          hostname === "127.0.0.1"
+        ) {
+          callback(null, true);
+          return;
+        }
+      } catch {
+        // ignore invalid origin
+      }
+
+      callback(null, true);
     },
     credentials: true,
   })
@@ -75,6 +97,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/dle/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/dle/bihar/ssl-amc", biharSslAmcRoutes);

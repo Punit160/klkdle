@@ -238,7 +238,23 @@ export const loginUser = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    const userId = req.query.userId;
+    let userId = req.query.userId;
+
+    if (!userId) {
+      const header = req.headers.authorization || "";
+      const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+      if (token && process.env.JWT_SECRET) {
+        try {
+          const payload = jwt.verify(token, process.env.JWT_SECRET);
+          userId = payload?.id;
+        } catch {
+          return res.status(401).json({
+            success: false,
+            message: "Invalid or expired token",
+          });
+        }
+      }
+    }
 
     if (!userId) {
       return res.status(400).json({

@@ -201,7 +201,7 @@ const handleSubmit = async (e) => {
     }
 
     const response = await localApi.post(
-      "/api/auth/register",
+      "/dle/auth/register",
       data
     );
 

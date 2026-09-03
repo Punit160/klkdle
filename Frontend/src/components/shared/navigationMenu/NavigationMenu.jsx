@@ -53,7 +53,7 @@ const imageUrl = user?.image_url || null
         try {
             const token = localStorage.getItem("token")
 
-            await fetch(`${BASE_URL}/api/auth/logout`, {
+            await fetch(`${BASE_URL}/dle/auth/logout`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

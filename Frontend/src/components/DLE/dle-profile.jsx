@@ -285,7 +285,7 @@ export default function EmployeeRegistration() {
     }
 
     localApi
-      .get(`/api/auth/profile`, { params: { userId: user.id } })
+      .get(`/dle/auth/profile`, { params: { userId: user.id } })
       .then(({ data }) => {
         if (data.success) {
           setEmployeeData(data.user);
@@ -340,7 +340,7 @@ export default function EmployeeRegistration() {
       setChangingPassword(true);
 
       const response = await localApi.patch(
-        `/api/auth/change-password`,
+        `/dle/auth/change-password`,
         {
           userId: employeeData.id,
           currentPassword,

@@ -1,7 +1,6 @@
-import axiosInstance from './axiosInstance'
-
+import localApi from './localApi'
 
 export const loginUser = async (email, password) => {
-    const response = await axiosInstance.post('/login', { email, password })
-    return response.data // { success, message, token, user }
-}   
+    const response = await localApi.post('/dle/auth/login', { email, password })
+    return response.data
+}

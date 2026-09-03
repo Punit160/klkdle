@@ -43,7 +43,7 @@ const ProfileModal = () => {
                 if (!token) return
 
                 const response = await fetch(
-                    `${BASE_URL}/api/auth/profile`,
+                    `${BASE_URL}/dle/auth/profile`,
                     {
                         method: "GET",
                         headers: {
@@ -82,7 +82,7 @@ const ProfileModal = () => {
         const token = localStorage.getItem("token");
 
         const response = await fetch(
-            `${BASE_URL}/api/auth/logout`,
+            `${BASE_URL}/dle/auth/logout`,
             {
                 method: "POST",
                 headers: {
