@@ -2,6 +2,7 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { pages } from '../../api/routes'
 import { loginUser } from '../../api/authApi'
 import { saveAuthData } from '../../utils/auth'
 
@@ -40,7 +41,7 @@ const LoginForm = ({ registerPath, resetPath }) => {
 
             if (data.success) {
                 saveAuthData(data.token, data.user)
-           navigate('/DLE/dashboard', { replace: true })
+           navigate(pages.dashboard, { replace: true })
             } else {
                 setError(data.message || 'Login failed. Please try again.')
             }

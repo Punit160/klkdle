@@ -9,7 +9,7 @@ import CardLoader from '@/components/shared/CardLoader'
 import useCardTitleActions from '@/hooks/useCardTitleActions'
 import { getCompanyId } from '../../utils/auth'
 import localApi from '../../api/localApi'
-import { app } from '../../api/routes'
+import { app, pages } from '../../api/routes'
 
 const PER_PAGE = 20
 
@@ -23,7 +23,8 @@ const formatDate = (value) => {
 const LightAmcList = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
     const stateName = region === 'bihar' ? 'Bihar' : 'Uttar Pradesh'
-    const addPath = region === 'bihar' ? '/bihar/ssl-amc/light-amc' : '/uttarpradesh/ssl-amc/light-amc'
+    const addPath = region === 'bihar' ? pages.bihar.lightAmc : pages.up.lightAmc
+    const detailsPath = region === 'bihar' ? pages.bihar.lightAmcDetails : pages.up.lightAmcDetails
     const { refreshKey, isRemoved, isExpanded, handleRefresh, handleExpand, handleDelete } = useCardTitleActions()
     const [rows, setRows] = useState([])
     const [loading, setLoading] = useState(true)
@@ -121,7 +122,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                                             type="button"
                                                             className="btn btn-sm btn-light"
                                                             onClick={() => navigate(
-                                                                `${region === 'bihar' ? '/bihar/ssl-amc/view-light-amc-details' : '/uttarpradesh/ssl-amc/view-light-amc-details'}?id=${row.id}`,
+                                                                `${detailsPath}?id=${row.id}`,
                                                                 { state: { row } }
                                                             )}
                                                         >

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { FiLogOut, FiUser } from "react-icons/fi"
 import { joinUrl, APP_API_BASE } from "../../../api/config"
-import { app } from "../../../api/routes"
+import { app, pages } from "../../../api/routes"
 import { clearAuthData } from "../../../utils/auth"
 
 const getInitials = (name = "") => {
@@ -104,7 +104,7 @@ const ProfileModal = () => {
         clearAuthData();
 
         // Go to login page
-        navigate("/authentication/login/", {
+        navigate(pages.login, {
             replace: true,
         });
 
@@ -117,7 +117,7 @@ const ProfileModal = () => {
         localStorage.removeItem("dleUser");
         clearAuthData();
 
-        navigate("/authentication/login/", {
+        navigate(pages.login, {
             replace: true,
         });
 
@@ -136,7 +136,7 @@ const ProfileModal = () => {
 
     const handleProfile = (e) => {
         e.preventDefault()
-        navigate("/dle/user-profile")
+        navigate(pages.profile)
     }
 
     return (

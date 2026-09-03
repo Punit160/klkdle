@@ -15,7 +15,7 @@ import {
 import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import externalApi from '../../../../api/externalApi'
-import { external } from '../../../../api/routes'
+import { external, pages } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 
 const toOptions = (arr) => arr.map((item) => ({ value: item, label: item }))
@@ -394,7 +394,7 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             if (isModal && onSuccess) {
                 setTimeout(() => onSuccess(responseData), 900)
             } else {
-                setTimeout(() => navigate("/bihar/ssl-amc/view-complaint"), 1200)
+                setTimeout(() => navigate(pages.bihar.complaints), 1200)
             }
         } catch (err) {
             console.error("Complaint submit failed:", err)

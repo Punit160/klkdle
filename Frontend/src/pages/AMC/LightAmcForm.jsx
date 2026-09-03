@@ -18,7 +18,7 @@ import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import externalApi from '../../api/externalApi'
 import localApi from '../../api/localApi'
-import { app, external } from '../../api/routes'
+import { app, external, pages } from '../../api/routes'
 import { getCompanyId, getUser } from '../../utils/auth'
 
 const COMPLAINT_ISSUE_OPTIONS = [
@@ -198,7 +198,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
     const isBihar = region === 'bihar'
     const sslState = isBihar ? 'bihar' : 'up'
-    const viewPath = isBihar ? '/bihar/ssl-amc/view-light-amc' : '/uttarpradesh/ssl-amc/view-light-amc'
+    const viewPath = isBihar ? pages.bihar.lightAmcList : pages.up.lightAmcList
     const stateName = isBihar ? 'Bihar' : 'Uttar Pradesh'
 
     const [selectedVolume, setSelectedVolume] = useState(null)

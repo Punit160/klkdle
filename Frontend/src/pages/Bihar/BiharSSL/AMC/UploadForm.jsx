@@ -6,7 +6,7 @@ import SelectDropdown from '@/components/shared/SelectDropdown'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import externalApi from '../../../../api/externalApi'
 import localApi from '../../../../api/localApi'
-import { app, external } from '../../../../api/routes'
+import { app, external, pages } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 
 const addMonthsToInput = (monthValue, monthsToAdd) => {
@@ -724,9 +724,7 @@ useEffect(() => {
 
             setTimeout(
                 () =>
-                    navigate(
-                        "/bihar/ssl-amc/view-document"
-                    ),
+                    navigate(pages.bihar.amcList),
                 1200
             )
         }

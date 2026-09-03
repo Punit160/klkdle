@@ -67,9 +67,12 @@ export const createUser = async (userData) => {
 
 
 export const findUserByEmail = async (email) => {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return null;
+
   const user = await prisma.user.findFirst({
     where: {
-      email,
+      email: normalized,
     },
   });
 

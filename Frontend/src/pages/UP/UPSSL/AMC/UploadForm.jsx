@@ -18,7 +18,7 @@ import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import externalApi from '../../../../api/externalApi'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 import localApi from '../../../../api/localApi'
-import { app, external } from '../../../../api/routes'
+import { app, external, pages } from '../../../../api/routes'
 
 
 
@@ -1507,9 +1507,7 @@ setPanchayatOptions(options)
                 setTimeout(
                     () => {
 
-                        navigate(
-                            "/uttarpradesh/ssl-amc/view-document"
-                        )
+                        navigate(pages.up.amcList)
 
                     },
                     1200

@@ -10,7 +10,7 @@ import Pagination from '@/components/shared/Pagination'
 
 import { getCompanyId } from '../../../../utils/auth'
 import localApi from '../../../../api/localApi'
-import { app } from '../../../../api/routes'
+import { app, pages } from '../../../../api/routes'
 
 import { useSearch } from '../../../../contentApi/searchProvider'
 
@@ -184,7 +184,7 @@ const DocumentList = () => {
     )
 
     const handleViewDetails = (row) => {
-        navigate(`/uttarpradesh/ssl-amc/view-document-details?id=${row.id}`, { state: { row } })
+        navigate(`${pages.up.amcDetails}?id=${row.id}`, { state: { row } })
     }
 
     return (

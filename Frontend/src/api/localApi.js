@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { getToken, getCompanyId, clearAuthData } from '../utils/auth'
 import { APP_API_BASE } from './config'
-import { app } from './routes'
+import { app, pages } from './routes'
 
 export const LOCAL_API_BASE = APP_API_BASE
 export const AUTH_PREFIX = '/api/auth'
@@ -44,8 +44,8 @@ localApi.interceptors.response.use(
 
         if (status === 401 && !isAuthAttempt) {
             clearAuthData()
-            if (!window.location.pathname.startsWith('/authentication/login')) {
-                window.location.href = '/authentication/login/'
+            if (!window.location.pathname.startsWith(pages.login)) {
+                window.location.href = pages.login
             }
         }
         return Promise.reject(error)

@@ -6,7 +6,7 @@ import PerfectScrollbar from "react-perfect-scrollbar";
 import Menus from './Menus';
 import { NavigationContext } from '../../../contentApi/navigationProvider';
 import { joinUrl, APP_API_BASE } from '../../../api/config'
-import { app } from '../../../api/routes'
+import { app, pages } from '../../../api/routes'
 import { clearAuthData } from '../../../utils/auth'
 
 
@@ -65,7 +65,7 @@ const imageUrl = user?.image_url || null
             localStorage.clear()
             clearAuthData()
             setLoggingOut(false)
-            navigate("/authentication/login/")
+            navigate(pages.login)
         }
     }
 
@@ -73,7 +73,7 @@ const imageUrl = user?.image_url || null
         <nav className={`nxl-navigation ${navigationOpen ? "mob-navigation-active" : ""}`}>
             <div className="navbar-wrapper" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                 <div className="m-header">
-                    <Link to="/bihar/ssl/dashboard" className="b-brand">
+                    <Link to={pages.bihar.amcDashboard} className="b-brand">
                         <img src="/images/logo-full.png" alt="logo" className="logo logo-lg w-50" />
                         <img src="/images/logo-abbr.png" alt="logo" className="logo logo-sm" />
                     </Link>

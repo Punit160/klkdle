@@ -5,7 +5,7 @@ import { FiAlertCircle, FiArrowLeft, FiCalendar, FiImage, FiLoader, FiMapPin, Fi
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { getCompanyId } from '../../utils/auth'
 import localApi, { LOCAL_API_BASE } from '../../api/localApi'
-import { app } from '../../api/routes'
+import { app, pages } from '../../api/routes'
 
 const LOCAL_API = LOCAL_API_BASE
 
@@ -79,7 +79,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
     const location = useLocation()
     const [searchParams] = useSearchParams()
-    const listPath = region === 'bihar' ? '/bihar/ssl-amc/view-light-amc' : '/uttarpradesh/ssl-amc/view-light-amc'
+    const listPath = region === 'bihar' ? pages.bihar.lightAmcList : pages.up.lightAmcList
     const recordId = searchParams.get('id')
 
     const [row, setRow] = useState(location.state?.row || null)

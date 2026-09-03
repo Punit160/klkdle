@@ -1,6 +1,6 @@
 import { useState } from "react";
 import localApi from "../../api/localApi";
-import { app } from "../../api/routes";
+import { app, pages } from "../../api/routes";
 import {
   FiMail,
   FiLock,
@@ -8,8 +8,11 @@ import {
   FiEyeOff,
   FiArrowRight,
   FiShield,
+  FiSun,
+  FiFileText,
+  FiMapPin,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { saveAuthData } from "../../utils/auth"; 
 import "../../styles/DLE/dle-login-section.css";
 
@@ -46,7 +49,7 @@ const Login = () => {
       if (response.data.success) {
         const user = response.data.user;
         saveAuthData(response.data.token, user);
-        navigate("/DLE/dashboard");
+        navigate(pages.dashboard);
       } else {
         alert(response.data.message || "Login failed");
       }
@@ -71,38 +74,76 @@ const Login = () => {
           <div className="brand-background-circle circle-three"></div>
 
           <div className="brand-content">
+            <div className="brand-inner">
 
-            <div className="logo-wrapper">
-              <img
-                src="/images/logo-full.png"
-                alt="KLK Logo"
-                className="company-logo"
-              />
-            </div>
+              <div className="brand-text">
+                <div className="logo-wrapper">
+                  <img
+                    src="/images/logo-full.png"
+                    alt="KLK Logo"
+                    className="company-logo"
+                  />
+                </div>
 
-            <div className="brand-text">
-              <span className="welcome-small">WELCOME BACK</span>
+                <span className="welcome-small">WELCOME BACK</span>
 
-              <h2>
-               Welcome to KLK Ventures ERP
-              </h2>
+                <h2>Welcome to KLK Ventures ERP</h2>
 
-              <p>
-                Sign in to access your centralized platform for managing solar panels, solar street lights, production, inventory, dispatch, installation, AMC, and operations — all in one secure dashboard.
-              </p>
-            </div>
+                <p>
+                  Your unified workspace for solar street lights, panels, production,
+                  inventory, dispatch, installation, and AMC — built for field teams
+                  and operations across multiple states.
+                </p>
 
-            <div className="security-badge">
-              <div className="security-icon">
-                <FiShield />
+                <p className="brand-subtext">
+                  Track documents, submit AMC visits, manage complaints, and stay
+                  synced with the central KLK ERP platform from one secure dashboard.
+                </p>
               </div>
 
-              <div>
-                <strong>Secure Login</strong>
-                <span>Your information is protected</span>
-              </div>
-            </div>
+              <div className="brand-info-grid">
+                <div className="brand-info-card">
+                  <div className="brand-info-icon">
+                    <FiShield />
+                  </div>
+                  <div>
+                    <strong>Secure Login</strong>
+                    <span>Encrypted access for your account</span>
+                  </div>
+                </div>
 
+                <div className="brand-info-card">
+                  <div className="brand-info-icon">
+                    <FiSun />
+                  </div>
+                  <div>
+                    <strong>AMC & Field Visits</strong>
+                    <span>Light AMC, GPS capture & site records</span>
+                  </div>
+                </div>
+
+                <div className="brand-info-card">
+                  <div className="brand-info-icon">
+                    <FiFileText />
+                  </div>
+                  <div>
+                    <strong>Document Management</strong>
+                    <span>Upload, view & track SSL AMC data</span>
+                  </div>
+                </div>
+
+                <div className="brand-info-card">
+                  <div className="brand-info-icon">
+                    <FiMapPin />
+                  </div>
+                  <div>
+                    <strong>Multi-State Operations</strong>
+                    <span>Bihar, Uttar Pradesh & growing states</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
 
@@ -201,6 +242,11 @@ const Login = () => {
                 <span>Sign In</span>
                 <FiArrowRight />
               </button>
+
+              <div className="login-footer">
+                <span>Don&apos;t have an account?</span>
+                <Link to={pages.register}>Register</Link>
+              </div>
 
             </form>
           </div>

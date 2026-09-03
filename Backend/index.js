@@ -4,11 +4,7 @@ import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import authRoutes from "./Routes/DLE-Router/dle-auth-router.js";
-import adminRoutes from "./Routes/DLE-Router/admin-route.js";
-import biharSslAmcRoutes from "./Routes/DLE-Router/Bihar-SSL-Router/Bihar_amc_route.js";
-import UpSslAmcRoutes from "./Routes/DLE-Router/UP-SSL-Router/UP_ssl_amc_route.js";
-import lightAmcRoutes from "./Routes/DLE-Router/light-amc-route.js";
+import { mountApiRoutes } from "./Routes/mountApi.js";
 
 dotenv.config();
 
@@ -115,11 +111,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/bihar/ssl-amc", biharSslAmcRoutes);
-app.use("/api/up/ssl-amc", UpSslAmcRoutes);
-app.use("/api/light-amc", lightAmcRoutes);
+mountApiRoutes(app);
 
 if (hasFrontend) {
   app.use(express.static(frontendDist));

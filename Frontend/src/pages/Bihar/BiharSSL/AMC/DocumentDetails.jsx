@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiArrowLeft, FiEyeOff, FiEye, FiFileText, FiEdit, FiCheck, FiX, FiLoader, FiCheckCircle, FiUploadCloud, FiMapPin, FiClock, FiLayers, FiPlus } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import localApi from '../../../../api/localApi'
-import { app } from '../../../../api/routes'
+import { app, pages } from '../../../../api/routes'
 import { getCompanyId } from '../../../../utils/auth'
 
 const getErrorMessage = (err, fallback = "Something went wrong. Please try again.") => {
@@ -447,7 +447,7 @@ const DocumentDetails = () => {
             unique_id: '',
         }))
 
-        navigate('/bihar/ssl-amc/complaint', {
+        navigate(pages.bihar.complaint, {
             state: {
                 sites,
                 district: row?.district,
@@ -535,7 +535,7 @@ const DocumentDetails = () => {
                 <div className="main-content">
                     <div className="text-center py-5">
                         <p className="text-danger mb-3">{error || 'No record found.'}</p>
-                        <button type="button" className="btn btn-light" onClick={() => navigate('/bihar/ssl-amc/view-document')}>
+                        <button type="button" className="btn btn-light" onClick={() => navigate(pages.bihar.amcList)}>
                             <FiArrowLeft size={20} className="me-1" /> Back to list
                         </button>
                     </div>

@@ -10,7 +10,7 @@ import CardLoader from '@/components/shared/CardLoader'
 import Pagination from '@/components/shared/Pagination'
 
 import externalApi from '../../../../api/externalApi'
-import { external } from '../../../../api/routes'
+import { external, pages } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 
 import { useSearch } from '../../../../contentApi/searchProvider'
@@ -170,7 +170,7 @@ const ViewComplaint = () => {
     )
 
     const handleViewDetails = (row) => {
-        navigate(`/bihar/ssl-amc/view-complaint-details?id=${row.complaint_id}`, { state: { row } })
+        navigate(`${pages.bihar.complaints}?id=${row.complaint_id}`, { state: { row } })
     }
 
     return (
