@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id                              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id                      String?   @db.VarChar(100)
+  state                           String?   @db.VarChar(100)
+  district                        String?   @db.VarChar(255)
+  block                           String?   @db.VarChar(255)
+  panchayat                       String?   @db.VarChar(255)
+  name                            String    @db.VarChar(255)
+  email                           String    @unique(map: "email") @db.VarChar(255)
+  email_verified_at               DateTime? @db.Timestamp(0)
+  password                        String?   @db.VarChar(255)
+  contact_no                      String?   @db.VarChar(20)
+  emergency_contact_no            String?   @db.VarChar(20)
+  police_verification_validity    String?   @db.VarChar(255)
+  address                         String?   @db.Text
+  educational_document            String?   @db.VarChar(255)
+  aadhaar_voter_id                String?   @db.VarChar(255)
+  pan_card                        String?   @db.VarChar(255)
+  driving_license                 String?   @db.VarChar(255)
+  police_verification             String?   @db.VarChar(255)
+  cancelled_cheque                String?   @db.VarChar(255)
+  rent_agreement_electricity_bill String?   @db.VarChar(255)
+  status                          Int       @default(0)
+  admin_remark                    String?   @db.Text
+  created_at                      DateTime? @default(now()) @db.Timestamp(0)
+  updated_at                      DateTime? @default(now()) @db.Timestamp(0)
+
+  @@map("users")
+}
+
+model BiharSslAmcDocument {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id String?   @db.VarChar(100)
+  state      String?   @db.VarChar(100)
+  district   String?   @db.VarChar(100)
+  block      String?   @db.VarChar(100)
+  panchayat  String?   @db.VarChar(100)
+  created_by String?   @db.VarChar(100)
+  updated_by String?   @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  updated_at DateTime? @default(now()) @db.Timestamp(0)
+
+  uploadDocuments BiharSslAmcUploadDocument[]
+
+  @@map("bihar_ssl_amc_documents")
+}
+
+model BiharSslAmcUploadDocument {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id        String    @db.VarChar(50)
+  bihar_ssl_amc_id  BigInt    @db.UnsignedBigInt
+  ssl_id            String?   @db.Text
+  pole_no           String?   @db.Text
+  start_month_year  String    @db.VarChar(7)
+  end_month_year    String?   @db.VarChar(7)
+  remarks           String?   @db.VarChar(255)
+  amc_document      String?   @db.VarChar(255)
+  amc_doc_status    Int       @default(0) @db.TinyInt
+  invoice_document  String?   @db.VarChar(255)
+  invoice_status    Int       @default(0) @db.TinyInt
+  validation_status String    @default("pending") @db.VarChar(20)
+  pending_ssl_id    String?   @db.Text
+  pending_pole_no   String?   @db.Text
+  created_by        BigInt    @db.UnsignedBigInt
+  created_at        DateTime? @db.Timestamp(0)
+  updated_at        DateTime? @db.Timestamp(0)
+
+  biharSslAmc BiharSslAmcDocument @relation(fields: [bihar_ssl_amc_id], references: [id])
+
+  @@map("bihar_ssl_amc_upload_documents")
+}
+
+model UpSslAmcDocument {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id String?   @db.VarChar(100)
+  state      String?   @db.VarChar(100)
+  district   String?   @db.VarChar(100)
+  block      String?   @db.VarChar(100)
+  panchayat  String?   @db.VarChar(100)
+  created_by String?   @db.VarChar(100)
+  updated_by String?   @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  updated_at DateTime? @default(now()) @db.Timestamp(0)
+
+  uploadDocuments UpSslAmcUploadDocument[]
+
+  @@map("up_ssl_amc_documents")
+}
+
+model UpSslAmcUploadDocument {
+  id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id        String    @db.VarChar(50)
+  up_ssl_amc_id     BigInt    @db.UnsignedBigInt
+  ssl_id            String?   @db.Text
+  unique_id         String?   @db.Text
+  start_month_year  String    @db.VarChar(7)
+  end_month_year    String?   @db.VarChar(7)
+  remarks           String?   @db.VarChar(255)
+  amc_document      String?   @db.VarChar(255)
+  amc_doc_status    Int       @default(0) @db.TinyInt
+  invoice_document  String?   @db.VarChar(255)
+  invoice_status    Int       @default(0) @db.TinyInt
+  validation_status String    @default("pending") @db.VarChar(20)
+  created_by        BigInt    @db.UnsignedBigInt
+  created_at        DateTime? @db.Timestamp(0)
+  updated_at        DateTime? @db.Timestamp(0)
+
+  upSslAmc UpSslAmcDocument @relation(fields: [up_ssl_amc_id], references: [id])
+
+  @@map("up_ssl_amc_upload_documents")
+}
+
+model BiharLightAmc {
+  id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id          String    @db.VarChar(100)
+  user_id             String    @db.VarChar(100)
+  state               String    @db.VarChar(100)
+  district            String?   @db.VarChar(255)
+  block               String?   @db.VarChar(255)
+  panchayat           String?   @db.VarChar(255)
+  ward_no             String?   @db.VarChar(50)
+  volume              String?   @db.VarChar(100)
+  ssl_id              String    @db.VarChar(100)
+  unique_id           String?   @db.VarChar(255)
+  pole_no             String?   @db.VarChar(255)
+  amc_date            DateTime  @db.Date
+  next_amc_date       DateTime  @db.Date
+  period_start        DateTime  @db.Date
+  period_end          DateTime  @db.Date
+  quarter_no          Int       @default(1)
+  beneficiary_name    String    @db.VarChar(255)
+  beneficiary_contact String    @db.VarChar(20)
+  light_working       String    @db.VarChar(10)
+  complaint_raised    Int       @default(0) @db.TinyInt
+  complaint_ref       String?   @db.VarChar(255)
+  image_1             String?   @db.VarChar(255)
+  image_2             String?   @db.VarChar(255)
+  remarks             String?   @db.Text
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  updated_at          DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([ssl_id])
+  @@index([company_id])
+  @@map("bihar_light_amcs")
+}

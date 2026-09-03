@@ -1,0 +1,1190 @@
+* {
+  box-sizing: border-box;
+}
+
+.dle-page {
+  min-height: 100vh;
+  padding: 35px 22px;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(125, 25, 40, 0.06),
+      transparent 35%
+    ),
+    #f5f3f2;
+  font-family:
+    Inter,
+    "Segoe UI",
+    Arial,
+    sans-serif;
+  color: #272326;
+}
+
+.dle-registration-card {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e7dfdc;
+  border-radius: 22px;
+  box-shadow:
+    0 18px 50px rgba(58, 16, 24, 0.09),
+    0 4px 14px rgba(58, 16, 24, 0.04);
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.dle-header {
+  position: relative;
+  min-height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 18px 30px;
+  background:
+    linear-gradient(
+      115deg,
+      #7c1627 0%,
+      #65111f 50%,
+      #3d0b14 100%
+    );
+  color: #ffffff;
+}
+
+.dle-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      125deg,
+      transparent 0 60%,
+      rgba(255, 255, 255, 0.045) 60% 68%,
+      transparent 68%
+    );
+}
+
+.dle-brand {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+
+.dle-logo {
+  width: 82px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  background: #ffffff;
+  border-radius: 11px;
+  overflow: hidden;
+  box-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.14),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.dle-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+
+.dle-header-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.dle-company-name {
+  margin-bottom: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: #e9cbd0;
+}
+
+.dle-header h1 {
+  margin: 0;
+  color: white;
+  font-size: 25px;
+  line-height: 1.15;
+  font-weight: 750;
+  letter-spacing: -0.4px;
+}
+
+.dle-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #e7cbd0;
+}
+
+.dle-header-decoration {
+  position: absolute;
+  right: -35px;
+  top: -20px;
+  display: flex;
+  gap: 16px;
+  height: 150px;
+  transform: rotate(22deg);
+}
+
+.dle-header-decoration span {
+  width: 90px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* =========================
+   TOP SECTIONS
+========================= */
+
+.dle-top-sections {
+  display: grid;
+  grid-template-columns: 1fr 1.55fr;
+  border-bottom: 1px solid #ebe4e1;
+}
+
+.dle-section {
+  padding: 24px 27px 25px;
+}
+
+.contact-section {
+  border-right: 1px solid #ebe4e1;
+}
+
+.residential-section {
+  background: #fffdfc;
+}
+
+.dle-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.dle-section-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: #f9e9ec;
+  color: #841a2c;
+  font-size: 15px;
+}
+
+.dle-section-heading h2 {
+  margin: 0;
+  color: #242023;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 750;
+}
+
+.dle-section-heading span {
+  display: block;
+  margin-top: 3px;
+  color: #9a8f92;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.dle-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 13px;
+}
+
+.residential-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dle-field {
+  min-width: 0;
+}
+
+.dle-field label {
+  display: block;
+  margin-bottom: 7px;
+  color: #342f31;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.dle-field label span,
+.required-text {
+  color: #a21d32;
+}
+
+.dle-input-wrapper {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid #ddd6d3;
+  border-radius: 9px;
+  background: #ffffff;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.dle-input-wrapper > svg {
+  flex-shrink: 0;
+  color: #a0878c;
+  font-size: 13px;
+}
+
+.dle-input-wrapper:focus-within {
+  border-color: #8d1b2e;
+  background: #fffefe;
+  box-shadow: 0 0 0 3px rgba(141, 27, 46, 0.08);
+}
+
+.dle-input-wrapper input,
+.dle-input-wrapper select {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  outline: none;
+  border: none;
+  background: transparent;
+  color: #302c2e;
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.dle-input-wrapper input::placeholder {
+  color: #a69c9e;
+}
+
+.dle-input-wrapper select {
+  cursor: pointer;
+}
+
+.select-wrapper {
+  padding-right: 8px;
+}
+
+/* =========================
+   DOCUMENT SECTION
+========================= */
+
+.dle-documents-section {
+  padding: 25px 27px 28px;
+}
+
+.documents-heading {
+  margin-bottom: 20px;
+}
+
+.dle-documents-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 10px;
+}
+
+.dle-upload-card {
+  min-width: 0;
+}
+
+.full-width-upload {
+  grid-column: span 2;
+}
+
+.dle-upload-title {
+  min-height: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.dle-upload-title > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.dle-upload-title svg {
+  flex-shrink: 0;
+  color: #8a1b2d;
+  font-size: 12px;
+}
+
+.dle-upload-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #302b2d;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.optional-text {
+  color: #a39a9c !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+.dle-upload-box {
+  position: relative;
+  min-height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 15px;
+  border: 1.5px dashed #d7ceca;
+  border-radius: 11px;
+  background:
+    linear-gradient(
+      145deg,
+      #fffefe,
+      #faf8f7
+    );
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.dle-upload-box:hover {
+  border-color: #a3263a;
+  background: #fffafa;
+  transform: translateY(-2px);
+  box-shadow: 0 7px 18px rgba(92, 19, 31, 0.06);
+}
+
+.dle-upload-box input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.upload-placeholder {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.upload-icon-circle {
+  width: 31px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 7px;
+  border-radius: 50%;
+  background: #f5e7e9;
+  color: #8c1c2e;
+  font-size: 12px;
+}
+
+.upload-placeholder strong {
+  color: #393234;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.upload-placeholder span {
+  margin-top: 2px;
+  color: #978d90;
+  font-size: 10px;
+}
+
+.upload-placeholder small {
+  margin-top: 5px;
+  color: #b0a7a9;
+  font-size: 8.5px;
+}
+
+/* Uploaded file */
+
+.file-uploaded {
+  border-style: solid;
+  border-color: #cdaeb4;
+  background: #fffafb;
+}
+
+.uploaded-file-content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.uploaded-icon {
+  flex-shrink: 0;
+  color: #8d1c2e;
+  font-size: 22px;
+}
+
+.uploaded-file-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.uploaded-file-info strong {
+  overflow: hidden;
+  color: #3a3134;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploaded-file-info small {
+  color: #9b8e92;
+  font-size: 9px;
+}
+
+.remove-file-btn {
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  border: 1px solid #ead6da;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #9b2034;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.remove-file-btn:hover {
+  background: #8e1c2e;
+  border-color: #8e1c2e;
+  color: #ffffff;
+}
+
+
+
+.dle-footer {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  padding: 14px 27px;
+  border-top: 1px solid #ebe4e1;
+  background: #fcfbfa;
+}
+
+.upload-progress {
+  width: 310px;
+}
+
+.progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 7px;
+}
+
+.progress-info span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #71686b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.progress-info strong {
+  color: #7f182a;
+  font-size: 10px;
+}
+
+.progress-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #bd8c31;
+}
+
+.progress-complete {
+  color: #2c7c52 !important;
+}
+
+.progress-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #eae2df;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    #7b1527,
+    #a5253b
+  );
+  transition: width 0.3s ease;
+}
+
+.dle-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dle-cancel-btn,
+.dle-submit-btn {
+  height: 41px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dle-cancel-btn {
+  border: 1px solid #ded7d4;
+  background: #ffffff;
+  color: #71686b;
+}
+
+.dle-cancel-btn:hover {
+  border-color: #bfb5b1;
+  background: #f8f6f5;
+  color: #4c4547;
+}
+
+.dle-submit-btn {
+  min-width: 142px;
+  border: 1px solid #8c1b2e;
+  background: linear-gradient(
+    135deg,
+    #8d1b2e,
+    #741323
+  );
+  color: #ffffff;
+  box-shadow: 0 5px 13px rgba(116, 19, 35, 0.18);
+}
+
+.dle-submit-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(
+    135deg,
+    #9b1e34,
+    #801526
+  );
+  box-shadow: 0 7px 17px rgba(116, 19, 35, 0.25);
+}
+
+.dle-submit-btn span {
+  opacity: 0.8;
+  font-size: 10px;
+}
+
+
+.document-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  overflow-y: auto;
+}
+
+.document-modal {
+  position: relative;
+  width: min(900px, 100%);
+  max-height: 95vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.document-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 20;
+}
+
+.certificate-modal {
+  width: min(1200px, 100%);
+}
+
+
+/* =========================================================
+   DLE PROFILE — PROFESSIONAL DOCUMENTS LAYOUT
+   Overrides for Uploaded Documents / Official Documents
+========================================================= */
+
+.employee-page {
+  width: 100%;
+}
+
+/* Keep both document sections in a clean vertical sequence */
+.documents-section {
+  width: 100%;
+  margin-top: 32px;
+  clear: both;
+}
+
+.generated-documents-section {
+  width: 100%;
+  margin-top: 36px;
+  padding-top: 30px;
+  border-top: 1px solid #ebe3e0;
+}
+
+/* Section header */
+.documents-section .section-header {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.documents-section .section-small-title {
+  display: block;
+  margin-bottom: 6px;
+  color: #8b1c2e;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+}
+
+.documents-section .section-header h2 {
+  margin: 0;
+  color: #193149;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 750;
+  letter-spacing: -0.3px;
+}
+
+.documents-section .section-header p {
+  margin: 6px 0 0;
+  color: #8c8587;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Counter */
+.documents-section .document-counter {
+  min-width: 88px;
+  padding: 12px 16px;
+  border: 1px solid #eadfe0;
+  border-radius: 12px;
+  background: #fffafb;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.documents-section .document-counter strong {
+  display: block;
+  color: #891a2d;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.documents-section .document-counter span {
+  display: block;
+  margin-top: 6px;
+  color: #9b9092;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Two-column desktop grid */
+.documents-section .documents-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Individual document card */
+.documents-section .document-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 112px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 16px 17px;
+  border: 1px solid #ebe3e0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(58, 16, 24, 0.035);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.documents-section .document-card:hover {
+  transform: translateY(-2px);
+  border-color: #d7b9bf;
+  box-shadow: 0 10px 24px rgba(58, 16, 24, 0.07);
+}
+
+/* Icon */
+.documents-section .document-icon {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #f8ecef;
+  color: #8a1b2e;
+  font-size: 18px;
+}
+
+/* Content */
+.documents-section .document-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.documents-section .document-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.documents-section .document-title-row h4 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #20354b;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-section .document-name {
+  max-width: 100%;
+  margin: 0 0 7px;
+  overflow: hidden;
+  color: #817678;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documents-section .required-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #fae9ec;
+  color: #8a1b2e;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.documents-section .uploaded-status,
+.documents-section .not-uploaded-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.documents-section .uploaded-status {
+  color: #287b4e;
+}
+
+.documents-section .not-uploaded-status {
+  color: #9a8e90;
+}
+
+/* Actions */
+.documents-section .document-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.documents-section .document-action {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.documents-section .document-action.view {
+  border: 1px solid #eadcdf;
+  background: #fbf3f5;
+  color: #851a2c;
+}
+
+.documents-section .document-action.view:hover {
+  border-color: #d7b8be;
+  background: #f7e8eb;
+}
+
+.documents-section .document-action.download {
+  border: 1px solid #851a2c;
+  background: #851a2c;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(133, 26, 44, 0.14);
+}
+
+.documents-section .document-action.download:hover {
+  background: #701323;
+  border-color: #701323;
+  transform: translateY(-1px);
+}
+
+/* Official documents get a slightly more premium treatment */
+.generated-documents-section {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 251, 0.9),
+    #ffffff
+  );
+}
+
+.generated-documents-section .documents-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.generated-documents-section .document-card {
+  min-height: 118px;
+  border-color: #e5d7da;
+}
+
+.generated-documents-section .document-card::before {
+  content: "";
+  width: 3px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #851a2c;
+}
+
+/* Prevent accidental horizontal squeeze */
+.documents-section,
+.documents-section *,
+.generated-documents-section,
+.generated-documents-section * {
+  max-width: 100%;
+}
+
+/* Modal */
+.document-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  overflow-y: auto;
+  background: rgba(19, 14, 16, 0.76);
+  backdrop-filter: blur(6px);
+}
+
+.document-modal {
+  position: relative;
+  width: min(920px, 100%);
+  max-height: 94vh;
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid #eadfe0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.24);
+}
+
+.document-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eadfe0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #741426;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.document-modal-close:hover {
+  border-color: #851a2c;
+  background: #851a2c;
+  color: #ffffff;
+}
+
+.certificate-modal {
+  width: min(1200px, 100%);
+}
+
+/* Responsive */
+@media (max-width: 1000px) {
+  .documents-section .documents-grid,
+  .generated-documents-section .documents-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .documents-section .section-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .documents-section .document-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .documents-section .document-content {
+    width: calc(100% - 61px);
+  }
+
+  .documents-section .document-actions {
+    width: 100%;
+    margin-left: 61px;
+  }
+
+  .documents-section .document-action {
+    flex: 1;
+  }
+
+  .document-modal-overlay {
+    padding: 12px;
+  }
+
+  .document-modal {
+    padding: 14px;
+    border-radius: 14px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .dle-top-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-section {
+    border-right: none;
+    border-bottom: 1px solid #ebe4e1;
+  }
+
+  .dle-documents-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .full-width-upload {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 850px) {
+  .dle-page {
+    padding: 18px 12px;
+  }
+
+  .dle-header {
+    padding: 17px 20px;
+  }
+
+  .dle-section,
+  .dle-documents-section {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .residential-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dle-documents-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .full-width-upload {
+    grid-column: span 2;
+  }
+
+  .dle-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .upload-progress {
+    width: 100%;
+  }
+
+  .dle-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 600px) {
+  .dle-registration-card {
+    border-radius: 15px;
+  }
+
+  .dle-header {
+    min-height: 90px;
+    padding: 15px;
+  }
+
+  .dle-logo {
+    width: 57px;
+    height: 43px;
+  }
+
+  .dle-logo span {
+    font-size: 17px;
+  }
+
+  .dle-brand {
+    gap: 10px;
+  }
+
+  .dle-company-name {
+    font-size: 9px;
+    letter-spacing: 0.8px;
+  }
+
+  .dle-header h1 {
+    font-size: 18px;
+  }
+
+  .dle-header p {
+    font-size: 9px;
+  }
+
+  .dle-section,
+  .dle-documents-section {
+    padding: 20px 15px;
+  }
+
+  .dle-form-grid,
+  .residential-grid,
+  .dle-documents-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full-width-upload {
+    grid-column: auto;
+  }
+
+  .dle-footer {
+    padding: 15px;
+  }
+
+  .dle-actions {
+    width: 100%;
+  }
+
+  .dle-cancel-btn,
+  .dle-submit-btn {
+    flex: 1;
+  }
+}
+
+@media (max-width: 400px) {
+  .dle-section-heading h2 {
+    font-size: 14px;
+  }
+
+  .dle-section-heading span {
+    font-size: 9px;
+  }
+
+  .dle-section-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .dle-actions {
+    flex-direction: column;
+  }
+
+  .dle-cancel-btn,
+  .dle-submit-btn {
+    width: 100%;
+  }
+}

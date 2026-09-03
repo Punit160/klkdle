@@ -1,0 +1,740 @@
+* {
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+.id-card-page {
+  width: 100%;
+  min-height: 100vh;
+  padding: 30px;
+  background: #f5f4f4;
+  font-family: "Inter", "DM Sans", Arial, sans-serif;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.id-card-header {
+  width: 100%;
+  padding: 24px 30px;
+  margin-bottom: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  background: #ffffff;
+  border: 1px solid #eee5e7;
+  border-radius: 18px;
+
+  box-shadow: 0 8px 30px rgba(76, 20, 29, 0.06);
+}
+
+.id-card-header span {
+  color: #7a1f2e;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.id-card-header h2 {
+  margin: 6px 0 4px;
+  color: #28171a;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.id-card-header p {
+  margin: 0;
+  color: #8c8083;
+  font-size: 12px;
+}
+
+/* =========================================================
+   DOWNLOAD BUTTON
+========================================================= */
+
+.download-id-button {
+  height: 46px;
+  padding: 0 20px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: #7a1f2e;
+  color: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  cursor: pointer;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  box-shadow: 0 9px 20px rgba(122, 31, 46, 0.18);
+
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.download-id-button svg {
+  font-size: 17px;
+}
+
+.download-id-button:hover {
+  background: #611724;
+  transform: translateY(-2px);
+  box-shadow: 0 13px 25px rgba(122, 31, 46, 0.25);
+}
+
+/* =========================================================
+   CARD AREA
+========================================================= */
+
+.id-card-area {
+  width: 100%;
+
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+
+  padding: 25px;
+}
+
+/* =========================================================
+   MAIN ID CARD
+========================================================= */
+
+.employee-id-card {
+  width: 380px;
+  min-height: 620px;
+
+  position: relative;
+
+  overflow: hidden;
+
+  background: #ffffff;
+
+  border-radius: 26px;
+
+  box-shadow:
+    0 28px 65px rgba(55, 20, 27, 0.16),
+    0 5px 15px rgba(55, 20, 27, 0.08);
+}
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.card-hero {
+  position: relative;
+
+  width: 100%;
+  height: 250px;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      135deg,
+      #191416 0%,
+      #201719 55%,
+      #24191c 100%
+    );
+}
+
+/* =========================================================
+   TOP HEADER
+========================================================= */
+
+.hero-top-row {
+  position: relative;
+
+  z-index: 20;
+
+  padding: 22px 24px 0;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+/* =========================================================
+   LOGO
+========================================================= */
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+}
+
+.logo-chip {
+  width: 88px;
+  height: 48px;
+
+  padding: 7px 9px;
+
+  background: #ffffff;
+
+  border-radius: 11px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 5px 15px rgba(0, 0, 0, 0.14);
+}
+
+.logo-chip img {
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+}
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+.status-pill {
+  height: 28px;
+
+  padding: 0 11px;
+
+  border-radius: 30px;
+
+  background: rgba(255, 255, 255, 0.08);
+
+  border: 1px solid rgba(255, 255, 255, 0.16);
+
+  color: #ffffff;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  backdrop-filter: blur(8px);
+}
+
+.status-pill svg {
+  font-size: 11px;
+}
+
+.status-pill span {
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+/* =========================================================
+   PROFESSIONAL WAVE SYSTEM
+========================================================= */
+
+.hero-waves-id {
+  position: absolute;
+
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  width: 100%;
+  height: 205px;
+
+  z-index: 5;
+
+  pointer-events: none;
+
+  overflow: visible;
+}
+
+/*
+   IMPORTANT:
+   The waves are deliberately much wider than the card.
+   left: 50% + translateX(-50%) keeps the wave centered.
+   This makes the curves continue naturally beyond both
+   left and right edges.
+*/
+
+/* RED WAVE */
+
+.wave-red-id {
+  position: absolute;
+
+  left: 50%;
+  top: 30px;
+
+  width: 175%;
+  height: 280px;
+
+  transform: translateX(-50%) rotate(-3deg);
+
+  background: #7a1f2e;
+
+  border-radius:
+    50% 50% 0 0 /
+    72% 72% 0 0;
+
+  z-index: 1;
+}
+
+/* SILVER WAVE */
+
+.wave-silver-id {
+  position: absolute;
+
+  left: 50%;
+  top: 76px;
+
+  width: 175%;
+  height: 260px;
+
+  transform: translateX(-50%) rotate(-2deg);
+
+  background: #d7d2d3;
+
+  border-radius:
+    50% 50% 0 0 /
+    72% 72% 0 0;
+
+  z-index: 2;
+}
+
+/* WHITE WAVE */
+
+.wave-white-id {
+  position: absolute;
+
+  left: 50%;
+  top: 101px;
+
+  width: 175%;
+  height: 270px;
+
+  transform: translateX(-50%) rotate(-2deg);
+
+  background: #ffffff;
+
+  border-radius:
+    50% 50% 0 0 /
+    72% 72% 0 0;
+
+  z-index: 3;
+}
+
+/* =========================================================
+   PHOTO
+========================================================= */
+
+.photo-ring {
+  position: absolute;
+
+  left: 50%;
+  top: 82px;
+
+  transform: translateX(-50%);
+
+  z-index: 30;
+
+  width: 116px;
+  height: 116px;
+
+  padding: 6px;
+
+  background: #ffffff;
+
+  border-radius: 50%;
+
+  box-shadow:
+    0 12px 28px rgba(40, 20, 24, 0.22);
+
+  overflow: hidden;
+}
+
+/* =========================================================
+   AVATAR
+========================================================= */
+
+.profile-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      145deg,
+      #f8f5f6,
+      #ded8da
+    );
+
+  color: #7a1f2e;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 42px;
+  font-weight: 800;
+
+  letter-spacing: 0;
+}
+
+/* =========================================================
+   BODY
+========================================================= */
+
+.id-body {
+  position: relative;
+
+  z-index: 10;
+
+  padding-top: 8px;
+
+  text-align: center;
+
+  background: #ffffff;
+}
+
+/* =========================================================
+   NAME
+========================================================= */
+
+.id-name {
+  margin: 0 20px 3px;
+
+  color: #211619;
+
+  font-size: 19px;
+  font-weight: 800;
+
+  letter-spacing: 0.35px;
+
+  line-height: 1.2;
+
+  text-transform: uppercase;
+}
+
+.id-role {
+  margin: 0;
+
+  color: #8a7c7f;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  letter-spacing: 0.2px;
+}
+
+/* =========================================================
+   DIVIDER
+========================================================= */
+
+.id-divider {
+  height: 1px;
+
+  background:
+    linear-gradient(
+      to right,
+      transparent,
+      #eadfe2 10%,
+      #eadfe2 90%,
+      transparent
+    );
+
+  margin: 20px 25px 0;
+}
+
+/* =========================================================
+   DETAILS
+========================================================= */
+
+.id-detail-list {
+  margin: 17px 26px 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 13px;
+}
+
+.id-detail-row {
+  display: flex;
+  align-items: baseline;
+
+  gap: 8px;
+
+  font-size: 11px;
+
+  text-align: left;
+}
+
+.detail-label {
+  flex: 0 0 92px;
+
+  color: #211619;
+
+  font-weight: 800;
+
+  letter-spacing: 0.5px;
+
+  text-transform: uppercase;
+
+  font-size: 9.5px;
+}
+
+.detail-sep {
+  color: #c9bcc0;
+
+  font-weight: 700;
+}
+
+.detail-value {
+  color: #4c4144;
+
+  font-weight: 600;
+
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+/* =========================================================
+   ADDRESS
+========================================================= */
+
+.id-address {
+  margin: 18px 26px 0;
+
+  padding: 10px 14px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #fcf8f9,
+      #f9f3f4
+    );
+
+  border: 1px solid #eee2e5;
+
+  border-radius: 10px;
+
+  text-align: left;
+}
+
+.id-address span {
+  display: block;
+
+  color: #9e8c91;
+
+  font-size: 7.5px;
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+
+  margin-bottom: 5px;
+}
+
+.id-address strong {
+  display: block;
+
+  color: #3b2d30;
+
+  font-size: 8.5px;
+
+  line-height: 1.55;
+
+  font-weight: 600;
+}
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.id-footer {
+  margin: 14px 20px 0;
+
+  padding: 12px 6px 15px;
+
+  border-top: 1px solid #eee5e7;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.id-footer .footer-block span {
+  display: block;
+
+  color: #a18f93;
+
+  font-size: 7px;
+
+  font-weight: 700;
+
+  letter-spacing: 1px;
+}
+
+.id-footer .footer-block strong {
+  display: block;
+
+  color: #7a1f2e;
+
+  margin-top: 3px;
+
+  font-size: 8px;
+
+  font-weight: 800;
+}
+
+.footer-brand {
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  color: #7a1f2e;
+}
+
+.footer-brand svg {
+  font-size: 13px;
+}
+
+.footer-brand span {
+  font-size: 7px;
+
+  font-weight: 800;
+
+  letter-spacing: 1px;
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+
+  .id-card-page {
+    padding: 20px;
+  }
+
+  .id-card-header {
+    padding: 20px;
+
+    align-items: flex-start;
+
+    gap: 20px;
+  }
+
+  .id-card-header h2 {
+    font-size: 21px;
+  }
+
+  .id-card-header p {
+    line-height: 1.5;
+  }
+
+  .download-id-button {
+    flex-shrink: 0;
+  }
+
+  .id-card-area {
+    padding: 10px 0;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 560px) {
+
+  .id-card-page {
+    padding: 12px;
+  }
+
+  .id-card-header {
+    flex-direction: column;
+
+    padding: 18px;
+  }
+
+  .download-id-button {
+    width: 100%;
+  }
+
+  .id-card-area {
+    padding: 10px 0;
+  }
+
+  .employee-id-card {
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .hero-top-row {
+    padding: 20px 18px 0;
+  }
+
+  .id-divider {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .id-detail-list {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .id-address {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .id-footer {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+}
+
+/* =========================================================
+   PRINT
+========================================================= */
+
+@media print {
+
+  .id-card-page {
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .id-card-header {
+    display: none;
+  }
+
+  .id-card-area {
+    padding: 0;
+  }
+
+  .employee-id-card {
+    box-shadow: none;
+  }
+}
