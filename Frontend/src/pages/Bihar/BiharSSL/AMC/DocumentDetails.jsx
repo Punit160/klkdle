@@ -380,7 +380,7 @@ const DocumentDetails = () => {
                 // Same route family as DocumentList.jsx (/dle/bihar/ssl-amc/view) —
                 // pass id + company_id explicitly so the backend can filter this
                 // specific record for this specific company.
-                const res = await axios.get(`${LOCAL_API}/dle/bihar/ssl-amc/get`)
+                const res = await axios.get(`${LOCAL_API}/klkdle/bihar/ssl-amc/get`)
                 if (res.data?.success) {
                     const list = res.data.data || []
                     const found = list.find((r) => String(r.id) === String(id)) || list[0]
@@ -490,7 +490,7 @@ const DocumentDetails = () => {
             if (editInvoiceFile) formData.append('invoice_document', editInvoiceFile)
 
             // Same /dle prefix as every other AMC endpoint (view, store, volume, etc).
-            const res = await localApi.post('/dle/bihar/ssl-amc/update', formData, {
+            const res = await localApi.post('/klkdle/bihar/ssl-amc/update', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
 

@@ -35,7 +35,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
         setLoading(true)
         setError('')
         try {
-            const res = await axios.get(`${LOCAL_API}/dle/light-amc/get`, {
+            const res = await axios.get(`${LOCAL_API}/klkdle/light-amc/get`, {
                 params: { company_id: getCompanyId(), state: stateName },
             })
             setRows(res?.data?.data || [])

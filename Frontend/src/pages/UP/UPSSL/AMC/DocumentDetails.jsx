@@ -365,7 +365,7 @@ const DocumentDetails = () => {
             setError('')
             try {
 
-                const res = await localApi.get('/dle/up/ssl-amc/view', {
+                const res = await localApi.get('/klkdle/up/ssl-amc/view', {
                     params: { id, company_id: companyId },
                 })
                 if (res.data?.success) {
@@ -452,7 +452,7 @@ const DocumentDetails = () => {
             if (editAmcFile) formData.append('amc_document', editAmcFile)
             if (editInvoiceFile) formData.append('invoice_document', editInvoiceFile)
 
-            const res = await localApi.post('/dle/up/ssl-amc/update', formData, {
+            const res = await localApi.post('/klkdle/up/ssl-amc/update', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
 

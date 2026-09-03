@@ -100,7 +100,7 @@ const DocumentList = () => {
     }
 
     try {
-        const response = await localApi.get('/dle/bihar/ssl-amc/get')
+        const response = await localApi.get('/klkdle/bihar/ssl-amc/get')
         const res = response.data
 
         if (res?.success) {

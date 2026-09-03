@@ -376,7 +376,7 @@ useEffect(() => {
             let note = ""
 
             try {
-                const statusRes = await axios.get(`${LOCAL_API}/dle/light-amc/period-status`, {
+                const statusRes = await axios.get(`${LOCAL_API}/klkdle/light-amc/period-status`, {
                     params: {
                         company_id: getCompanyId(),
                         district: selectedDistrict.value,
@@ -688,7 +688,7 @@ useEffect(() => {
     try {
 
         const res = await localApi.post(
-            "/dle/bihar/ssl-amc/store",
+            "/klkdle/bihar/ssl-amc/store",
             formData,
             {
                 headers: {

@@ -308,7 +308,7 @@ const Dashboard = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await localApi.get('/dle/up/ssl-amc/dashboard/district')
+      const res = await localApi.get('/klkdle/up/ssl-amc/dashboard/district')
 
       if (res.data?.success) {
         setData(res.data)

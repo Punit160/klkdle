@@ -97,7 +97,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
             setLoading(true)
             setError('')
             try {
-                const res = await axios.get(`${LOCAL_API}/dle/light-amc/view/${recordId}`, {
+                const res = await axios.get(`${LOCAL_API}/klkdle/light-amc/view/${recordId}`, {
                     params: { company_id: getCompanyId() },
                 })
                 const data = res?.data?.data

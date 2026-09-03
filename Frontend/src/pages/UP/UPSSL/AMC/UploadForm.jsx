@@ -1436,7 +1436,7 @@ setPanchayatOptions(options)
 
             const res =
                 await localApi.post(
-                    "/dle/up/ssl-amc/create",
+                    "/klkdle/up/ssl-amc/create",
 
                     formData,
 

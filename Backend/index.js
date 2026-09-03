@@ -98,13 +98,19 @@ app.get("/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/dle/auth", authRoutes);
+app.use("/klkdle/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/dle/bihar/ssl-amc", biharSslAmcRoutes);
+app.use("/klkdle/bihar/ssl-amc", biharSslAmcRoutes);
 app.use("/dle/Up/ssl-amc", UpSslAmcRoutes);
 app.use("/dle/UP/ssl-amc", UpSslAmcRoutes);
 app.use("/dle/up/ssl-amc", UpSslAmcRoutes);
+app.use("/klkdle/up/ssl-amc", UpSslAmcRoutes);
+app.use("/klkdle/Up/ssl-amc", UpSslAmcRoutes);
+app.use("/klkdle/UP/ssl-amc", UpSslAmcRoutes);
 app.use("/dle/light-amc", lightAmcRoutes);
+app.use("/klkdle/light-amc", lightAmcRoutes);
 
 const PORT = process.env.PORT || 5000;
 

@@ -2,7 +2,7 @@ import axios from 'axios'
 import { getToken, getCompanyId, clearAuthData } from '../utils/auth'
 
 export const LOCAL_API_BASE = String(import.meta.env.VITE_BASE_URL || '').replace(/\/$/, '')
-export const AUTH_PREFIX = '/dle/auth'
+export const AUTH_PREFIX = '/klkdle/auth'
 
 const localApi = axios.create({
     baseURL: LOCAL_API_BASE || undefined,
@@ -36,7 +36,7 @@ localApi.interceptors.response.use(
     (error) => {
         const status = error.response?.status
         const url = String(error.config?.url || '')
-        const isAuthAttempt = url.includes('/dle/auth/login') || url.includes('/dle/auth/register')
+        const isAuthAttempt = url.includes('/klkdle/auth/login') || url.includes('/klkdle/auth/register') || url.includes('/dle/auth/login')
 
         if (status === 401 && !isAuthAttempt) {
             clearAuthData()

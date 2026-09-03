@@ -310,7 +310,7 @@ const Dashboard = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await localApi.get('/dle/bihar/ssl-amc/dashboard/district')
+      const res = await localApi.get('/klkdle/bihar/ssl-amc/dashboard/district')
 
       if (res.data?.success) {
         setData(res.data)

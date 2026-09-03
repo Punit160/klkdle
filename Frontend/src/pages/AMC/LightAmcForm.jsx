@@ -370,7 +370,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 setBeneficiaryContact(details.contact_no || details.mobile || details.phone || '')
 
                 try {
-                    const lastRes = await axios.get(`${LOCAL_API}/dle/light-amc/last`, {
+                    const lastRes = await axios.get(`${LOCAL_API}/klkdle/light-amc/last`, {
                         params: { ssl_id: selectedLight.value, company_id: getCompanyId() },
                     })
                     const last = lastRes?.data?.data
@@ -534,7 +534,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('image_1', image1)
             formData.append('image_2', image2)
 
-            const res = await axios.post(`${LOCAL_API}/dle/light-amc/store`, formData, {
+            const res = await axios.post(`${LOCAL_API}/klkdle/light-amc/store`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             })
 
