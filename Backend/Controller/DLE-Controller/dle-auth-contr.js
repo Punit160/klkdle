@@ -5,6 +5,7 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
+  syncLegacyApprovedUser,
   updateUser,
   updateUserPassword,
 } from "../../Model/DLE-Model/dle-user-model.js";
@@ -159,7 +160,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const user = await findUserByEmail(email);
+    let user = await findUserByEmail(email);
 
     if (!user) {
       return res.status(401).json({
@@ -167,6 +168,8 @@ export const loginUser = async (req, res) => {
         message: "Invalid email or password",
       });
     }
+
+    user = await syncLegacyApprovedUser(user);
 
     const approvalStatus = Number(user.approval_status ?? 0);
 

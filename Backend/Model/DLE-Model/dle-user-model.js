@@ -66,6 +66,38 @@ export const createUser = async (userData) => {
 };
 
 
+/** Users approved before approval_status existed: status=1 + password, approval_status still 0 */
+export const syncLegacyApprovedUser = async (user) => {
+  const approvalStatus = Number(user?.approval_status ?? 0);
+
+  if (user?.status !== 1 || approvalStatus !== 0 || !user?.password) {
+    return user;
+  }
+
+  return prisma.user.update({
+    where: { id: user.id },
+    data: {
+      approval_status: 1,
+      updated_at: new Date(),
+    },
+  });
+};
+
+export const syncAllLegacyApprovedUsers = async () => {
+  const result = await prisma.user.updateMany({
+    where: {
+      status: 1,
+      approval_status: 0,
+      password: { not: null },
+    },
+    data: {
+      approval_status: 1,
+    },
+  });
+
+  return result.count;
+};
+
 export const findUserByEmail = async (email) => {
   const normalized = String(email || "").trim().toLowerCase();
   if (!normalized) return null;
