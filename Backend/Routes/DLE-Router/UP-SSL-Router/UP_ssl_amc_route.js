@@ -6,6 +6,7 @@ import {
     getAmcDocuments,
     updateAmcDocument,
 } from '../../../Controller/DLE-Controller/UP-SSL/UP_amc_controller.js'
+import { updateAmcApprovalStatus } from '../../../Controller/DLE-Controller/amc-approval-controller.js'
 
 import upload from '../../../Middleware/UploadMiddleware.js'
 
@@ -25,6 +26,7 @@ const amcUpload = upload.fields([
 router.post('/create', amcUpload, createAmcDocument)
 router.post('/store', amcUpload, createAmcDocument)
 router.post('/update', amcUpload, updateAmcDocument)
+router.post('/approval/status', updateAmcApprovalStatus('up'))
 
 router.get(
     '/get',

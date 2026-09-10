@@ -163,6 +163,7 @@ export const updateUserPassword = async (
 export const getPendingUsers = async () => {
   const users = await prisma.user.findMany({
     where: {
+      approval_status: 0,
       status: 0,
     },
 
@@ -175,9 +176,11 @@ export const getPendingUsers = async () => {
 };
 
 export const getUsersByStatus = async (status) => {
+  const statusNum = Number(status);
+
   const users = await prisma.user.findMany({
     where: {
-      status,
+      approval_status: statusNum,
     },
 
     orderBy: {
@@ -204,14 +207,17 @@ export const getAllUsers = async () => {
 ========================================================= */
 
 export const updateUserStatus = async (id, status, remark) => {
+  const statusNum = Number(status);
   const result = await prisma.user.update({
     where: {
       id: BigInt(id),
     },
 
     data: {
-      status: status,
+      status: statusNum === 1 ? 1 : 0,
+      approval_status: statusNum,
       admin_remark: remark ?? null,
+      approval_remarks: remark ?? null,
       updated_at: new Date(),
     },
   });
@@ -237,6 +243,8 @@ export const approveUser = async (
     data: {
       password: password,
       status: 1,
+      approval_status: 1,
+      updated_at: new Date(),
     },
   });
 

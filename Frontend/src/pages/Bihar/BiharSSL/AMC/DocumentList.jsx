@@ -13,6 +13,10 @@ import localApi from '../../../../api/localApi'
 import { app, pages } from '../../../../api/routes'
 
 import { useSearch } from '../../../../contentApi/searchProvider'
+import {
+    getAmcApprovalBadgeClass,
+    getRowApprovalSummary,
+} from '../../../../utils/amcApproval'
 
 const PER_PAGE = 20
 
@@ -129,7 +133,7 @@ const DocumentList = () => {
 
     useEffect(() => {
         fetchAmcDocuments()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [refreshKey])
 
     useEffect(() => {
@@ -232,24 +236,25 @@ const DocumentList = () => {
                                             <th>Period(s)</th>
                                             <th>Lights</th>
                                             <th>Documents</th>
+                                            <th>Approval</th>
                                             <th className="text-end">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {loading && (
-                                            <tr><td colSpan={6} className="text-center py-4 text-muted">Loading AMC documents...</td></tr>
+                                            <tr><td colSpan={7} className="text-center py-4 text-muted">Loading AMC documents...</td></tr>
                                         )}
 
                                         {!loading && error && (
-                                            <tr><td colSpan={6} className="text-center py-4 text-danger">{error}</td></tr>
+                                            <tr><td colSpan={7} className="text-center py-4 text-danger">{error}</td></tr>
                                         )}
 
                                         {!loading && !error && amcData.length === 0 && (
-                                            <tr><td colSpan={6} className="text-center py-4 text-muted">No AMC documents found.</td></tr>
+                                            <tr><td colSpan={7} className="text-center py-4 text-muted">No AMC documents found.</td></tr>
                                         )}
 
                                         {!loading && !error && amcData.length > 0 && filteredData.length === 0 && (
-                                            <tr><td colSpan={6} className="text-center py-4 text-muted">No results found for &quot;{searchTerm}&quot;.</td></tr>
+                                            <tr><td colSpan={7} className="text-center py-4 text-muted">No results found for &quot;{searchTerm}&quot;.</td></tr>
                                         )}
 
                                         {!loading && !error && paginatedData.map((row) => (
@@ -292,6 +297,7 @@ const DocumentRow = ({ row, onViewDetails }) => {
     const documentsCount = countDocuments(row)
     const periods = getPeriods(row)
     const lights = getLightTotals(row)
+    const approval = getRowApprovalSummary(row)
 
     const MAX_PERIOD_BADGES = 2
     const visiblePeriods = periods.slice(0, MAX_PERIOD_BADGES)
@@ -361,6 +367,12 @@ const DocumentRow = ({ row, onViewDetails }) => {
                         <div className="text-muted">Docs Uploaded</div>
                     </div>
                 </div>
+            </td>
+
+            <td style={{ minWidth: '120px' }}>
+                <span className={`badge ${getAmcApprovalBadgeClass(approval.status)} rounded-pill`}>
+                    {approval.label}
+                </span>
             </td>
 
             <td className="text-end">

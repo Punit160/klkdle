@@ -1,271 +1,184 @@
-import React, {
-  forwardRef,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import React, { forwardRef, useImperativeHandle, useRef } from "react";
+
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { FiDownload } from "react-icons/fi";
 import "../../styles/DLE/dle-certificate.css";
 
-const DEFAULT_ACHIEVEMENT_TEXT =
-  "In recognition of outstanding dedication, consistent performance, and valuable contribution to the organization's growth and success.";
+const LETTERHEAD_URL = "/images/klk_letter_head.jpeg";
 
-const getOrdinal = (n) => {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
+const DleCertificate = forwardRef(({ employeeData, hideHeader = false }, ref) => {
+  const certRef = useRef(null);
+  const bgImgRef = useRef(null);
 
-  return (
-    n +
-    (s[(v - 20) % 10] || s[v] || s[0])
-  );
-};
+  const data = {
+    certificateId: employeeData?.id
+      ? `KLK/DLE/${new Date().getFullYear()}/${String(employeeData.id).padStart(5, "0")}`
+      : "KLK/DLE/0000/00000",
+    employeeName: employeeData?.name || "Employee",
+    employeeDesignation: "DLE Registered Employee",
+    associationDate: employeeData?.created_at
+      ? new Date(employeeData.created_at).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "—",
+    validTill: employeeData?.police_verification_validity || "—",
+  };
 
-const formatDate = (dateInput) => {
-  if (!dateInput) return "—";
-
-  const date = new Date(dateInput);
-
-  if (isNaN(date.getTime())) return "—";
-
-  const day = date.getDate();
-
-  const month = date.toLocaleString("en-US", {
-    month: "long",
-  });
-
-  const year = date.getFullYear();
-
-  return `${getOrdinal(day)} ${month} ${year}`;
-};
-
-const EmployeeCertificate = forwardRef(
-  ({ employeeData }, ref) => {
-    const certificateRef = useRef(null);
-
-    const employeeName =
-      employeeData?.name || "Employee";
-
-    const employeeId = employeeData?.id
-      ? `DLE-${String(
-          employeeData.id
-        ).padStart(6, "0")}`
-      : "DLE-000000";
-
-    const issueDate =
-      employeeData?.created_at || new Date();
-
-    const downloadCertificate = async () => {
-      if (!certificateRef.current) {
-        console.error(
-          "Certificate element not found"
-        );
+  const waitForImage = () =>
+    new Promise((resolve) => {
+      const img = bgImgRef.current;
+      if (!img) return resolve();
+      if (img.complete && img.naturalHeight !== 0) {
+        resolve();
         return;
       }
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+    });
 
-      try {
-        const canvas = await html2canvas(
-          certificateRef.current,
-          {
-            scale: 2,
-            useCORS: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-          }
-        );
+  const downloadCertificate = async () => {
+    if (!certRef.current) {
+      console.error("Certificate element not found");
+      return;
+    }
 
-        const imageData =
-          canvas.toDataURL("image/png");
-
-        const pdf = new jsPDF({
-          orientation: "landscape",
-          unit: "mm",
-          format: "a4",
-        });
-
-        const pageWidth =
-          pdf.internal.pageSize.getWidth();
-
-        const pageHeight =
-          pdf.internal.pageSize.getHeight();
-
-        const imageWidth =
-          pageWidth - 20;
-
-        const imageHeight =
-          (canvas.height * imageWidth) /
-          canvas.width;
-
-        const x = 10;
-
-        const y =
-          (pageHeight - imageHeight) / 2;
-
-        pdf.addImage(
-          imageData,
-          "PNG",
-          x,
-          y,
-          imageWidth,
-          imageHeight
-        );
-
-        pdf.save(
-          `${employeeName
-            .replace(
-              /\s+/g,
-              "-"
-            )}-DLE-Certificate.pdf`
-        );
-      } catch (error) {
-        console.error(
-          "Certificate download failed:",
-          error
-        );
+    try {
+      await waitForImage();
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
       }
-    };
 
-    useImperativeHandle(ref, () => ({
-      download: downloadCertificate,
-    }));
+      const canvas = await html2canvas(certRef.current, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        imageTimeout: 15000,
+      });
 
-    return (
-      <div className="dle-certificate-wrapper">
+      const imageData = canvas.toDataURL("image/png");
 
-        <div className="dle-certificate-actions no-print">
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const canvasRatio = canvas.width / canvas.height;
+      const pageRatio = pageWidth / pageHeight;
+
+      let imgWidth;
+      let imgHeight;
+
+      if (canvasRatio > pageRatio) {
+        imgWidth = pageWidth;
+        imgHeight = pageWidth / canvasRatio;
+      } else {
+        imgHeight = pageHeight;
+        imgWidth = pageHeight * canvasRatio;
+      }
+
+      const x = (pageWidth - imgWidth) / 2;
+      const y = (pageHeight - imgHeight) / 2;
+
+      pdf.addImage(imageData, "PNG", x, y, imgWidth, imgHeight);
+      pdf.save(`${data.employeeName.replace(/\s+/g, "-")}-DLE-Certificate.pdf`);
+    } catch (error) {
+      console.error("Certificate download failed:", error);
+    }
+  };
+
+  useImperativeHandle(ref, () => ({
+    download: downloadCertificate,
+  }));
+
+  return (
+    <div className={`certificate-page ${hideHeader ? "certificate-page-embedded" : ""}`}>
+      {!hideHeader && (
+        <div className="certificate-header">
+          <div>
+            <span>ASSOCIATION CERTIFICATE</span>
+            <h2>Employee Certificate</h2>
+            <p>Digital association certificate generated from registered profile</p>
+          </div>
+
           <button
             type="button"
-            className="dle-print-btn"
+            className="download-id-button"
             onClick={downloadCertificate}
           >
+            <FiDownload />
             Download Certificate
           </button>
         </div>
+      )}
 
-        <div
-          className="dle-certificate"
-          id="dle-certificate"
-          ref={certificateRef}
-        >
-          <span
-            className="dle-corner dle-corner-tl"
-            aria-hidden="true"
-          />
+      <div className="certificate-area">
+        <div className="certificate-wrapper">
+          <div className="dle-certificate" ref={certRef}>
+            <img
+              ref={bgImgRef}
+              className="certificate-bg-img"
+              src={LETTERHEAD_URL}
+              alt=""
+              crossOrigin="anonymous"
+            />
 
-          <span
-            className="dle-corner dle-corner-br"
-            aria-hidden="true"
-          />
+            <div className="certificate-heading">
+              <div className="heading-line">
+                <span></span>
+                <b>❧</b>
+                <span></span>
+              </div>
 
-          <span
-            className="dle-watermark"
-            aria-hidden="true"
-          >
-            KLK
-          </span>
+              <h1>ASSOCIATION CERTIFICATE</h1>
 
-          <div className="dle-frame">
-
-            <header className="dle-header-cer">
-              <img
-                src="/images/logo-full.png"
-                alt="KLK Logo"
-                className="dle-logo"
-              />
-
-              <p className="dle-company-name">
-                KLK Venture
-              </p>
-
-              <p className="dle-tagline">
-                Excellence Through Dedication
-              </p>
-            </header>
-
-            <div className="dle-title-block">
-              <h1 className="dle-title">
-                Certificate of Excellence
-              </h1>
-
-              <span
-                className="dle-title-divider"
-                aria-hidden="true"
-              />
+              <div className="heading-line bottom">
+                <span></span>
+                <b>❧</b>
+                <span></span>
+              </div>
             </div>
 
-            <p className="dle-presented-to">
-              This certificate is proudly presented
-              to
-            </p>
-
-            <h2 className="dle-employee-name">
-              {employeeName}
-            </h2>
-
-            <p className="dle-designation">
-              DLE KLK Venture
-            </p>
-
-            <div
-              className="dle-ornament"
-              aria-hidden="true"
-            >
-              <span></span>
-              <i></i>
-              <span></span>
+            <div className="certificate-intro">
+              <p>This is to certify that</p>
+              <h2>{data.employeeName}</h2>
+              <div className="name-border"></div>
+              <h3>{data.employeeDesignation}</h3>
             </div>
 
-            <p className="dle-achievement-text">
-              {DEFAULT_ACHIEVEMENT_TEXT}
-            </p>
+            <div className="certificate-content">
+              <p>
+                is officially associated with{" "}
+                <strong>KLK Ventures Private Limited</strong>
+              </p>
+              <p>
+                in the capacity of <b>DLE Registered Employee.</b>
+              </p>
+              <p className="authorization">
+                He is authorized to represent the company for official duties
+                <br />
+                and responsibilities as assigned.
+              </p>
+            </div>
 
-            <footer className="dle-footer-cer">
-
-              <div className="dle-footer-col">
-                <p className="dle-footer-value">
-                  {formatDate(issueDate)}
-                </p>
-
-                <span className="dle-footer-line"></span>
-
-                <p className="dle-footer-label">
-                  Date Issued
-                </p>
-              </div>
-
-              <div
-                className="dle-seal"
-                aria-hidden="true"
-              >
-                <div className="dle-seal-ring">
-                  <span className="dle-seal-star">
-                    ★
-                  </span>
-                </div>
-              </div>
-
-              <div className="dle-footer-col">
-                <p className="dle-footer-value">
-                  {employeeId}
-                </p>
-
-                <span className="dle-footer-line"></span>
-
-                <p className="dle-footer-label">
-                  Employee ID
-                </p>
-              </div>
-
-            </footer>
-
-            <p className="dle-cert-id">
-              Certificate ID: CERT-{employeeId}
-            </p>
-
+            <div className="certificate-note">
+              <p>
+                This certificate is issued upon the employee&apos;s request
+                <br />
+                for official reference and site visits.
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    );
-  }
-);
+    </div>
+  );
+});
 
-export default EmployeeCertificate;
+export default DleCertificate;

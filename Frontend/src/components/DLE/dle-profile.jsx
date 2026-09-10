@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import localApi, { LOCAL_API_BASE } from "../../api/localApi";
 import { app } from "../../api/routes";
+import { getUser } from "../../utils/auth";
 import HorizontalProgress from "@/components/shared/HorizontalProgress";
 
 import EmployeeIdCard from "./dle-id-card";
@@ -78,14 +79,6 @@ const documentList = [
     icon: <FiHome />,
   },
 ];
-
-const getUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem("dleUser") || "{}");
-  } catch {
-    return {};
-  }
-};
 
 /**
  * A single "label + value" row inside a details grid.
@@ -233,15 +226,17 @@ function DocumentCard({ document: doc, user }) {
 
 export default function EmployeeRegistration() {
   const [employeeData, setEmployeeData] = useState(
-    getUser()
+    getUser() || {}
   );
 
   const [formData, setFormData] = useState(
-    getUser()
+    getUser() || {}
   );
 
   const [showIdCard, setShowIdCard] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
+  const [pendingCertDownload, setPendingCertDownload] = useState(false);
+  const certificateRef = useRef(null);
   const [activeTab, setActiveTab] = useState("overview");
 
 
@@ -309,6 +304,22 @@ export default function EmployeeRegistration() {
       });
 
   }, []);
+
+  useEffect(() => {
+    if (!showCertificate || !pendingCertDownload) return undefined;
+
+    const timer = window.setTimeout(async () => {
+      await certificateRef.current?.download?.();
+      setPendingCertDownload(false);
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [showCertificate, pendingCertDownload]);
+
+  const handleDownloadCertificate = () => {
+    setPendingCertDownload(true);
+    setShowCertificate(true);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -1099,7 +1110,7 @@ export default function EmployeeRegistration() {
 
                   <div className="document-actions">
 
-                    {/* <button
+                    <button
                       type="button"
                       className="document-action view"
                       onClick={() =>
@@ -1110,21 +1121,19 @@ export default function EmployeeRegistration() {
                       <span>
                         View
                       </span>
-                    </button> */}
+                    </button>
 
 
-                    {/* <button
+                    <button
                       type="button"
                       className="document-action download"
-                      onClick={() =>
-                        setShowCertificate(true)
-                      }
+                      onClick={handleDownloadCertificate}
                     >
                       <FiDownload />
                       <span>
                         Download
                       </span>
-                    </button> */}
+                    </button>
 
                   </div>
 
@@ -1306,6 +1315,7 @@ export default function EmployeeRegistration() {
 
 
               <EmployeeCertificate
+                ref={certificateRef}
                 employeeData={employeeData}
               />
 

@@ -1,4 +1,5 @@
 import prisma from '../../../Config/Prisma.js'
+import { serializeAmcApprovalFields } from '../../../Utils/amcApproval.js'
 import { toPublicFileUrl } from '../../../Utils/publicUrl.js'
 
 // ==========================================
@@ -229,7 +230,6 @@ export const createAmcDocument = async (req, res) => {
             !district ||
             !block ||
             !panchayat ||
-            !volume ||
             !start_month_year ||
             !company_id ||
             !user_id
@@ -361,7 +361,7 @@ export const createAmcDocument = async (req, res) => {
                             await tx.biharSslAmcDocument.create({
                                 data: {
                                     company_id: String(company_id),
-                                    state: String(volume),
+                                    state: String(volume || 'Bihar'),
                                     district: String(district),
                                     block: String(block),
                                     panchayat: String(panchayat),
@@ -398,6 +398,7 @@ export const createAmcDocument = async (req, res) => {
                                 amc_doc_status: 0,
                                 invoice_status: 0,
                                 validation_status: 'pending',
+                                approval_status: 0,
                                 created_by: BigInt(user_id),
                             },
                         })
@@ -698,6 +699,8 @@ export const getAmcDocuments = async (req, res) => {
 
                     validation_status:
                         upload.validation_status,
+
+                    ...serializeAmcApprovalFields(upload),
 
                     created_by:
                         upload.created_by?.toString(),

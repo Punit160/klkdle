@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import React, { useState, useEffect, useMemo } from 'react'
 import { FiEye, FiMapPin, FiPhone } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
@@ -12,6 +12,7 @@ import Pagination from '@/components/shared/Pagination'
 import externalApi from '../../../../api/externalApi'
 import { external, pages } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
+import { filterExternalListByUser } from '../../../../utils/externalApiUser'
 
 import { useSearch } from '../../../../contentApi/searchProvider'
 
@@ -102,7 +103,7 @@ const ViewComplaint = () => {
                     list = res.data.complaints
                 }
 
-                setComplaintData(list)
+                setComplaintData(filterExternalListByUser(list))
                 setCurrentPage(1)
             } else {
                 setError(res?.data?.message || 'Failed to load complaints.')
@@ -117,7 +118,7 @@ const ViewComplaint = () => {
 
     useEffect(() => {
         fetchComplaints()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [refreshKey])
 
     useEffect(() => {

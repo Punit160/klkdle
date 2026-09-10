@@ -8,6 +8,7 @@ import { NavigationContext } from '../../../contentApi/navigationProvider';
 import { joinUrl, APP_API_BASE } from '../../../api/config'
 import { app, pages } from '../../../api/routes'
 import { clearAuthData } from '../../../utils/auth'
+import '../../../styles/sidebar-theme.css'
 
 
 const getInitials = (name = "") => {
@@ -62,7 +63,6 @@ const imageUrl = user?.image_url || null
         } catch (error) {
             console.error("Logout API failed:", error)
         } finally {
-            localStorage.clear()
             clearAuthData()
             setLoggingOut(false)
             navigate(pages.login)
@@ -73,7 +73,7 @@ const imageUrl = user?.image_url || null
         <nav className={`nxl-navigation ${navigationOpen ? "mob-navigation-active" : ""}`}>
             <div className="navbar-wrapper" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                 <div className="m-header">
-                    <Link to={pages.bihar.amcDashboard} className="b-brand">
+                    <Link to={pages.dashboard} className="b-brand">
                         <img src="/images/logo-full.png" alt="logo" className="logo logo-lg w-50" />
                         <img src="/images/logo-abbr.png" alt="logo" className="logo logo-sm" />
                     </Link>

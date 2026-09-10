@@ -1,0 +1,147 @@
+.camera-capture-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 130px;
+  padding: 18px;
+  border: 2px dashed #d7dbe4;
+  border-radius: 12px;
+  background: #fafbfc;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.camera-capture-box:hover {
+  border-color: rgba(52, 84, 209, 0.35);
+  background: rgba(52, 84, 209, 0.04);
+}
+
+.camera-capture-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(52, 84, 209, 0.08);
+  color: var(--bs-primary, #3454d1);
+  margin-bottom: 10px;
+}
+
+.camera-capture-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bs-dark, #283c50);
+  margin-bottom: 4px;
+}
+
+.camera-capture-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--bs-secondary, #64748b);
+}
+
+.camera-capture-preview {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color, #dcdee4);
+  background: #000;
+}
+
+.camera-capture-preview img {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  background: #111;
+}
+
+.camera-capture-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-capture-saved {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(37, 184, 101, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.camera-capture-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.camera-capture-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.camera-capture-modal-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.camera-capture-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.camera-capture-video-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  margin-bottom: 10px;
+}
+
+.camera-capture-video-wrap video {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.camera-capture-modal-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--bs-secondary, #64748b);
+}

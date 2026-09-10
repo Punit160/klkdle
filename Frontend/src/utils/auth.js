@@ -27,6 +27,34 @@ export const getUser = () => {
   }
 };
 
+const decodeJwtPayload = (token) => {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(
+      base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+export const isTokenValid = (token = getToken()) => {
+  if (!token || typeof token !== "string") return false;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload) return false;
+
+  if (payload.exp) {
+    return payload.exp * 1000 > Date.now();
+  }
+
+  return true;
+};
+
 export const saveAuthData = (token, user) => {
   setToken(token);
   if (user) {
@@ -41,9 +69,7 @@ export const saveAuthData = (token, user) => {
 };
 
 
-export const isAuthenticated = () => {
-  return !!getToken();
-};
+export const isAuthenticated = () => isTokenValid();
 
 export const clearAuthData = () => {
   localStorage.removeItem(TOKEN_KEY);

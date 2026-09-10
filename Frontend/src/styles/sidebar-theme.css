@@ -1,0 +1,12 @@
+/* Sidebar icons — theme primary blue only (layout unchanged) */
+.nxl-navigation .nxl-micon svg {
+  color: var(--bs-primary, #3454d1);
+  stroke: var(--bs-primary, #3454d1);
+}
+
+.nxl-navigation .nxl-item.active > .nxl-link .nxl-micon svg,
+.nxl-navigation .nxl-item:hover > .nxl-link .nxl-micon svg,
+.nxl-navigation .nxl-item.nxl-trigger > .nxl-link .nxl-micon svg {
+  color: var(--bs-primary, #3454d1);
+  stroke: var(--bs-primary, #3454d1);
+}

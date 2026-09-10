@@ -1,5 +1,5 @@
-/* eslint-disable react/prop-types */
-import { useEffect, useRef, useState } from 'react'
+ 
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     FiAlertCircle,
@@ -9,17 +9,26 @@ import {
     FiMapPin,
     FiPaperclip,
     FiSend,
-    FiUploadCloud,
     FiUser,
-    FiX,
     FiZap,
 } from 'react-icons/fi'
 import SelectDropdown from '@/components/shared/SelectDropdown'
+import CameraCapture from '@/components/shared/CameraCapture'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import externalApi from '../../api/externalApi'
 import localApi from '../../api/localApi'
 import { app, external, pages } from '../../api/routes'
 import { getCompanyId, getUser } from '../../utils/auth'
+import { captureCurrentLocation } from '../../utils/geolocation'
+import { fetchAutoSslVolume } from '../../utils/sslVolume'
+import { getSslAmcConfig, withRegionVolume } from '../../utils/sslAmcConfig'
+import { buildLightSelectLabel, buildSiteDeviceGroups } from '../../utils/sslSiteDetails'
+import {
+  filterExternalListByUser,
+  mapDistinctFieldOptions,
+  matchesDleAmcUser,
+} from '../../utils/externalApiUser'
+import '../../styles/camera-capture.css'
 
 const COMPLAINT_ISSUE_OPTIONS = [
     'Light Not Working',
@@ -45,31 +54,6 @@ const getErrorMessage = (err, fallback = 'Something went wrong. Please try again
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
-
-const captureCurrentLocation = () =>
-    new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('Location is not supported on this device. Please use a phone or enable GPS.'))
-            return
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                resolve({
-                    latitude: String(position.coords.latitude),
-                    longitude: String(position.coords.longitude),
-                })
-            },
-            (error) => {
-                if (error?.code === 1) {
-                    reject(new Error('Please allow location access so AMC can save latitude and longitude.'))
-                    return
-                }
-                reject(new Error('Could not read current location. Turn on GPS and try again.'))
-            },
-            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-        )
-    })
 
 const addMonthsISO = (value, months) => {
     const date = new Date(value)
@@ -119,13 +103,6 @@ const DetailGroup = ({ title, items }) => (
     </div>
 )
 
-const lightLabel = (site) => {
-    const uniqueId = site?.unique_id || site?.uniqueId || ''
-    const poleNo = site?.pole_no || ''
-    if (uniqueId && poleNo) return `${uniqueId} (${poleNo})`
-    return uniqueId || poleNo || `SSL ID ${site?.id || site?.ssl_id || ''}`
-}
-
 const SectionHeading = ({ icon, title, subtitle }) => (
     <div className="d-flex align-items-center gap-3 mb-4">
         <div className="avatar-text avatar-md bg-soft-primary text-primary icon flex-shrink-0">
@@ -138,72 +115,16 @@ const SectionHeading = ({ icon, title, subtitle }) => (
     </div>
 )
 
-const Dropzone = ({ accept, onFile, label, hint }) => {
-    const inputRef = useRef(null)
-    const [isDragging, setIsDragging] = useState(false)
-
-    return (
-        <div
-            role="button"
-            tabIndex={0}
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-                e.preventDefault()
-                setIsDragging(false)
-                const file = e.dataTransfer.files?.[0]
-                if (file) onFile(file)
-            }}
-            className="d-flex flex-column align-items-center justify-content-center text-center rounded-3 p-3"
-            style={{
-                border: `2px dashed ${isDragging ? 'var(--bs-primary, #3454d1)' : '#d7dbe4'}`,
-                background: isDragging ? 'rgba(52,84,209,0.05)' : '#fafbfc',
-                cursor: 'pointer',
-                minHeight: '110px',
-            }}
-        >
-            <input
-                ref={inputRef}
-                type="file"
-                className="d-none"
-                accept={accept}
-                onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) onFile(file)
-                    e.target.value = ''
-                }}
-            />
-            <div className="avatar-text avatar-md bg-soft-primary text-primary icon mb-2">
-                <FiUploadCloud size={16} />
-            </div>
-            <div className="fs-12 fw-semibold text-dark mb-1">{label}</div>
-            <div className="fs-11 text-muted">{hint}</div>
-        </div>
-    )
-}
-
-const FileBadge = ({ file, onRemove }) => (
-    <span className="badge bg-soft-success text-success d-inline-flex align-items-center gap-2 py-2 px-3 rounded-pill fw-normal mt-2">
-        <FiCheckCircle size={12} />
-        <span className="fs-12 text-truncate" style={{ maxWidth: '160px' }}>{file.name}</span>
-        <button type="button" onClick={onRemove} className="btn btn-sm p-0 border-0 bg-transparent text-success">
-            <FiX size={13} />
-        </button>
-    </span>
-)
-
 const LightAmcForm = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
-    const isBihar = region === 'bihar'
-    const sslState = isBihar ? 'bihar' : 'up'
-    const viewPath = isBihar ? pages.bihar.lightAmcList : pages.up.lightAmcList
-    const stateName = isBihar ? 'Bihar' : 'Uttar Pradesh'
+    const amcConfig = getSslAmcConfig(region)
+    const locationConfig = amcConfig.location
+    const sslState = amcConfig.sslState
+    const viewPath = amcConfig.pages.lightAmcList
+    const stateName = amcConfig.stateName
 
-    const [selectedVolume, setSelectedVolume] = useState(null)
-    const [volumeOptions, setVolumeOptions] = useState([])
-    const [isVolumeLoading, setIsVolumeLoading] = useState(false)
+    const [autoVolume, setAutoVolume] = useState(null)
+    const [isVolumeResolving, setIsVolumeResolving] = useState(amcConfig.requiresVolume)
 
     const [selectedDistrict, setSelectedDistrict] = useState(null)
     const [selectedBlock, setSelectedBlock] = useState(null)
@@ -247,41 +168,59 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
     const lightOptions = siteDetails.map((site) => ({
         value: String(site.id ?? site.ssl_id),
-        label: lightLabel(site),
+        label: buildLightSelectLabel(region, site),
         site,
     }))
 
     useEffect(() => {
-        if (!isBihar) return
-        const fetchVolumes = async () => {
-            setIsVolumeLoading(true)
+        if (!amcConfig.requiresVolume) return
+
+        let cancelled = false
+
+        const resolveVolume = async () => {
+            setIsVolumeResolving(true)
             try {
-                const res = await externalApi.get(external.ssl.volume(sslState))
-                const list = res?.data?.data || []
-                setVolumeOptions(toOptions(list.map((item) => item.volume)))
+                const volume = await fetchAutoSslVolume(amcConfig.sslState)
+                if (cancelled) return
+                if (!volume) {
+                    setSubmitError('No volume assigned to your account. Please contact admin.')
+                    setAutoVolume(null)
+                    return
+                }
+                setAutoVolume(volume)
             } catch (err) {
-                setSubmitError(getErrorMessage(err, 'Failed to load volumes.'))
+                if (!cancelled) {
+                    setAutoVolume(null)
+                    setSubmitError(getErrorMessage(err, 'Failed to load location data.'))
+                }
             } finally {
-                setIsVolumeLoading(false)
+                if (!cancelled) setIsVolumeResolving(false)
             }
         }
-        fetchVolumes()
-    }, [isBihar, sslState])
+
+        resolveVolume()
+        return () => { cancelled = true }
+    }, [amcConfig.requiresVolume, amcConfig.sslState])
 
     useEffect(() => {
-        if (isBihar && !selectedVolume) {
-            setDistrictOptions([])
+        if (amcConfig.requiresVolume && !autoVolume) {
+            if (!isVolumeResolving) setDistrictOptions([])
             return
         }
+
         const fetchDistricts = async () => {
             setIsDistrictLoading(true)
             try {
                 const res = await externalApi.get(
                     external.ssl.district(sslState),
-                    isBihar ? { params: { volume: selectedVolume.value } } : undefined
+                    amcConfig.requiresVolume
+                        ? { params: withRegionVolume({}, region, autoVolume) }
+                        : undefined
                 )
                 const list = res?.data?.data || []
-                setDistrictOptions(toOptions(list.map((item) => item.district)))
+                setDistrictOptions(
+                    mapDistinctFieldOptions(list, (item) => item.district)
+                )
             } catch (err) {
                 setDistrictOptions([])
                 setSubmitError(getErrorMessage(err, 'Failed to load districts.'))
@@ -290,21 +229,26 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchDistricts()
-    }, [isBihar, sslState, selectedVolume])
+    }, [amcConfig.requiresVolume, sslState, autoVolume, isVolumeResolving, region])
 
     useEffect(() => {
-        if (!selectedDistrict || (isBihar && !selectedVolume)) {
+        if (!selectedDistrict || (amcConfig.requiresVolume && !autoVolume)) {
             setBlockOptions([])
             return
         }
         const fetchBlocks = async () => {
             setIsBlockLoading(true)
             try {
-                const params = { district: selectedDistrict.value }
-                if (isBihar) params.volume = selectedVolume.value
+                const params = withRegionVolume(
+                    { district: selectedDistrict.value },
+                    region,
+                    autoVolume
+                )
                 const res = await externalApi.get(external.ssl.blocks(sslState), { params })
                 const list = res?.data?.data || []
-                setBlockOptions(toOptions(list.map((item) => item.block)))
+                setBlockOptions(
+                    mapDistinctFieldOptions(list, (item) => item.block)
+                )
             } catch (err) {
                 setBlockOptions([])
                 setSubmitError(getErrorMessage(err, 'Failed to load blocks.'))
@@ -313,58 +257,87 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchBlocks()
-    }, [selectedDistrict, selectedVolume, isBihar, sslState])
+    }, [selectedDistrict, autoVolume, amcConfig.requiresVolume, sslState, region])
 
     useEffect(() => {
-        if (!selectedDistrict || !selectedBlock || (isBihar && !selectedVolume)) {
+        if (!selectedDistrict || !selectedBlock || (amcConfig.requiresVolume && !autoVolume)) {
             setPanchayatOptions([])
             return
         }
         const fetchPanchayats = async () => {
             setIsPanchayatLoading(true)
             try {
-                const params = { district: selectedDistrict.value, block: selectedBlock.value }
-                if (isBihar) params.volume = selectedVolume.value
+                const params = withRegionVolume(
+                    {
+                        district: selectedDistrict.value,
+                        block: selectedBlock.value,
+                    },
+                    region,
+                    autoVolume
+                )
                 const res = await externalApi.get(external.ssl.panchayat(sslState), { params })
                 const list = res?.data?.data || []
-                setPanchayatOptions(toOptions(list.map((item) => item.panchyat || item.panchayat)))
+                setPanchayatOptions(
+                    mapDistinctFieldOptions(list, locationConfig.extractListValue)
+                )
             } catch (err) {
                 setPanchayatOptions([])
-                setSubmitError(getErrorMessage(err, 'Failed to load panchayats.'))
+                setSubmitError(getErrorMessage(err, `Failed to load ${locationConfig.label.toLowerCase()}s.`))
             } finally {
                 setIsPanchayatLoading(false)
             }
         }
         fetchPanchayats()
-    }, [selectedDistrict, selectedBlock, selectedVolume, isBihar, sslState])
+    }, [selectedDistrict, selectedBlock, autoVolume, amcConfig.requiresVolume, sslState, region])
 
     useEffect(() => {
-        if (!selectedDistrict || !selectedBlock || !selectedPanchayat || (isBihar && !selectedVolume)) {
+        if (
+            !selectedDistrict ||
+            !selectedBlock ||
+            !selectedPanchayat ||
+            (amcConfig.requiresVolume && !autoVolume)
+        ) {
             setSiteDetails([])
             setSelectedLight(null)
             return
         }
+
+        let cancelled = false
+
         const fetchSites = async () => {
             setIsSitesLoading(true)
             setSitesError('')
+            setSiteDetails([])
+            setSelectedLight(null)
             try {
-                const params = {
-                    district: selectedDistrict.value,
-                    block: selectedBlock.value,
-                    panchayat: selectedPanchayat.value,
-                }
-                if (isBihar) params.volume = selectedVolume.value
+                const params = withRegionVolume(
+                    locationConfig.withLocalityParam(
+                        {
+                            district: selectedDistrict.value,
+                            block: selectedBlock.value,
+                        },
+                        selectedPanchayat.value
+                    ),
+                    region,
+                    autoVolume
+                )
                 const res = await externalApi.get(external.ssl.details(sslState), { params })
-                setSiteDetails(res?.data?.data || [])
+                if (cancelled) return
+
+                setSiteDetails(filterExternalListByUser(res?.data?.data || []))
             } catch (err) {
-                setSiteDetails([])
-                setSitesError(getErrorMessage(err, 'Failed to load lights.'))
+                if (!cancelled) {
+                    setSiteDetails([])
+                    setSitesError(getErrorMessage(err, 'Failed to load lights.'))
+                }
             } finally {
-                setIsSitesLoading(false)
+                if (!cancelled) setIsSitesLoading(false)
             }
         }
+
         fetchSites()
-    }, [selectedDistrict, selectedBlock, selectedPanchayat, selectedVolume, isBihar, sslState])
+        return () => { cancelled = true }
+    }, [selectedDistrict, selectedBlock, selectedPanchayat, autoVolume, amcConfig.requiresVolume, sslState, region])
 
     useEffect(() => {
         if (!selectedLight) {
@@ -383,12 +356,23 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             setDetailsError('')
             setSubmitError('')
             try {
-                const detailsRes = await externalApi.get(external.ssl.complaintDetails(sslState), {
-                    params: { ssl_id: selectedLight.value },
-                })
-                const details = unwrapDetails(detailsRes?.data) || selectedLight.site || null
+                let details = selectedLight.site ? { ...selectedLight.site } : null
+
+                try {
+                    const detailsRes = await externalApi.get(external.ssl.complaintDetails(sslState), {
+                        params: { ssl_id: selectedLight.value },
+                    })
+                    const fetched = unwrapDetails(detailsRes?.data)
+                    details = fetched ? { ...(details || {}), ...fetched } : details
+                } catch (detailErr) {
+                    if (!details) throw detailErr
+                }
+
                 if (!details) {
                     throw new Error('No light details returned')
+                }
+                if (!matchesDleAmcUser(details)) {
+                    throw new Error('This light is not assigned to your account.')
                 }
                 setLightInfo(details)
                 setBeneficiaryName(details.beneficiary_name || details.beneficiary || '')
@@ -434,7 +418,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         }
 
         loadLight()
-    }, [selectedLight?.value, sslState])
+    }, [selectedLight?.value, sslState, region])
 
     useEffect(() => {
         if (!selectedLight) {
@@ -469,14 +453,6 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         setNextAmcDate(addMonthsISO(amcDate, 3))
     }, [amcDate, periodStart])
 
-    const handleVolumeSelect = (option) => {
-        setSelectedVolume(option)
-        setSelectedDistrict(null)
-        setSelectedBlock(null)
-        setSelectedPanchayat(null)
-        setSelectedLight(null)
-    }
-
     const handleDistrictSelect = (option) => {
         setSelectedDistrict(option)
         setSelectedBlock(null)
@@ -487,6 +463,11 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const handleBlockSelect = (option) => {
         setSelectedBlock(option)
         setSelectedPanchayat(null)
+        setSelectedLight(null)
+    }
+
+    const handlePanchayatSelect = (option) => {
+        setSelectedPanchayat(option)
         setSelectedLight(null)
     }
 
@@ -503,7 +484,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             return
         }
         if (!selectedLight || !lightInfo || !amcDate || !beneficiaryName || !beneficiaryContact || !image1 || !image2) {
-            setSubmitError('Select a light, fill beneficiary details, and upload 2 images.')
+            setSubmitError('Select a light, fill beneficiary details, and capture 2 camera photos.')
             return
         }
         if (periodEnd && amcDate > periodEnd) {
@@ -573,7 +554,9 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('block', selectedBlock?.value || '')
             formData.append('panchayat', selectedPanchayat?.value || '')
             formData.append('ward_no', lightInfo?.ward_no || '')
-            formData.append('volume', selectedVolume?.value || '')
+            if (amcConfig.requiresVolume && autoVolume) {
+                formData.append('volume', autoVolume)
+            }
             formData.append('ssl_id', selectedLight.value)
             formData.append('unique_id', lightInfo?.unique_id || selectedLight.site?.unique_id || '')
             formData.append('pole_no', lightInfo?.pole_no || selectedLight.site?.pole_no || '')
@@ -613,8 +596,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                         <div className="card-body" style={{ overflow: 'visible' }}>
                             <SectionHeading
                                 icon={<FiZap size={16} />}
-                                title="Do AMC"
-                                subtitle="Find a light, complete this quarter’s AMC, and raise a complaint if it is not working"
+                                title={`${amcConfig.moduleTitle} — Do Field AMC`}
+                                subtitle={`${stateName}: find a light, complete this quarter’s AMC, and raise a complaint if it is not working`}
                             />
 
                             {submitSuccess && (
@@ -638,27 +621,14 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                 style={{ background: '#fbfcfe', overflow: 'visible', minHeight: 520 }}
                             >
                                 <div className="row g-3">
-                                    {isBihar && (
-                                        <div className="col-lg-6">
-                                            <label className="form-label">Volume <span className="text-danger">*</span></label>
-                                            <SelectDropdown
-                                                options={volumeOptions}
-                                                defaultSelect={isVolumeLoading ? 'Loading...' : 'Select Volume'}
-                                                selectedOption={selectedVolume}
-                                                onSelectOption={handleVolumeSelect}
-                                            />
-                                        </div>
-                                    )}
                                     <div className="col-lg-6">
                                         <label className="form-label">District <span className="text-danger">*</span></label>
                                         <SelectDropdown
                                             options={districtOptions}
                                             defaultSelect={
-                                                isBihar && !selectedVolume
-                                                    ? 'Select Volume first'
-                                                    : isDistrictLoading
-                                                        ? 'Loading...'
-                                                        : 'Select District'
+                                                isVolumeResolving || isDistrictLoading
+                                                    ? 'Loading...'
+                                                    : 'Select District'
                                             }
                                             selectedOption={selectedDistrict}
                                             onSelectOption={handleDistrictSelect}
@@ -680,21 +650,18 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         />
                                     </div>
                                     <div className="col-lg-6">
-                                        <label className="form-label">Panchayat <span className="text-danger">*</span></label>
+                                        <label className="form-label">{locationConfig.label} <span className="text-danger">*</span></label>
                                         <SelectDropdown
                                             options={panchayatOptions}
                                             defaultSelect={
                                                 !selectedBlock
-                                                    ? 'Select Block first'
+                                                    ? locationConfig.selectBlockFirstText
                                                     : isPanchayatLoading
-                                                        ? 'Loading...'
-                                                        : 'Select Panchayat'
+                                                        ? locationConfig.loadingText
+                                                        : locationConfig.selectText
                                             }
                                             selectedOption={selectedPanchayat}
-                                            onSelectOption={(option) => {
-                                                setSelectedPanchayat(option)
-                                                setSelectedLight(null)
-                                            }}
+                                            onSelectOption={handlePanchayatSelect}
                                         />
                                     </div>
                                     <div className="col-lg-6">
@@ -703,7 +670,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                             options={lightOptions}
                                             defaultSelect={
                                                 !selectedPanchayat
-                                                    ? 'Select Panchayat first'
+                                                    ? locationConfig.selectLocalityFirstText
                                                     : isSitesLoading
                                                         ? 'Loading lights...'
                                                         : lightOptions.length
@@ -718,9 +685,6 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
                                 {(selectedDistrict || selectedPanchayat || selectedLight) && (
                                     <div className="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top">
-                                        {isBihar && selectedVolume && (
-                                            <span className="badge bg-soft-primary text-primary">{selectedVolume.label}</span>
-                                        )}
                                         {selectedDistrict && <span className="badge bg-soft-secondary text-secondary">{selectedDistrict.label}</span>}
                                         {selectedBlock && <span className="badge bg-soft-secondary text-secondary">{selectedBlock.label}</span>}
                                         {selectedPanchayat && <span className="badge bg-soft-secondary text-secondary">{selectedPanchayat.label}</span>}
@@ -750,27 +714,23 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                     <SectionHeading
                                         icon={<FiZap size={16} />}
                                         title="Site & Device Details"
-                                        subtitle="Fetched for the selected light"
+                                        subtitle={
+                                            amcConfig.key === 'up'
+                                                ? 'Columns shown from UP fetch response'
+                                                : 'Fetched for the selected light'
+                                        }
                                     />
-                                    <DetailGroup
-                                        title="Device"
-                                        items={[
-                                            { label: 'Unique ID', value: lightInfo.unique_id || lightInfo.uniqueId },
-                                            { label: 'Pole No', value: lightInfo.pole_no },
-                                            { label: 'Ward No', value: lightInfo.ward_no },
-                                            { label: 'Light No', value: lightInfo.light_no },
-                                            { label: 'Along With Pole', value: lightInfo.along_with_pole },
-                                            { label: 'Luminary No.', value: lightInfo.luminary_no },
-                                            { label: 'SIM No.', value: lightInfo.sim_no },
-                                            { label: 'Battery Serial No.', value: lightInfo.battery_serial_no },
-                                            { label: 'Module No.', value: lightInfo.module_no },
-                                            { label: 'Date of Installation', value: formatDisplayDate(lightInfo.date_of_installation) },
-                                            { label: 'Site Latitude', value: lightInfo.latitude },
-                                            { label: 'Site Longitude', value: lightInfo.longitude },
-                                            { label: 'AMC Latitude', value: isLocating ? 'Capturing...' : (amcCoords?.latitude || 'Waiting for GPS') },
-                                            { label: 'AMC Longitude', value: isLocating ? 'Capturing...' : (amcCoords?.longitude || 'Waiting for GPS') },
-                                        ]}
-                                    />
+                                    {buildSiteDeviceGroups(region, lightInfo, {
+                                        isLocating,
+                                        amcLatitude: amcCoords?.latitude,
+                                        amcLongitude: amcCoords?.longitude,
+                                    }).map((group) => (
+                                        <DetailGroup
+                                            key={group.title}
+                                            title={group.title}
+                                            items={group.items}
+                                        />
+                                    ))}
 
                                     <div className="row g-2 mb-3">
                                         <div className="col-lg-3 col-md-6"><DetailItem label="AMC Date" value={formatDisplayDate(amcDate)} /></div>
@@ -794,15 +754,25 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                     </div>
 
                                     <hr className="border-dashed" />
-                                    <SectionHeading icon={<FiPaperclip size={16} />} title="Documentation" subtitle="Upload 2 images for this AMC" />
+                                    <SectionHeading icon={<FiPaperclip size={16} />} title="Documentation" subtitle="Capture 2 photos from camera — latitude and longitude will be printed on each image" />
                                     <div className="row g-3 mb-3">
                                         <div className="col-lg-6">
-                                            <Dropzone accept=".jpg,.jpeg,.png" onFile={setImage1} label="Photo 1" hint="JPG or PNG" />
-                                            {image1 && <FileBadge file={image1} onRemove={() => setImage1(null)} />}
+                                            <CameraCapture
+                                                label="Photo 1"
+                                                hint="Open camera and capture"
+                                                file={image1}
+                                                onCapture={setImage1}
+                                                onClear={() => setImage1(null)}
+                                            />
                                         </div>
                                         <div className="col-lg-6">
-                                            <Dropzone accept=".jpg,.jpeg,.png" onFile={setImage2} label="Photo 2" hint="JPG or PNG" />
-                                            {image2 && <FileBadge file={image2} onRemove={() => setImage2(null)} />}
+                                            <CameraCapture
+                                                label="Photo 2"
+                                                hint="Open camera and capture"
+                                                file={image2}
+                                                onCapture={setImage2}
+                                                onClear={() => setImage2(null)}
+                                            />
                                         </div>
                                     </div>
 

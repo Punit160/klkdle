@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+ 
 import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { FiLogOut, FiUser } from "react-icons/fi"
@@ -146,6 +146,7 @@ const ProfileModal = () => {
                 data-bs-toggle="dropdown"
                 role="button"
                 data-bs-auto-close="outside"
+                onClick={(e) => e.preventDefault()}
             >
                 {imageUrl ? (
                     <img
@@ -161,11 +162,11 @@ const ProfileModal = () => {
                     />
                 ) : (
                     <div
-                        className="user-avtar me-0 d-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-semibold"
+                        className="user-avtar d-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-semibold"
                         style={{
-                            width: 40,
-                            height: 40,
-                            fontSize: 14,
+                            width: 38,
+                            height: 38,
+                            fontSize: 13,
                         }}
                     >
                         {initials}

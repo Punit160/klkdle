@@ -1,11 +1,12 @@
-/* eslint-disable react/prop-types */
+ 
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiAlertCircle, FiArrowLeft, FiCalendar, FiImage, FiLoader, FiMapPin, FiUser, FiZap } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { getCompanyId } from '../../utils/auth'
 import localApi, { LOCAL_API_BASE } from '../../api/localApi'
-import { app, pages } from '../../api/routes'
+import { app } from '../../api/routes'
+import { getSslAmcConfig } from '../../utils/sslAmcConfig'
 
 const LOCAL_API = LOCAL_API_BASE
 
@@ -79,7 +80,8 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
     const location = useLocation()
     const [searchParams] = useSearchParams()
-    const listPath = region === 'bihar' ? pages.bihar.lightAmcList : pages.up.lightAmcList
+    const amcConfig = getSslAmcConfig(region)
+    const listPath = amcConfig.pages.lightAmcList
     const recordId = searchParams.get('id')
 
     const [row, setRow] = useState(location.state?.row || null)
@@ -166,10 +168,15 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                     title="Site location"
                                     items={[
                                         { label: 'State', value: row.state },
-                                        { label: 'Volume', value: row.volume },
+                                        ...(amcConfig.requiresVolume
+                                            ? [{ label: 'Volume', value: row.volume }]
+                                            : []),
                                         { label: 'District', value: row.district },
                                         { label: 'Block', value: row.block },
-                                        { label: 'Panchayat', value: row.panchayat },
+                                        {
+                                            label: amcConfig.location.localityLabel,
+                                            value: row.panchayat,
+                                        },
                                         { label: 'Ward No', value: row.ward_no },
                                         { label: 'AMC Latitude', value: row.latitude },
                                         { label: 'AMC Longitude', value: row.longitude },

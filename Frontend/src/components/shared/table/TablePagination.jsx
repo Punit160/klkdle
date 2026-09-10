@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 
 
 const TablePagination = ({table}) => {

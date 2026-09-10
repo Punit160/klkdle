@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiEye } from 'react-icons/fi'
@@ -9,7 +9,8 @@ import CardLoader from '@/components/shared/CardLoader'
 import useCardTitleActions from '@/hooks/useCardTitleActions'
 import { getCompanyId } from '../../utils/auth'
 import localApi from '../../api/localApi'
-import { app, pages } from '../../api/routes'
+import { app } from '../../api/routes'
+import { getSslAmcConfig } from '../../utils/sslAmcConfig'
 
 const PER_PAGE = 20
 
@@ -22,9 +23,10 @@ const formatDate = (value) => {
 
 const LightAmcList = ({ region = 'bihar' }) => {
     const navigate = useNavigate()
-    const stateName = region === 'bihar' ? 'Bihar' : 'Uttar Pradesh'
-    const addPath = region === 'bihar' ? pages.bihar.lightAmc : pages.up.lightAmc
-    const detailsPath = region === 'bihar' ? pages.bihar.lightAmcDetails : pages.up.lightAmcDetails
+    const amcConfig = getSslAmcConfig(region)
+    const stateName = amcConfig.stateName
+    const addPath = amcConfig.pages.lightAmc
+    const detailsPath = amcConfig.pages.lightAmcDetails
     const { refreshKey, isRemoved, isExpanded, handleRefresh, handleExpand, handleDelete } = useCardTitleActions()
     const [rows, setRows] = useState([])
     const [loading, setLoading] = useState(true)
@@ -65,7 +67,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
                 <div className="row">
                     <div className="col-lg-12">
                         <div className={`card stretch stretch-full ${isExpanded ? 'card-fullscreen' : ''}`}>
-                            <CardHeader title="AMC" refresh={handleRefresh} remove={handleDelete} expanded={handleExpand} />
+                            <CardHeader title={`${amcConfig.moduleTitle} — Field AMC`} refresh={handleRefresh} remove={handleDelete} expanded={handleExpand} />
                             <div className="card-body custom-card-action p-0">
                                 <div className="d-flex justify-content-end p-3 pb-0">
                                     <button type="button" className="btn btn-sm btn-primary" onClick={() => navigate(addPath)}>

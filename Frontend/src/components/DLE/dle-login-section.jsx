@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import localApi from "../../api/localApi";
 import { app, pages } from "../../api/routes";
 import {
@@ -12,19 +12,31 @@ import {
   FiFileText,
   FiMapPin,
 } from "react-icons/fi";
-import { Link, useNavigate } from "react-router-dom";
-import { saveAuthData } from "../../utils/auth"; 
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { isAuthenticated, saveAuthData } from "../../utils/auth";
 import "../../styles/DLE/dle-login-section.css";
+
+const REMEMBER_EMAIL_KEY = "rememberEmail";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    email: localStorage.getItem(REMEMBER_EMAIL_KEY) || "",
     password: "",
-    rememberMe: false,
+    rememberMe: !!localStorage.getItem(REMEMBER_EMAIL_KEY),
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const registrationMessage = location.state?.registered ? location.state.message : "";
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate(pages.dashboard, { replace: true });
+    }
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -33,34 +45,43 @@ const Login = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+
+    if (error) setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
       const response = await localApi.post(app.auth.login, {
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
       });
-
-      console.log("LOGIN RESPONSE:", response.data);
 
       if (response.data.success) {
         const user = response.data.user;
         saveAuthData(response.data.token, user);
+
+        if (formData.rememberMe) {
+          localStorage.setItem(REMEMBER_EMAIL_KEY, formData.email.trim());
+        } else {
+          localStorage.removeItem(REMEMBER_EMAIL_KEY);
+        }
+
         navigate(pages.dashboard);
       } else {
-        alert(response.data.message || "Login failed");
+        setError(response.data.message || "Login failed");
       }
-    } catch (error) {
-      console.log("LOGIN ERROR:", error);
-
-      alert(
-        error.response?.data?.message ||
-        error.message ||
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+        err.message ||
         "Login failed"
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -163,6 +184,17 @@ const Login = () => {
             </div>
 
             <form onSubmit={handleSubmit}>
+              {registrationMessage && (
+                <div className="login-success" role="status">
+                  {registrationMessage}
+                </div>
+              )}
+
+              {error && (
+                <div className="login-error" role="alert">
+                  {error}
+                </div>
+              )}
 
               <div className="input-group">
                 <label htmlFor="email">Email Address</label>
@@ -178,6 +210,7 @@ const Login = () => {
                     value={formData.email}
                     onChange={handleChange}
                     required
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -185,14 +218,6 @@ const Login = () => {
               <div className="input-group">
                 <div className="password-label">
                   <label htmlFor="password">Password</label>
-
-                  <button
-                    type="button"
-                    className="forgot-password"
-                    onClick={() => console.log("Forgot Password")}
-                  >
-                    Forgot Password?
-                  </button>
                 </div>
 
                 <div className="input-wrapper">
@@ -206,6 +231,7 @@ const Login = () => {
                     value={formData.password}
                     onChange={handleChange}
                     required
+                    autoComplete="current-password"
                   />
 
                   <button
@@ -238,9 +264,9 @@ const Login = () => {
                 </label>
               </div>
 
-              <button type="submit" className="login-button">
-                <span>Sign In</span>
-                <FiArrowRight />
+              <button type="submit" className="login-button" disabled={loading}>
+                <span>{loading ? "Signing in..." : "Sign In"}</span>
+                {!loading && <FiArrowRight />}
               </button>
 
               <div className="login-footer">

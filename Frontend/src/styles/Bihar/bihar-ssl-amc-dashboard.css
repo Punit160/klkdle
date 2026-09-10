@@ -1,0 +1,320 @@
+.bihar-amc-dashboard {
+  padding-bottom: 28px;
+}
+
+.bihar-amc-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--bs-border-color, #dcdee4);
+  box-shadow: 0 4px 18px rgba(40, 60, 80, 0.06);
+}
+
+.bihar-amc-hero-badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(52, 84, 209, 0.08);
+  color: var(--bs-primary, #3454d1);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.bihar-amc-hero h4 {
+  margin: 0 0 6px;
+  font-size: clamp(22px, 2.5vw, 28px);
+  font-weight: 800;
+  color: var(--bs-dark, #283c50);
+}
+
+.bihar-amc-hero p {
+  margin: 0;
+  max-width: 560px;
+  font-size: 13px;
+  color: var(--bs-secondary, #64748b);
+}
+
+.bihar-amc-section {
+  margin-top: 8px;
+}
+
+.bihar-amc-section-card {
+  border: 1px solid var(--bs-border-color, #dcdee4);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(40, 60, 80, 0.05);
+  overflow: hidden;
+}
+
+.bihar-amc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--bs-border-color, #dcdee4);
+  background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+
+.bihar-amc-section-head-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bihar-amc-section-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bihar-amc-section-icon.amc {
+  background: rgba(37, 184, 101, 0.1);
+  color: var(--bs-success, #25b865);
+}
+
+.bihar-amc-section-icon.docs {
+  background: rgba(52, 84, 209, 0.08);
+  color: var(--bs-primary, #3454d1);
+}
+
+.bihar-amc-section-head h5 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--bs-dark, #283c50);
+}
+
+.bihar-amc-section-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--bs-secondary, #64748b);
+}
+
+.bihar-amc-section-body {
+  padding: 20px 22px 22px;
+}
+
+.bihar-amc-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.bihar-amc-stat {
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--bs-border-color, #dcdee4);
+  background: #fff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bihar-amc-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(40, 60, 80, 0.07);
+}
+
+.bihar-amc-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.bihar-amc-stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bihar-amc-stat-icon.primary { background: rgba(52, 84, 209, 0.08); color: #3454d1; }
+.bihar-amc-stat-icon.success { background: rgba(37, 184, 101, 0.1); color: #25b865; }
+.bihar-amc-stat-icon.warning { background: rgba(228, 158, 61, 0.12); color: #b45309; }
+.bihar-amc-stat-icon.danger { background: rgba(234, 77, 77, 0.1); color: #ea4d4d; }
+.bihar-amc-stat-icon.info { background: rgba(2, 160, 228, 0.1); color: #0284c7; }
+
+.bihar-amc-stat strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--bs-dark, #283c50);
+}
+
+.bihar-amc-stat span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bs-dark, #283c50);
+  margin-bottom: 2px;
+}
+
+.bihar-amc-stat small {
+  display: block;
+  font-size: 11px;
+  color: var(--bs-secondary, #64748b);
+}
+
+.bihar-amc-panel-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 16px;
+}
+
+.bihar-amc-panel {
+  border: 1px solid var(--bs-border-color, #dcdee4);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.bihar-amc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bs-border-color, #dcdee4);
+  background: #fafbfc;
+}
+
+.bihar-amc-panel-head h6 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--bs-dark, #283c50);
+}
+
+.bihar-amc-table thead th {
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bs-border-color, #dcdee4);
+}
+
+.bihar-amc-table tbody td {
+  font-size: 13px;
+  color: #334155;
+  padding: 13px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bihar-amc-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.bihar-amc-district-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bihar-amc-district-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(52, 84, 209, 0.08);
+  color: var(--bs-primary, #3454d1);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bihar-amc-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.bihar-amc-progress-wrap .progress {
+  flex: 1;
+  height: 6px;
+}
+
+.bihar-amc-empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--bs-secondary, #64748b);
+  font-size: 13px;
+}
+
+.bihar-amc-footer-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--bs-border-color, #dcdee4);
+  background: #fafbfc;
+}
+
+.bihar-amc-footer-stat {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--bs-border-color, #dcdee4);
+  background: #fff;
+}
+
+.bihar-amc-footer-stat span {
+  display: block;
+  font-size: 11px;
+  color: var(--bs-secondary, #64748b);
+  margin-bottom: 4px;
+}
+
+.bihar-amc-footer-stat strong {
+  display: block;
+  font-size: 18px;
+  color: var(--bs-dark, #283c50);
+}
+
+@media (max-width: 1199.98px) {
+  .bihar-amc-stat-grid,
+  .bihar-amc-footer-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bihar-amc-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .bihar-amc-hero {
+    padding: 20px;
+  }
+
+  .bihar-amc-stat-grid,
+  .bihar-amc-footer-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .bihar-amc-section-body {
+    padding: 16px;
+  }
+}

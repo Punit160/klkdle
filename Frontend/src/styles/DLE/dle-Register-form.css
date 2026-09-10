@@ -560,6 +560,39 @@
   gap: 10px;
 }
 
+.dle-form-error {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.dle-login-link {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dle-login-link a {
+  margin-left: 6px;
+  color: #7f0025;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dle-login-link a:hover {
+  text-decoration: underline;
+}
+
+.dle-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .dle-cancel-btn,
 .dle-submit-btn {
   height: 41px;

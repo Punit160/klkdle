@@ -1,26 +1,19 @@
 
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap");
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family: "DM Sans", sans-serif;
-  color: #18242b;
-}
-
-/* =========================================================
-   PAGE
-========================================================= */
-
 .login-page {
   width: 100%;
   min-height: 100vh;
   display: flex;
+  font-family: "DM Sans", sans-serif;
+  color: #18242b;
+  box-sizing: border-box;
+}
+
+.login-page *,
+.login-page *::before,
+.login-page *::after {
+  box-sizing: border-box;
 }
 
 /* =========================================================
@@ -696,8 +689,32 @@ body {
   transform: translateX(4px);
 }
 
-.login-button:active {
-  transform: translateY(0);
+.login-error {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-success {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
 }
 
 
@@ -854,7 +871,7 @@ body {
     padding: 48px 40px;
   }
 
-  .brand-text h1 {
+  .brand-text h2 {
     font-size: 42px;
   }
 
@@ -901,7 +918,7 @@ body {
     gap: 10px;
   }
 
-  .brand-text h1 {
+  .brand-text h2 {
     font-size: 38px;
   }
 
@@ -1053,7 +1070,7 @@ body {
     padding-right: 20px;
   }
 
-  .brand-text h1 {
+  .brand-text h2 {
     font-size: 27px;
   }
 

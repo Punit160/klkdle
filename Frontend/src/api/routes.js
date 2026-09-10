@@ -1,9 +1,11 @@
 /**
  * Single route map for the whole app.
  *
- * pages  → browser URLs  (/login, /bihar/amc/upload)
- * api    → this Node app  (POST /api/auth/login)
- * erp    → External API   (GET  https://klkerp.com/api/dle/.../volume)
+ * Bihar AMC and UP AMC are separate — always pass `bihar` or `up` explicitly.
+ *
+ * pages  → browser URLs       /bihar/amc/*  |  /up/amc/*
+ * api    → this Node app      /api/bihar/amc/*  |  /api/up/amc/*
+ * erp    → External klkerp.com /dle/bihar/ssl-amc/*  |  /dle/up/ssl-amc/*
  */
 
 const erpSsl = (state) => `/dle/${state}/ssl-amc`
@@ -15,6 +17,7 @@ export const pages = {
   register: '/register',
   dashboard: '/dashboard',
   profile: '/profile',
+  attendance: '/attendance',
   idCard: '/id-card',
   certificate: '/certificate',
 
@@ -28,6 +31,7 @@ export const pages = {
     lightAmc: '/bihar/amc/light',
     lightAmcList: '/bihar/amc/light/list',
     lightAmcDetails: '/bihar/amc/light/details',
+    assignAmc: '/bihar/amc/assign',
   },
 
   up: {
@@ -77,6 +81,7 @@ export const erp = {
     blocks: (state) => `${erpSsl(state)}/blocks`,
     panchayat: (state) => `${erpSsl(state)}/panchayat`,
     details: (state) => `${erpSsl(state)}/details`,
+    assign: (state) => `${erpSsl(state)}/assign`,
     complaintDetails: (state) => `${erpSsl(state)}/complaint/details`,
     complaintStore: (state) => `${erpSsl(state)}/complaint/store`,
     complaintView: (state) => `${erpSsl(state)}/complaint/view`,
@@ -98,6 +103,7 @@ export const api = {
     create: (state) => `${apiSsl(state)}/store`,
     view: (state) => `${apiSsl(state)}/view`,
     update: (state) => `${apiSsl(state)}/update`,
+    approvalStatus: (state) => `${apiSsl(state)}/approval/status`,
     dashboard: (state) => `${apiSsl(state)}/dashboard/district`,
     dashboardDistrict: (state) => `${apiSsl(state)}/dashboard/district`,
   },
@@ -108,6 +114,12 @@ export const api = {
     last: '/api/light-amc/last',
     periodStatus: '/api/light-amc/period-status',
     view: (id) => `/api/light-amc/view/${id}`,
+  },
+  attendance: {
+    today: '/api/attendance/today',
+    month: '/api/attendance/month',
+    punchIn: '/api/attendance/punch-in',
+    punchOut: '/api/attendance/punch-out',
   },
 }
 

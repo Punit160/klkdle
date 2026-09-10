@@ -3,6 +3,7 @@ import adminRoutes from "./DLE-Router/admin-route.js";
 import biharSslAmcRoutes from "./DLE-Router/Bihar-SSL-Router/Bihar_amc_route.js";
 import upSslAmcRoutes from "./DLE-Router/UP-SSL-Router/UP_ssl_amc_route.js";
 import lightAmcRoutes from "./DLE-Router/light-amc-route.js";
+import attendanceRoutes from "./DLE-Router/attendance-route.js";
 
 /** Mount every Node API under /api — one place to read all routes. */
 export const mountApiRoutes = (app) => {
@@ -19,6 +20,9 @@ export const mountApiRoutes = (app) => {
 
   // Light AMC (field visits)
   app.use("/api/light-amc", lightAmcRoutes);
+
+  // Attendance (punch in/out)
+  app.use("/api/attendance", attendanceRoutes);
 
   // JSON 404 for unknown API calls (avoids HTML "Cannot POST ..." in browser)
   app.use("/api", (req, res) => {

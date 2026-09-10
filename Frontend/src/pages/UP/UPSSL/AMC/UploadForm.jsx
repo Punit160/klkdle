@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +19,11 @@ import externalApi from '../../../../api/externalApi'
 import { getCompanyId, getUser } from '../../../../utils/auth'
 import localApi from '../../../../api/localApi'
 import { app, external, pages } from '../../../../api/routes'
+import {
+    filterExternalListByUser,
+    mapDistinctFieldOptions,
+} from '../../../../utils/externalApiUser'
+import { getSslAmcConfig } from '../../../../utils/sslAmcConfig'
 
 
 
@@ -406,6 +411,8 @@ const UploadForm = ({
 }) => {
 
     const navigate = useNavigate()
+    const amcConfig = getSslAmcConfig('up')
+    const locationConfig = amcConfig.location
 
 
     // =================================================
@@ -625,37 +632,17 @@ const UploadForm = ({
                         : []
 
 
-                const options =
-                    list
-                        .filter(
-                            (item) =>
-                                item?.district !==
-                                    null &&
-                                item?.district !==
-                                    undefined &&
-                                String(
-                                    item.district
-                                ).trim() !== ''
-                        )
-                        .map((item) => ({
-                            value: String(
-                                item.district
-                            ),
-                            label: String(
-                                item.district
-                            )
-                        }))
-
+                const options = mapDistinctFieldOptions(
+                    list,
+                    (item) => item.district
+                )
 
                 console.log(
                     "DISTRICT OPTIONS:",
                     options
                 )
 
-
-                setDistrictOptions(
-                    options
-                )
+                setDistrictOptions(options)
 
             } catch (err) {
 
@@ -736,37 +723,17 @@ const UploadForm = ({
                         : []
 
 
-                const options =
-                    list
-                        .filter(
-                            (item) =>
-                                item?.block !==
-                                    null &&
-                                item?.block !==
-                                    undefined &&
-                                String(
-                                    item.block
-                                ).trim() !== ''
-                        )
-                        .map((item) => ({
-                            value: String(
-                                item.block
-                            ),
-                            label: String(
-                                item.block
-                            )
-                        }))
-
+                const options = mapDistinctFieldOptions(
+                    list,
+                    (item) => item.block
+                )
 
                 console.log(
                     "BLOCK OPTIONS:",
                     options
                 )
 
-
-                setBlockOptions(
-                    options
-                )
+                setBlockOptions(options)
 
             } catch (err) {
 
@@ -856,30 +823,17 @@ const UploadForm = ({
                 
 
 
-               const options =
-    list
-        .filter(
-            (item) =>
-                item?.village !== null &&
-                item?.village !== undefined &&
-                String(item.village).trim() !== ''
-        )
-        .map((item) => ({
-            value: String(item.village),
-            label: String(item.village)
-        }))
-
-setPanchayatOptions(options)
+                const options = mapDistinctFieldOptions(
+                    list,
+                    locationConfig.extractListValue
+                )
 
                 console.log(
                     "PANCHAYAT OPTIONS:",
                     options
                 )
 
-
-                setPanchayatOptions(
-                    options
-                )
+                setPanchayatOptions(options)
 
             } catch (err) {
 
@@ -893,7 +847,7 @@ setPanchayatOptions(options)
                 setSubmitError(
                     getErrorMessage(
                         err,
-                        "Failed to load panchayats. Please try again."
+                        `Failed to load ${locationConfig.label.toLowerCase()}s. Please try again.`
                     )
                 )
 
@@ -959,20 +913,17 @@ setPanchayatOptions(options)
                             {
                                 params: {
 
-                                    district:
-                                        selectedDistrict.value,
+                                    ...locationConfig.withLocalityParam(
+                                        {
+                                            district: selectedDistrict.value,
+                                            block: selectedBlock.value,
+                                        },
+                                        selectedPanchayat.value
+                                    ),
 
-                                    block:
-                                        selectedBlock.value,
+                                    start_month_year: startMonth,
 
-                                    panchayat:
-                                        selectedPanchayat.value,
-
-                                    start_month_year:
-                                        startMonth,
-
-                                    end_month_year:
-                                        endMonth
+                                    end_month_year: endMonth
                                 }
                             }
                         )
@@ -984,24 +935,18 @@ setPanchayatOptions(options)
                     )
 
 
-                    const list =
-                        Array.isArray(
-                            res?.data?.data
-                        )
+                    const list = filterExternalListByUser(
+                        Array.isArray(res?.data?.data)
                             ? res.data.data
                             : []
-
+                    )
 
                     console.log(
                         "SITE LIST:",
                         list
                     )
 
-
-                    setSiteDetails(
-                        list
-                    )
-
+                    setSiteDetails(list)
 
                     setSelectedSiteIds(
                         list
@@ -1653,7 +1598,7 @@ setPanchayatOptions(options)
 
                     title="Location Details"
 
-                    subtitle="Select the district, block and panchayat"
+                    subtitle={locationConfig.locationSubtitle}
 
                 />
 
@@ -1752,14 +1697,14 @@ setPanchayatOptions(options)
 
 
                     {/* -------------------------------------
-                        PANCHAYAT
+                        VILLAGE
                     ------------------------------------- */}
 
                     <div className="col-lg-4 col-md-6">
 
                         <label className="form-label">
 
-                            Panchayat
+                            {locationConfig.label}
 
                             <span className="text-danger">
                                 *
@@ -1777,12 +1722,12 @@ setPanchayatOptions(options)
                             defaultSelect={
 
                                 !selectedBlock
-                                    ? "Select Block First"
+                                    ? locationConfig.selectBlockFirstText
 
                                     : isPanchayatLoading
-                                        ? "Loading panchayats..."
+                                        ? locationConfig.loadingText
 
-                                        : "Select Panchayat"
+                                        : locationConfig.selectText
 
                             }
 

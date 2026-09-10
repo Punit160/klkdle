@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -17,6 +17,11 @@ import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import externalApi from '../../../../api/externalApi'
 import { external, pages } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
+import { fetchAutoSslVolume, withSslVolume } from '../../../../utils/sslVolume'
+import {
+    filterExternalListByUser,
+    matchesDleAmcUser,
+} from '../../../../utils/externalApiUser'
 
 const toOptions = (arr) => arr.map((item) => ({ value: item, label: item }))
 
@@ -222,20 +227,22 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         const district = location.state?.district
         const block = location.state?.block
         const panchayat = location.state?.panchayat
-        const volume = Array.isArray(location.state?.volume)
-            ? location.state.volume[0]
-            : (location.state?.volume || location.state?.state)
 
-        if (!district || !block || !panchayat || !volume) return
+        if (!district || !block || !panchayat) return
 
         let cancelled = false
 
         const enrichPoleOptions = async () => {
             try {
+                const volume = await fetchAutoSslVolume('bihar')
+                if (!volume) return
+
                 const res = await externalApi.get(external.ssl.details('bihar'), {
-                    params: { district, block, panchayat, volume },
+                    params: withSslVolume({ district, block, panchayat }, volume),
                 })
-                const list = Array.isArray(res?.data?.data) ? res.data.data : []
+                const list = filterExternalListByUser(
+                    Array.isArray(res?.data?.data) ? res.data.data : []
+                )
                 if (cancelled || !list.length) return
 
                 const bySslId = new Map(
@@ -277,6 +284,11 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
                     params: { ssl_id: selectedPole.value },
                 })
                 const data = res?.data?.data || res?.data || null
+                if (data && !matchesDleAmcUser(data)) {
+                    setSiteDetails(null)
+                    setDetailsError('This light is not assigned to your account.')
+                    return
+                }
                 setSiteDetails(data)
 
                 const uniqueId = data?.unique_id || data?.uniqueId

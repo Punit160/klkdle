@@ -3,6 +3,8 @@ import { FiChevronRight } from "react-icons/fi";
 import { Link, useLocation } from "react-router-dom";
 import { menuList } from "@/components/shared/navigationMenu/menuList";
 import getIcon from "@/utils/getIcon";
+import { getUser } from "@/utils/auth";
+import { filterMenuByUserState } from "@/utils/stateAccess";
 
 // Normalize a route path for comparison: strip leading slashes, lowercase.
 const normalize = (p = "") => p.replace(/^\/+/, "").toLowerCase();
@@ -12,6 +14,8 @@ const Menus = () => {
     const [openDropdown, setOpenDropdown] = useState(null);
     const pathName = useLocation().pathname;
     const currentPath = normalize(pathName);
+    const user = getUser();
+    const visibleMenu = filterMenuByUserState(menuList, user);
 
     const isPathActive = (path) => !!path && normalize(path) === currentPath;
 
@@ -24,7 +28,7 @@ const Menus = () => {
     useEffect(() => {
         let matchedKey = null;
 
-        menuList.forEach((group) => {
+        visibleMenu.forEach((group) => {
             group.items.forEach((item) => {
                 const key = `${group.id}-${item.id}`;
                 const hasActiveLeaf =
@@ -45,7 +49,7 @@ const Menus = () => {
 
     return (
         <>
-            {menuList.map((group) => (
+            {visibleMenu.map((group) => (
                 <Fragment key={group.id}>
                     {/* State-level caption, replaces the old static "Navigation" label */}
                     <li className="nxl-item nxl-caption">

@@ -1,4 +1,5 @@
 import prisma from '../../../Config/Prisma.js'
+import { serializeAmcApprovalFields } from '../../../Utils/amcApproval.js'
 import { toPublicFileUrl } from '../../../Utils/publicUrl.js'
 
 
@@ -303,6 +304,8 @@ export const createAmcDocument = async (req, res) => {
                                 validation_status:
                                     'pending',
 
+                                approval_status:
+                                    0,
 
                                 created_by:
                                     BigInt(user_id),
@@ -622,6 +625,8 @@ export const getAmcDocuments = async (req, res) => {
 
                     validation_status:
                         upload.validation_status,
+
+                    ...serializeAmcApprovalFields(upload),
 
                     created_by:
                         upload.created_by?.toString(),

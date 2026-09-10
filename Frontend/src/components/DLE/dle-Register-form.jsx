@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import localApi from "../../api/localApi";
-import { app } from "../../api/routes";
+import { app, pages } from "../../api/routes";
 import {
   FaPhoneAlt,
   FaHeart,
@@ -77,6 +78,9 @@ const initialDocuments = {
 };
 
 const DLERegistrationForm = () => {
+  const navigate = useNavigate();
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [documents, setDocuments] = useState(initialDocuments);
   const [formData, setFormData] = useState({
     employeeName: "",
@@ -128,11 +132,24 @@ const DLERegistrationForm = () => {
 
 const handleSubmit = async (e) => {
   e.preventDefault();
+  setSubmitError("");
 
-  if (requiredUploadedCount !== requiredDocuments.length) {
-    alert("Please upload all required documents.");
+  if (!formData.employeeName.trim() || !formData.email.trim() || !formData.contactNo.trim()) {
+    setSubmitError("Name, email, and contact number are required.");
     return;
   }
+
+  if (!formData.state || !formData.district || !formData.block || !formData.panchayat) {
+    setSubmitError("Please complete your location details.");
+    return;
+  }
+
+  if (requiredUploadedCount !== requiredDocuments.length) {
+    setSubmitError("Please upload all required documents.");
+    return;
+  }
+
+  setSubmitting(true);
 
   try {
     const data = new FormData();
@@ -207,17 +224,20 @@ const handleSubmit = async (e) => {
     );
 
     if (response.data.success) {
-      alert(response.data.message);
-
-      handleCancel();
+      navigate(pages.login, {
+        replace: true,
+        state: { registered: true, message: response.data.message },
+      });
     }
   } catch (error) {
     console.error("Registration Error:", error);
 
-    alert(
+    setSubmitError(
       error.response?.data?.message ||
       "Registration failed. Please try again."
     );
+  } finally {
+    setSubmitting(false);
   }
 };
 
@@ -266,6 +286,12 @@ const handleSubmit = async (e) => {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {submitError && (
+            <div className="dle-form-error" role="alert">
+              {submitError}
+            </div>
+          )}
+
           <div className="dle-top-sections">
             <section className="dle-section contact-section">
               <div className="dle-section-heading">
@@ -624,10 +650,15 @@ const handleSubmit = async (e) => {
                 Cancel
               </button>
 
-              <button type="submit" className="dle-submit-btn">
-                Submit
-                <span>/ जमा करें</span>
+              <button type="submit" className="dle-submit-btn" disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit"}
+                {!submitting && <span>/ जमा करें</span>}
               </button>
+            </div>
+
+            <div className="dle-login-link">
+              <span>Already have an account?</span>
+              <Link to={pages.login}>Sign in</Link>
             </div>
           </div>
         </form>

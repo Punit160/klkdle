@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import path from "path";
 
 import {
   createUser,
@@ -8,6 +9,36 @@ import {
   updateUserPassword,
 } from "../../Model/DLE-Model/dle-user-model.js";
 
+const resolveUserIdFromToken = (req) => {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+
+  if (!token || !process.env.JWT_SECRET) {
+    return null;
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    return payload?.id?.toString?.() ?? String(payload.id);
+  } catch {
+    return null;
+  }
+};
+
+const resolveStoredUploadPath = (storedValue) => {
+  const storedPath = String(storedValue || "").trim();
+  if (!storedPath) return null;
+
+  if (storedPath.startsWith("/uploads/")) {
+    return path.join(process.cwd(), storedPath.slice(1));
+  }
+
+  if (storedPath.startsWith("uploads/")) {
+    return path.join(process.cwd(), storedPath);
+  }
+
+  return path.join(process.cwd(), "uploads", storedPath);
+};
 
 export const registerUser = async (req, res) => {
   try {
@@ -137,7 +168,18 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    if (user.status !== 1) {
+    const approvalStatus = Number(user.approval_status ?? 0);
+
+    if (approvalStatus === 2) {
+      return res.status(403).json({
+        success: false,
+        message: user.approval_remarks
+          ? `Your application was rejected: ${user.approval_remarks}`
+          : "Your application was rejected by admin.",
+      });
+    }
+
+    if (user.status !== 1 || approvalStatus !== 1) {
       return res.status(403).json({
         success: false,
         message: "Your account is waiting for admin approval",
@@ -239,28 +281,21 @@ export const loginUser = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    let userId = req.query.userId;
+    const tokenUserId = resolveUserIdFromToken(req);
 
-    if (!userId) {
-      const header = req.headers.authorization || "";
-      const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-      if (token && process.env.JWT_SECRET) {
-        try {
-          const payload = jwt.verify(token, process.env.JWT_SECRET);
-          userId = payload?.id;
-        } catch {
-          return res.status(401).json({
-            success: false,
-            message: "Invalid or expired token",
-          });
-        }
-      }
+    if (!tokenUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization token required",
+      });
     }
 
-    if (!userId) {
-      return res.status(400).json({
+    const userId = req.query.userId || tokenUserId;
+
+    if (String(userId) !== String(tokenUserId)) {
+      return res.status(403).json({
         success: false,
-        message: "User ID is required",
+        message: "You can only access your own profile",
       });
     }
 
@@ -298,12 +333,21 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const userId = req.query.userId;
+    const tokenUserId = resolveUserIdFromToken(req);
 
-    if (!userId) {
-      return res.status(400).json({
+    if (!tokenUserId) {
+      return res.status(401).json({
         success: false,
-        message: "User ID is required",
+        message: "Authorization token required",
+      });
+    }
+
+    const userId = req.query.userId || tokenUserId;
+
+    if (String(userId) !== String(tokenUserId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update your own profile",
       });
     }
 
@@ -337,7 +381,23 @@ export const updateProfile = async (req, res) => {
 export const downloadDocument = async (req, res) => {
   try {
     const { field } = req.params;
-    const userId = req.query.userId;
+    const tokenUserId = resolveUserIdFromToken(req);
+
+    if (!tokenUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization token required",
+      });
+    }
+
+    const userId = req.query.userId || tokenUserId;
+
+    if (String(userId) !== String(tokenUserId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only download your own documents",
+      });
+    }
 
     const allowedFields = [
       "educational_document",
@@ -365,17 +425,18 @@ export const downloadDocument = async (req, res) => {
       });
     }
 
-    const path = await import("path");
+    const filePath = resolveStoredUploadPath(user[field]);
 
-    const filePath = path.join(
-      process.cwd(),
-      "uploads",
-      user[field]
-    );
+    if (!filePath) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found",
+      });
+    }
 
     return res.download(
       filePath,
-      user[field]
+      path.basename(filePath)
     );
 
   } catch (error) {
@@ -391,15 +452,32 @@ export const downloadDocument = async (req, res) => {
 
 export const changePassword = async (req, res) => {
   try {
+    const tokenUserId = resolveUserIdFromToken(req);
+
+    if (!tokenUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization token required",
+      });
+    }
+
     const {
-      userId,
+      userId: bodyUserId,
       currentPassword,
       newPassword,
       confirmPassword
     } = req.body;
 
+    const userId = bodyUserId || tokenUserId;
+
+    if (String(userId) !== String(tokenUserId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only change your own password",
+      });
+    }
+
     if (
-      !userId ||
       !currentPassword ||
       !newPassword ||
       !confirmPassword

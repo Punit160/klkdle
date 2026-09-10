@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiX, FiUploadCloud, FiMapPin, FiCalendar, FiPaperclip, FiCheckCircle, FiLoader, FiList } from 'react-icons/fi'
@@ -8,6 +8,11 @@ import externalApi from '../../../../api/externalApi'
 import localApi from '../../../../api/localApi'
 import { app, external, pages } from '../../../../api/routes'
 import { getCompanyId, getUser } from '../../../../utils/auth'
+import { fetchAutoSslVolume, withSslVolume } from '../../../../utils/sslVolume'
+import {
+    filterExternalListByUser,
+    mapDistinctFieldOptions,
+} from '../../../../utils/externalApiUser'
 
 const addMonthsToInput = (monthValue, monthsToAdd) => {
     if (!monthValue) return ''
@@ -189,9 +194,8 @@ const DoneSiteCard = ({ site }) => (
 const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
     const navigate = useNavigate()
 
-    const [selectedVolume, setSelectedVolume] = useState(null)
-    const [volumeOptions, setVolumeOptions] = useState([])
-    const [isVolumeLoading, setIsVolumeLoading] = useState(false)
+    const [autoVolume, setAutoVolume] = useState(null)
+    const [isVolumeResolving, setIsVolumeResolving] = useState(true)
 
     const [selectedDistrict, setSelectedDistrict] = useState(null)
     const [selectedBlock, setSelectedBlock] = useState(null)
@@ -235,38 +239,53 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
     const [submitSuccess, setSubmitSuccess] = useState(false)
     const [successMessage, setSuccessMessage] = useState("")
 
-    // ---- Fetch volumes on mount (drives the header select box) ----
+    // ---- Resolve volume silently (required by external API, not shown in UI) ----
     useEffect(() => {
-        const fetchVolumes = async () => {
-            setIsVolumeLoading(true)
+        let cancelled = false
+
+        const resolveVolume = async () => {
+            setIsVolumeResolving(true)
             try {
-                const res = await externalApi.get(external.ssl.volume('bihar'))
-                const list = res?.data?.data || []
-                setVolumeOptions(toOptions(list.map((item) => item.volume)))
+                const volume = await fetchAutoSslVolume('bihar')
+                if (cancelled) return
+                if (!volume) {
+                    setSubmitError('No volume assigned to your account. Please contact admin.')
+                    setAutoVolume(null)
+                    return
+                }
+                setAutoVolume(volume)
             } catch (err) {
-                console.error('Failed to fetch volumes:', err)
-                setVolumeOptions([])
+                if (!cancelled) {
+                    setAutoVolume(null)
+                    setSubmitError(getErrorMessage(err, 'Failed to load location data. Please refresh and try again.'))
+                }
             } finally {
-                setIsVolumeLoading(false)
+                if (!cancelled) setIsVolumeResolving(false)
             }
         }
-        fetchVolumes()
+
+        resolveVolume()
+        return () => { cancelled = true }
     }, [])
 
-    // ---- Fetch districts whenever volume changes ----
+    // ---- Fetch districts once volume is resolved ----
     useEffect(() => {
-        if (!selectedVolume) {
-            setDistrictOptions([])
+        if (!autoVolume) {
+            if (!isVolumeResolving) setDistrictOptions([])
             return
         }
+
         const fetchDistricts = async () => {
             setIsDistrictLoading(true)
             try {
-                const res = await externalApi.get(external.ssl.district('bihar'), {
-                    params: { volume: selectedVolume.value },
-                })
+                const res = await externalApi.get(
+                    external.ssl.district('bihar'),
+                    { params: withSslVolume({}, autoVolume) }
+                )
                 const list = res?.data?.data || []
-                setDistrictOptions(toOptions(list.map((item) => item.district)))
+                setDistrictOptions(
+                    mapDistinctFieldOptions(list, (item) => item.district)
+                )
             } catch (err) {
                 console.error('Failed to fetch districts:', err)
                 setDistrictOptions([])
@@ -276,12 +295,11 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             }
         }
         fetchDistricts()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedVolume])
+    }, [autoVolume, isVolumeResolving])
 
     // ---- Fetch blocks whenever district changes ----
     useEffect(() => {
-        if (!selectedDistrict || !selectedVolume) {
+        if (!selectedDistrict || !autoVolume) {
             setBlockOptions([])
             return
         }
@@ -289,10 +307,12 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             setIsBlockLoading(true)
             try {
                 const res = await externalApi.get(external.ssl.blocks('bihar'), {
-                    params: { district: selectedDistrict.value, volume: selectedVolume.value },
+                    params: withSslVolume({ district: selectedDistrict.value }, autoVolume),
                 })
                 const list = res?.data?.data || []
-                setBlockOptions(toOptions(list.map((item) => item.block)))
+                setBlockOptions(
+                    mapDistinctFieldOptions(list, (item) => item.block)
+                )
             } catch (err) {
                 console.error('Failed to fetch blocks:', err)
                 setBlockOptions([])
@@ -302,12 +322,12 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             }
         }
         fetchBlocks()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDistrict, selectedVolume])
+         
+    }, [selectedDistrict, autoVolume])
 
     // ---- Fetch panchayats whenever district + block change ----
     useEffect(() => {
-        if (!selectedDistrict || !selectedBlock || !selectedVolume) {
+        if (!selectedDistrict || !selectedBlock || !autoVolume) {
             setPanchayatOptions([])
             return
         }
@@ -315,10 +335,15 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             setIsPanchayatLoading(true)
             try {
                 const res = await externalApi.get(external.ssl.panchayat('bihar'), {
-                    params: { district: selectedDistrict.value, block: selectedBlock.value, volume: selectedVolume.value },
+                    params: withSslVolume({
+                        district: selectedDistrict.value,
+                        block: selectedBlock.value,
+                    }, autoVolume),
                 })
                 const list = res?.data?.data || []
-                setPanchayatOptions(toOptions(list.map((item) => item.panchyat)))
+                setPanchayatOptions(
+                    mapDistinctFieldOptions(list, (item) => item.panchyat || item.panchayat)
+                )
             } catch (err) {
                 console.error('Failed to fetch panchayats:', err)
                 setPanchayatOptions([])
@@ -328,14 +353,12 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             }
         }
         fetchPanchayats()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDistrict, selectedBlock, selectedVolume])
+         
+    }, [selectedDistrict, selectedBlock, autoVolume])
 
     // ---- Fetch site details whenever district + block + panchayat + start/end month change ----
-  // ---- Fetch site details as soon as district + block + panchayat + volume are selected ----
-// (start/end month ab optional filter hain, wait nahi karte)
 useEffect(() => {
-    if (!selectedDistrict || !selectedBlock || !selectedPanchayat || !selectedVolume || !startMonth || !endMonth) {
+    if (!selectedDistrict || !selectedBlock || !selectedPanchayat || !autoVolume || !startMonth || !endMonth) {
         setSiteDetails([])
         setSelectedSiteIds([])
         setSiteSummary(null)
@@ -353,14 +376,13 @@ useEffect(() => {
         setSelectedSiteIds([])
         setQuarterNote("")
         try {
-            const params = {
+            const params = withSslVolume({
                 district: selectedDistrict.value,
                 block: selectedBlock.value,
                 panchayat: selectedPanchayat.value,
-                volume: selectedVolume.value,
                 start_month_year: startMonth,
                 end_month_year: endMonth,
-            }
+            }, autoVolume)
 
             const res = await externalApi.get(external.ssl.details('bihar'), {
                 params,
@@ -368,7 +390,7 @@ useEffect(() => {
 
             if (cancelled) return
 
-            const list = res?.data?.data || []
+            const list = filterExternalListByUser(res?.data?.data || [])
             let annotated = list.map((item) => ({ ...item, amcDone: false, amcDate: '' }))
             let selectableIds = annotated.map((item) => item.id)
             let note = ""
@@ -462,8 +484,8 @@ useEffect(() => {
     }
     fetchSiteDetails()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedDistrict, selectedBlock, selectedPanchayat, selectedVolume, startMonth, endMonth])
+     
+}, [selectedDistrict, selectedBlock, selectedPanchayat, autoVolume, startMonth, endMonth])
 
     const handleDistrictSelect = (option) => {
         setSelectedDistrict(option)
@@ -477,13 +499,6 @@ useEffect(() => {
     }
 
     const handlePanchayatSelect = (option) => setSelectedPanchayat(option)
-
-    const handleVolumeSelect = (option) => {
-        setSelectedVolume(option)
-        setSelectedDistrict(null)
-        setSelectedBlock(null)
-        setSelectedPanchayat(null)
-    }
 
     // Remove a single site badge (keeps the raw list, just drops it from the selected ids)
     const removeSite = (id) => setSelectedSiteIds((prev) => prev.filter((sid) => sid !== id))
@@ -521,7 +536,7 @@ useEffect(() => {
     }
 
     if (
-        !selectedVolume ||
+        !autoVolume ||
         !selectedDistrict ||
         !selectedBlock ||
         !selectedPanchayat ||
@@ -592,7 +607,7 @@ useEffect(() => {
 
     formData.append(
         "volume",
-        selectedVolume.value
+        autoVolume
     )
 
     formData.append(
@@ -786,34 +801,23 @@ useEffect(() => {
                 <SectionHeading
                     icon={<FiMapPin size={16} />}
                     title="Location Details"
-                    subtitle="Select the volume, district, block and panchayat"
+                    subtitle="Select the district, block and panchayat"
                 />
                 <div className="row">
-                    <div className="col-lg-3 col-md-6">
-                        <label className="form-label">Volume <span className="text-danger">*</span></label>
-                        <SelectDropdown
-                            options={volumeOptions}
-                            defaultSelect={isVolumeLoading ? "Loading volumes..." : "Select Volume"}
-                            selectedOption={selectedVolume}
-                            onSelectOption={handleVolumeSelect}
-                        />
-                    </div>
-                    <div className="col-lg-3 col-md-6">
+                    <div className="col-lg-4 col-md-6">
                         <label className="form-label">District <span className="text-danger">*</span></label>
                         <SelectDropdown
                             options={districtOptions}
                             defaultSelect={
-                                !selectedVolume
-                                    ? "Select Volume First"
-                                    : isDistrictLoading
-                                        ? "Loading districts..."
-                                        : "Select District"
+                                isVolumeResolving || isDistrictLoading
+                                    ? "Loading districts..."
+                                    : "Select District"
                             }
                             selectedOption={selectedDistrict}
                             onSelectOption={handleDistrictSelect}
                         />
                     </div>
-                    <div className="col-lg-3 col-md-6">
+                    <div className="col-lg-4 col-md-6">
                         <label className="form-label">Block <span className="text-danger">*</span></label>
                         <SelectDropdown
                             options={blockOptions}
@@ -828,7 +832,7 @@ useEffect(() => {
                             onSelectOption={handleBlockSelect}
                         />
                     </div>
-                    <div className="col-lg-3 col-md-6">
+                    <div className="col-lg-4 col-md-6">
                         <label className="form-label">Panchayat <span className="text-danger">*</span></label>
                         <SelectDropdown
                             options={panchayatOptions}

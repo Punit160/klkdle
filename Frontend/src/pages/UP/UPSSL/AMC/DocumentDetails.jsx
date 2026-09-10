@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiArrowLeft, FiEyeOff, FiEye, FiFileText, FiEdit, FiCheck, FiX, FiLoader, FiCheckCircle, FiUploadCloud, FiMapPin, FiClock, FiLayers } from 'react-icons/fi'
@@ -6,6 +6,11 @@ import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import localApi from '../../../../api/localApi'
 import { app, pages } from '../../../../api/routes'
 import { getCompanyId } from '../../../../utils/auth'
+import {
+    formatApprovalDate,
+    getAmcApprovalBadgeClass,
+    getAmcApprovalLabel,
+} from '../../../../utils/amcApproval'
 
 const getErrorMessage = (err, fallback = "Something went wrong. Please try again.") => {
     const data = err?.response?.data
@@ -254,6 +259,9 @@ const DocumentEntryCard = ({ entry, isEditing, onStartEdit, onCancelEdit, onSave
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                     <span className="fs-12 fw-semibold text-dark">Document #{entry.id}</span>
                     {validationBadge(entry.validation_status)}
+                    <span className={`badge ${getAmcApprovalBadgeClass(entry.approval_status)} rounded-pill`}>
+                        {getAmcApprovalLabel(entry.approval_status)}
+                    </span>
                 </div>
                 {isEditing ? (
                     <div className="d-flex gap-2">
@@ -267,6 +275,21 @@ const DocumentEntryCard = ({ entry, isEditing, onStartEdit, onCancelEdit, onSave
                         <FiEdit size={12} /> Edit
                     </button>
                 )}
+            </div>
+
+            <div className="row g-3 mb-3">
+                <div className="col-md-3">
+                    <label className="fs-11 text-muted d-block mb-1">Approval Date</label>
+                    <span className="fs-12 text-dark">{formatApprovalDate(entry.approval_date)}</span>
+                </div>
+                <div className="col-md-3">
+                    <label className="fs-11 text-muted d-block mb-1">Approval By</label>
+                    <span className="fs-12 text-dark">{entry.approval_by || '-'}</span>
+                </div>
+                <div className="col-md-6">
+                    <label className="fs-11 text-muted d-block mb-1">Approval Remarks</label>
+                    <span className="fs-12 text-muted">{entry.approval_remarks || '-'}</span>
+                </div>
             </div>
 
             <div className="row g-3 mb-3">
