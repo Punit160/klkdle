@@ -5,3 +5,7 @@ node_modules/
 .env.local
 dist/
 build/
+
+# User uploads — local/live only, never commit to git
+uploads/*
+!uploads/.gitkeep
