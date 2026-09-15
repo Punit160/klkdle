@@ -5,6 +5,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mountApiRoutes } from "./Routes/mountApi.js";
+import {
+  findExistingUploadFile,
+  getUploadsInfo,
+  getUploadsRoot,
+} from "./Utils/uploadsPath.js";
 
 dotenv.config();
 
@@ -95,7 +100,30 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/uploads", express.static("uploads"));
+app.get("/api/uploads-info", (req, res) => {
+  res.json({
+    success: true,
+    data: getUploadsInfo(),
+  });
+});
+
+app.use("/uploads", (req, res, next) => {
+  const filePath = findExistingUploadFile(req.path);
+
+  if (!filePath) {
+    res.status(404).json({
+      success: false,
+      message: "File not found",
+      uploadsRoot: getUploadsRoot(),
+      requested: req.originalUrl,
+    });
+    return;
+  }
+
+  res.sendFile(filePath, (error) => {
+    if (error) next(error);
+  });
+});
 
 app.get("/health", (req, res) => {
   res.json({
@@ -147,5 +175,12 @@ if (hasFrontend) {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
+  const uploadsInfo = getUploadsInfo();
   console.log(`Server running on port ${PORT}`);
+  console.log(`Uploads root: ${uploadsInfo.uploadsRoot} (exists: ${uploadsInfo.exists})`);
+  if (uploadsInfo.exists) {
+    console.log(
+      `Upload folders: light-amc=${uploadsInfo.lightAmcCount}, user entries=${uploadsInfo.userCount}`
+    );
+  }
 });

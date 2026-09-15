@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import path from "path";
 
 import {
   createUser,
@@ -9,6 +8,7 @@ import {
   updateUser,
   updateUserPassword,
 } from "../../Model/DLE-Model/dle-user-model.js";
+import { resolveStoredUploadPath } from "../../Utils/uploadsPath.js";
 
 const resolveUserIdFromToken = (req) => {
   const header = req.headers.authorization || "";
@@ -24,21 +24,6 @@ const resolveUserIdFromToken = (req) => {
   } catch {
     return null;
   }
-};
-
-const resolveStoredUploadPath = (storedValue) => {
-  const storedPath = String(storedValue || "").trim();
-  if (!storedPath) return null;
-
-  if (storedPath.startsWith("/uploads/")) {
-    return path.join(process.cwd(), storedPath.slice(1));
-  }
-
-  if (storedPath.startsWith("uploads/")) {
-    return path.join(process.cwd(), storedPath);
-  }
-
-  return path.join(process.cwd(), "uploads", storedPath);
 };
 
 export const registerUser = async (req, res) => {
