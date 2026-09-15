@@ -28,9 +28,12 @@ externalApi.interceptors.request.use(
       config.params.company_id = companyId
     }
 
-    if (userId && !isUp) {
-      config.params.dle_amc_id = userId
+    if (userId) {
       config.params.user_id = config.params.user_id ?? userId
+      // UP ERP requires user_id but does not use dle_amc assignment filtering
+      if (!isUp) {
+        config.params.dle_amc_id = userId
+      }
     }
 
     return config

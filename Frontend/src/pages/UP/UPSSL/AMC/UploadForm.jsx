@@ -1130,7 +1130,7 @@ const UploadForm = ({
             getUser()
 
         const userId =
-            user?.id
+            user?.id ?? user?.user_id ?? null
 
 
         // ---------------------------------------------
