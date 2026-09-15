@@ -1,10 +1,12 @@
 import express from "express";
 import upload from "../../Middleware/UploadMiddleware.js";
+import { protect } from "../../Middleware/authmiddleware.js";
 import {
   getLastLightAmc,
   getLightAmcById,
   getLightAmcs,
   getLightAmcsInPeriod,
+  getRecentLightAmcs,
   storeLightAmc,
 } from "../../Controller/DLE-Controller/light-amc-controller.js";
 
@@ -19,9 +21,10 @@ router.post(
   storeLightAmc
 );
 
-router.get("/get", getLightAmcs);
-router.get("/period-status", getLightAmcsInPeriod);
-router.get("/view/:id", getLightAmcById);
-router.get("/last", getLastLightAmc);
+router.get("/get", protect, getLightAmcs);
+router.get("/recent-done", protect, getRecentLightAmcs);
+router.get("/period-status", protect, getLightAmcsInPeriod);
+router.get("/view/:id", protect, getLightAmcById);
+router.get("/last", protect, getLastLightAmc);
 
 export default router;

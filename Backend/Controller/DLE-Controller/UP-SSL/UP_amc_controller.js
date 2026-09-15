@@ -1,6 +1,11 @@
 import prisma from '../../../Config/Prisma.js'
 import { serializeAmcApprovalFields } from '../../../Utils/amcApproval.js'
 import { toPublicFileUrl } from '../../../Utils/publicUrl.js'
+import {
+    buildCreatedByDocumentWhere,
+    buildCreatedByUploadInclude,
+    resolveRequestUserId,
+} from '../../../Utils/requestUser.js'
 
 
 const parseJsonArray = (value) => {
@@ -381,16 +386,24 @@ export const createAmcDocument = async (req, res) => {
 export const getAmcDocuments = async (req, res) => {
 
     try {
+        const userId = resolveRequestUserId(req)
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User authentication required',
+            })
+        }
 
         const documents =
             await prisma.upSslAmcDocument.findMany({
-
+                where: buildCreatedByDocumentWhere(userId),
                 orderBy: {
                     id: 'desc',
                 },
 
                 include: {
-                    uploadDocuments: true,
+                    uploadDocuments: buildCreatedByUploadInclude(userId),
                 },
             })
 
@@ -650,6 +663,8 @@ export const getAmcDocuments = async (req, res) => {
         const data =
             Array.from(
                 groupedMap.values()
+            ).filter((row) =>
+                row.amc.some((period) => (period.document || []).length > 0)
             )
 
 
@@ -780,6 +795,14 @@ export const getAmcDocuments = async (req, res) => {
 
 export const getAllDistricts = async (req, res) => {
     try {
+        const userId = resolveRequestUserId(req)
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User authentication required',
+            })
+        }
 
         // ==========================================
         // FETCH ALL UP AMC DOCUMENTS
@@ -787,8 +810,9 @@ export const getAllDistricts = async (req, res) => {
 
         const documents =
             await prisma.upSslAmcDocument.findMany({
+                where: buildCreatedByDocumentWhere(userId),
                 include: {
-                    uploadDocuments: true,
+                    uploadDocuments: buildCreatedByUploadInclude(userId),
                 },
                 orderBy: {
                     id: 'desc',

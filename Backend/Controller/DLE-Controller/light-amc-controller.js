@@ -4,8 +4,10 @@ import {
   findLightAmcById,
   findLightAmcs,
   findLightAmcsInPeriod,
+  findRecentLightAmcs,
   serializeLightAmc,
 } from "../../Model/DLE-Model/light-amc-model.js";
+import { resolveRequestUserId } from "../../Utils/requestUser.js";
 
 const addMonths = (value, months) => {
   const date = new Date(value);
@@ -84,8 +86,16 @@ export const getLightAmcs = async (req, res) => {
   try {
     const companyId = req.query.company_id;
     const state = req.query.state;
+    const userId = resolveRequestUserId(req);
 
-    const rows = await findLightAmcs({ companyId, state });
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required",
+      });
+    }
+
+    const rows = await findLightAmcs({ companyId, state, userId });
 
     return res.status(200).json({
       success: true,
@@ -96,6 +106,60 @@ export const getLightAmcs = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch AMC records",
+    });
+  }
+};
+
+export const getRecentLightAmcs = async (req, res) => {
+  try {
+    const {
+      company_id,
+      state,
+      district,
+      block,
+      panchayat,
+      within_days,
+    } = req.query;
+
+    const userId = resolveRequestUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required",
+      });
+    }
+
+    const withinDays = Math.max(1, Number(within_days) || 80);
+    const rows = await findRecentLightAmcs({
+      companyId: company_id,
+      state,
+      userId,
+      district,
+      block,
+      panchayat,
+      withinDays,
+    });
+
+    return res.status(200).json({
+      success: true,
+      within_days: withinDays,
+      data: rows.map((row) => {
+        const serialized = serializeLightAmc(row);
+        return {
+          ssl_id: serialized.ssl_id,
+          unique_id: serialized.unique_id,
+          pole_no: serialized.pole_no,
+          amc_date: serialized.amc_date,
+          next_amc_date: serialized.next_amc_date,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error("GET RECENT LIGHT AMCS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch recent AMC records",
     });
   }
 };
@@ -118,8 +182,18 @@ export const getLightAmcsInPeriod = async (req, res) => {
       });
     }
 
+    const userId = resolveRequestUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required",
+      });
+    }
+
     const rows = await findLightAmcsInPeriod({
       companyId: company_id,
+      userId,
       district,
       block,
       panchayat,
@@ -163,7 +237,16 @@ export const getLightAmcById = async (req, res) => {
       });
     }
 
-    const row = await findLightAmcById(id, companyId);
+    const userId = resolveRequestUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required",
+      });
+    }
+
+    const row = await findLightAmcById(id, companyId, userId);
     if (!row) {
       return res.status(404).json({
         success: false,

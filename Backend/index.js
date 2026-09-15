@@ -28,9 +28,11 @@ const extraOrigins = String(process.env.CORS_ORIGINS || "")
 
 const allowedOrigins = new Set(
   [
+    "http://localhost:3001",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
+    "http://127.0.0.1:3001",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "http://127.0.0.1:5175",
@@ -46,6 +48,29 @@ const allowedOrigins = new Set(
     .map((value) => value.replace(/\/$/, ""))
 );
 
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  const normalized = origin.replace(/\/$/, "");
+  if (allowedOrigins.has(normalized) || extraOrigins.includes("*")) {
+    return true;
+  }
+
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === "klkerp.com" ||
+      hostname.endsWith(".klkerp.com") ||
+      hostname === "klkdle.klkventures.cloud" ||
+      hostname.endsWith(".klkventures.cloud") ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1"
+    );
+  } catch {
+    return false;
+  }
+};
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -55,29 +80,13 @@ app.use(
       }
 
       const normalized = origin.replace(/\/$/, "");
-      if (allowedOrigins.has(normalized) || extraOrigins.includes("*")) {
-        callback(null, true);
+      if (isAllowedOrigin(normalized)) {
+        // Echo the request origin — never a fixed FRONTEND_URL from env.
+        callback(null, normalized);
         return;
       }
 
-      try {
-        const { hostname } = new URL(origin);
-        if (
-          hostname === "klkerp.com" ||
-          hostname.endsWith(".klkerp.com") ||
-          hostname === "klkdle.klkventures.cloud" ||
-          hostname.endsWith(".klkventures.cloud") ||
-          hostname === "localhost" ||
-          hostname === "127.0.0.1"
-        ) {
-          callback(null, true);
-          return;
-        }
-      } catch {
-        // ignore invalid origin
-      }
-
-      callback(null, true);
+      callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
   })

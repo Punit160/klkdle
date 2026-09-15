@@ -9,6 +9,7 @@ import {
 import { updateAmcApprovalStatus } from '../../../Controller/DLE-Controller/amc-approval-controller.js'
 
 import upload from '../../../Middleware/UploadMiddleware.js'
+import { protect } from '../../../Middleware/authmiddleware.js'
 
 const router = express.Router()
 
@@ -30,16 +31,19 @@ router.post('/approval/status', updateAmcApprovalStatus('up'))
 
 router.get(
     '/get',
+    protect,
     getAmcDocuments
 )
 
 router.get(
     '/view',
+    protect,
     getAmcDocuments
 )
 
 router.get(
     '/dashboard/district',
+    protect,
     getAllDistricts
 )
 

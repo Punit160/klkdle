@@ -75,8 +75,10 @@ const Login = () => {
         setError(response.data.message || "Login failed");
       }
     } catch (err) {
+      const data = err.response?.data
       setError(
-        err.response?.data?.message ||
+        data?.message ||
+        data?.error ||
         err.message ||
         "Login failed"
       );

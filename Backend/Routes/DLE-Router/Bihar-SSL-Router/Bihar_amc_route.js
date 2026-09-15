@@ -1,5 +1,6 @@
 import express from "express";
 import upload from "../../../Middleware/UploadMiddleware.js";
+import { protect } from "../../../Middleware/authmiddleware.js";
 import { createAmcDocument, getAmcDocuments, getAllDistricts, getQuarterStatus, updateAmcDocument } from "../../../Controller/DLE-Controller/Bihar-SSL/Bihar_amc_controller.js";
 import { updateAmcApprovalStatus } from "../../../Controller/DLE-Controller/amc-approval-controller.js";
 
@@ -14,12 +15,13 @@ router.post("/store", amcUpload, createAmcDocument);
 router.post("/update", amcUpload, updateAmcDocument);
 router.post("/approval/status", updateAmcApprovalStatus("bihar"));
 
-router.get('/get', getAmcDocuments)
-router.get('/view', getAmcDocuments)
-router.get('/quarter-status', getQuarterStatus)
+router.get('/get', protect, getAmcDocuments)
+router.get('/view', protect, getAmcDocuments)
+router.get('/quarter-status', protect, getQuarterStatus)
 
 router.get(
     '/dashboard/district',
+    protect,
     getAllDistricts
 )
 

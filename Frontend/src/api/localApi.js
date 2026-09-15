@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getToken, getCompanyId, clearAuthData } from '../utils/auth'
+import { getToken, getCompanyId, getUser, clearAuthData } from '../utils/auth'
 import { APP_API_BASE } from './config'
 import { app, pages } from './routes'
 
@@ -11,10 +11,27 @@ const localApi = axios.create({
     timeout: 60000,
 })
 
+const isAuthRequest = (url = '') =>
+    url.includes('/api/auth/login') ||
+    url.includes('/api/auth/register')
+
 localApi.interceptors.request.use(
     (config) => {
+        const requestUrl = String(config.url || '')
+        const skipAuthContext = isAuthRequest(requestUrl)
+
+        config.params = {
+            ...(config.params || {}),
+        }
+
+        if (skipAuthContext) {
+            return config
+        }
+
         const token = getToken()
         const companyId = getCompanyId()
+        const user = getUser()
+        const userId = user?.id ?? user?.user_id ?? null
 
         if (token) {
             config.headers = config.headers || {}
@@ -22,10 +39,11 @@ localApi.interceptors.request.use(
         }
 
         if (companyId) {
-            config.params = {
-                ...(config.params || {}),
-                company_id: companyId,
-            }
+            config.params.company_id = companyId
+        }
+
+        if (userId && config.params.user_id == null) {
+            config.params.user_id = String(userId)
         }
 
         return config

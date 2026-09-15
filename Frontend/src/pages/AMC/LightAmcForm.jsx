@@ -1,4 +1,3 @@
- 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -19,10 +18,18 @@ import externalApi from '../../api/externalApi'
 import localApi from '../../api/localApi'
 import { app, external, pages } from '../../api/routes'
 import { getCompanyId, getUser } from '../../utils/auth'
-import { captureCurrentLocation } from '../../utils/geolocation'
+import {
+    areCoordinatesNear,
+    captureCurrentLocation,
+    getBiharAmcCoordinateError,
+} from '../../utils/geolocation'
 import { fetchAutoSslVolume } from '../../utils/sslVolume'
 import { getSslAmcConfig, withRegionVolume } from '../../utils/sslAmcConfig'
 import { buildLightSelectLabel, buildSiteDeviceGroups } from '../../utils/sslSiteDetails'
+import {
+    AMC_LIGHT_COOLDOWN_DAYS,
+    filterLightsDueForAmc,
+} from '../../utils/lightAmcCooldown'
 import {
   filterExternalListByUser,
   mapDistinctFieldOptions,
@@ -139,6 +146,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [siteDetails, setSiteDetails] = useState([])
     const [isSitesLoading, setIsSitesLoading] = useState(false)
     const [sitesError, setSitesError] = useState('')
+    const [lightsCooldownNote, setLightsCooldownNote] = useState('')
     const [selectedLight, setSelectedLight] = useState(null)
     const [lightInfo, setLightInfo] = useState(null)
     const [isLightLoading, setIsLightLoading] = useState(false)
@@ -155,6 +163,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [beneficiaryContact, setBeneficiaryContact] = useState('')
     const [image1, setImage1] = useState(null)
     const [image2, setImage2] = useState(null)
+    const [image1Coords, setImage1Coords] = useState(null)
+    const [image2Coords, setImage2Coords] = useState(null)
     const [lightWorking, setLightWorking] = useState('Yes')
     const [complaintIssue, setComplaintIssue] = useState(null)
     const [complaintText, setComplaintText] = useState('')
@@ -167,7 +177,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [successMessage, setSuccessMessage] = useState('')
 
     const lightOptions = siteDetails.map((site) => ({
-        value: String(site.id ?? site.ssl_id),
+        value: String(site.id ?? site.ssl_id ?? site.unique_id ?? ''),
         label: buildLightSelectLabel(region, site),
         site,
     }))
@@ -307,6 +317,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         const fetchSites = async () => {
             setIsSitesLoading(true)
             setSitesError('')
+            setLightsCooldownNote('')
             setSiteDetails([])
             setSelectedLight(null)
             try {
@@ -324,7 +335,35 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 const res = await externalApi.get(external.ssl.details(sslState), { params })
                 if (cancelled) return
 
-                setSiteDetails(filterExternalListByUser(res?.data?.data || []))
+                const rawList = Array.isArray(res?.data?.data) ? res.data.data : []
+                let list = region === 'bihar' ? filterExternalListByUser(rawList) : rawList
+
+                try {
+                    const recentRes = await localApi.get(app.lightAmc.recentDone, {
+                        params: {
+                            company_id: getCompanyId(),
+                            state: stateName,
+                            district: selectedDistrict.value,
+                            block: selectedBlock.value,
+                            panchayat: selectedPanchayat.value,
+                            within_days: AMC_LIGHT_COOLDOWN_DAYS,
+                        },
+                    })
+                    const doneLights = Array.isArray(recentRes?.data?.data) ? recentRes.data.data : []
+                    const { dueList, skippedCount } = filterLightsDueForAmc(list, doneLights)
+                    list = dueList
+
+                    if (skippedCount > 0) {
+                        setLightsCooldownNote(
+                            `${skippedCount} light${skippedCount === 1 ? '' : 's'} already serviced in the last ${AMC_LIGHT_COOLDOWN_DAYS} days. Next AMC is due after 3 months.`
+                        )
+                    }
+                } catch (recentErr) {
+                    console.warn('Failed to fetch recent Light AMC records:', recentErr)
+                }
+
+                if (cancelled) return
+                setSiteDetails(list)
             } catch (err) {
                 if (!cancelled) {
                     setSiteDetails([])
@@ -337,7 +376,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
         fetchSites()
         return () => { cancelled = true }
-    }, [selectedDistrict, selectedBlock, selectedPanchayat, autoVolume, amcConfig.requiresVolume, sslState, region])
+    }, [selectedDistrict, selectedBlock, selectedPanchayat, autoVolume, amcConfig.requiresVolume, sslState, region, stateName, locationConfig])
 
     useEffect(() => {
         if (!selectedLight) {
@@ -358,32 +397,53 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             try {
                 let details = selectedLight.site ? { ...selectedLight.site } : null
 
-                try {
-                    const detailsRes = await externalApi.get(external.ssl.complaintDetails(sslState), {
-                        params: { ssl_id: selectedLight.value },
-                    })
-                    const fetched = unwrapDetails(detailsRes?.data)
-                    details = fetched ? { ...(details || {}), ...fetched } : details
-                } catch (detailErr) {
-                    if (!details) throw detailErr
+                // Only Bihar has a separate external complaint details endpoint on ERP
+                if (region === 'bihar') {
+                    try {
+                        const detailsRes = await externalApi.get(external.ssl.complaintDetails(sslState), {
+                            params: { ssl_id: selectedLight.value },
+                        })
+                        const fetched = unwrapDetails(detailsRes?.data)
+                        if (fetched && typeof fetched === 'object' && fetched.status !== false) {
+                            details = { ...(details || {}), ...fetched }
+                        }
+                    } catch (detailErr) {
+                        if (!details) throw detailErr
+                    }
                 }
 
                 if (!details) {
                     throw new Error('No light details returned')
                 }
-                if (!matchesDleAmcUser(details)) {
+
+                // Account assignment check is only applicable for Bihar
+                if (region === 'bihar' && !matchesDleAmcUser(details)) {
                     throw new Error('This light is not assigned to your account.')
                 }
+
                 setLightInfo(details)
-                setBeneficiaryName(details.beneficiary_name || details.beneficiary || '')
-                setBeneficiaryContact(details.contact_no || details.mobile || details.phone || '')
+                setBeneficiaryName(
+                    details.beneficiary_name ||
+                    details.beneficiary ||
+                    details.beneficiaryName ||
+                    details.name ||
+                    ''
+                )
+                setBeneficiaryContact(
+                    details.contact_no ||
+                    details.mobile ||
+                    details.phone ||
+                    details.mobile_no ||
+                    details.contact ||
+                    ''
+                )
 
                 try {
                     const lastRes = await localApi.get(app.lightAmc.last, {
                         params: { ssl_id: selectedLight.value, company_id: getCompanyId() },
                     })
                     const last = lastRes?.data?.data
-                    const install = details.date_of_installation
+                    const install = details.date_of_installation || details.installation_date || details.install_date
                     const start = last?.period_start || (install ? String(install).slice(0, 10) : todayISO())
                     const end = last?.period_end || addMonthsISO(start, 60)
                     const due = last?.amc_date ? addMonthsISO(last.amc_date, 3) : todayISO()
@@ -401,7 +461,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                         setScheduleNote('First AMC for this light. Next visit will be after 3 months. Total period is 5 years.')
                     }
                 } catch {
-                    const install = details.date_of_installation
+                    const install = details.date_of_installation || details.installation_date || details.install_date
                     const start = install ? String(install).slice(0, 10) : todayISO()
                     setPeriodStart(start)
                     setPeriodEnd(addMonthsISO(start, 60))
@@ -423,6 +483,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     useEffect(() => {
         if (!selectedLight) {
             setAmcCoords(null)
+            setImage1(null)
+            setImage2(null)
+            setImage1Coords(null)
+            setImage2Coords(null)
             return
         }
 
@@ -502,48 +566,70 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             const coords = await captureCurrentLocation()
             setAmcCoords(coords)
 
-            let complaintRef = ''
-            if (lightWorking === 'No') {
-                const complaintData = new FormData()
-                complaintData.append('ssl_id', selectedLight.value)
-                complaintData.append('district', lightInfo?.district || selectedDistrict?.value || '')
-                complaintData.append('block', lightInfo?.block || selectedBlock?.value || '')
-                complaintData.append('panchyat', lightInfo?.panchyat || lightInfo?.panchayat || selectedPanchayat?.value || '')
-                complaintData.append('ward_no', lightInfo?.ward_no || '')
-                complaintData.append('pole_no', lightInfo?.pole_no || selectedLight.site?.pole_no || '')
-                complaintData.append('light_no', lightInfo?.light_no || '')
-                complaintData.append('beneficiary_name', beneficiaryName)
-                complaintData.append('contact_no', beneficiaryContact)
-                complaintData.append('latitude', lightInfo?.latitude || '')
-                complaintData.append('longitude', lightInfo?.longitude || '')
-                complaintData.append('along_with_pole', lightInfo?.along_with_pole || '')
-                complaintData.append('luminary_no', lightInfo?.luminary_no || '')
-                complaintData.append('sim_no', lightInfo?.sim_no || '')
-                complaintData.append('battery_serial_no', lightInfo?.battery_serial_no || '')
-                complaintData.append('module_no', lightInfo?.module_no || '')
-                complaintData.append('date_of_installation', lightInfo?.date_of_installation || '')
-                complaintData.append('complaint_date', amcDate)
-                complaintData.append('complaint_source', 'Field Visit')
-                complaintData.append('complaint_issue', complaintIssue.value)
-                complaintData.append('complaint', complaintText)
-                complaintData.append('send_sms', 'No')
-                complaintData.append('user_id', user.id)
-                complaintData.append('complaint_document', image1)
-                complaintData.append('complaint_document', image2)
+            if (region === 'bihar') {
+                if (amcCoords && !areCoordinatesNear(amcCoords, coords)) {
+                    setSubmitError(
+                        'Lat long issue: current GPS differs from form GPS. Please recapture photos at the same location.'
+                    )
+                    return
+                }
 
-                const complaintRes = await externalApi.post(
-                    external.ssl.complaintStore(sslState),
-                    complaintData,
-                    {
-                        params: { company_id: companyId },
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                    }
-                )
-                complaintRef =
-                    complaintRes?.data?.data?.complaint_id ||
-                    complaintRes?.data?.complaint_id ||
-                    complaintRes?.data?.data?.id ||
-                    ''
+                const coordinateError = getBiharAmcCoordinateError(coords, [
+                    image1Coords,
+                    image2Coords,
+                ])
+                if (coordinateError) {
+                    setSubmitError(coordinateError)
+                    return
+                }
+            }
+
+            let complaintRef = ''
+            if (lightWorking === 'No' && region === 'bihar') {
+                try {
+                    const complaintData = new FormData()
+                    complaintData.append('ssl_id', selectedLight.value)
+                    complaintData.append('district', lightInfo?.district || selectedDistrict?.value || '')
+                    complaintData.append('block', lightInfo?.block || selectedBlock?.value || '')
+                    complaintData.append('panchyat', lightInfo?.panchyat || lightInfo?.panchayat || selectedPanchayat?.value || '')
+                    complaintData.append('ward_no', lightInfo?.ward_no || '')
+                    complaintData.append('pole_no', lightInfo?.pole_no || selectedLight.site?.pole_no || '')
+                    complaintData.append('light_no', lightInfo?.light_no || '')
+                    complaintData.append('beneficiary_name', beneficiaryName)
+                    complaintData.append('contact_no', beneficiaryContact)
+                    complaintData.append('latitude', lightInfo?.latitude || '')
+                    complaintData.append('longitude', lightInfo?.longitude || '')
+                    complaintData.append('along_with_pole', lightInfo?.along_with_pole || '')
+                    complaintData.append('luminary_no', lightInfo?.luminary_no || '')
+                    complaintData.append('sim_no', lightInfo?.sim_no || '')
+                    complaintData.append('battery_serial_no', lightInfo?.battery_serial_no || '')
+                    complaintData.append('module_no', lightInfo?.module_no || '')
+                    complaintData.append('date_of_installation', lightInfo?.date_of_installation || '')
+                    complaintData.append('complaint_date', amcDate)
+                    complaintData.append('complaint_source', 'Field Visit')
+                    complaintData.append('complaint_issue', complaintIssue.value)
+                    complaintData.append('complaint', complaintText)
+                    complaintData.append('send_sms', 'No')
+                    complaintData.append('user_id', user.id)
+                    complaintData.append('complaint_document', image1)
+                    complaintData.append('complaint_document', image2)
+
+                    const complaintRes = await externalApi.post(
+                        external.ssl.complaintStore(sslState),
+                        complaintData,
+                        {
+                            params: { company_id: companyId },
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                        }
+                    )
+                    complaintRef =
+                        complaintRes?.data?.data?.complaint_id ||
+                        complaintRes?.data?.complaint_id ||
+                        complaintRes?.data?.data?.id ||
+                        ''
+                } catch (complaintErr) {
+                    console.warn('Failed to submit complaint to external ERP:', complaintErr)
+                }
             }
 
             const formData = new FormData()
@@ -675,7 +761,9 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                                         ? 'Loading lights...'
                                                         : lightOptions.length
                                                             ? 'Select Light'
-                                                            : 'No lights found'
+                                                            : lightsCooldownNote
+                                                                ? 'No lights due for AMC yet'
+                                                                : 'No lights found'
                                             }
                                             selectedOption={selectedLight}
                                             onSelectOption={setSelectedLight}
@@ -697,6 +785,9 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                     </div>
                                 )}
                             </div>
+                            {lightsCooldownNote && (
+                                <div className="alert alert-info fs-13 py-2 mb-2">{lightsCooldownNote}</div>
+                            )}
                             {sitesError && <div className="alert alert-warning fs-13 py-2">{sitesError}</div>}
 
                             {isLightLoading && (
@@ -761,8 +852,15 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                                 label="Photo 1"
                                                 hint="Open camera and capture"
                                                 file={image1}
-                                                onCapture={setImage1}
-                                                onClear={() => setImage1(null)}
+                                                onCapture={(file, coords) => {
+                                                    setImage1(file)
+                                                    setImage1Coords(coords)
+                                                    if (submitError.startsWith('Lat long issue')) setSubmitError('')
+                                                }}
+                                                onClear={() => {
+                                                    setImage1(null)
+                                                    setImage1Coords(null)
+                                                }}
                                             />
                                         </div>
                                         <div className="col-lg-6">
@@ -770,8 +868,15 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                                 label="Photo 2"
                                                 hint="Open camera and capture"
                                                 file={image2}
-                                                onCapture={setImage2}
-                                                onClear={() => setImage2(null)}
+                                                onCapture={(file, coords) => {
+                                                    setImage2(file)
+                                                    setImage2Coords(coords)
+                                                    if (submitError.startsWith('Lat long issue')) setSubmitError('')
+                                                }}
+                                                onClear={() => {
+                                                    setImage2(null)
+                                                    setImage2Coords(null)
+                                                }}
                                             />
                                         </div>
                                     </div>

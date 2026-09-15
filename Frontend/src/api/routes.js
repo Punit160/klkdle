@@ -113,6 +113,7 @@ export const api = {
     store: '/api/light-amc/store',
     last: '/api/light-amc/last',
     periodStatus: '/api/light-amc/period-status',
+    recentDone: '/api/light-amc/recent-done',
     view: (id) => `/api/light-amc/view/${id}`,
   },
   attendance: {

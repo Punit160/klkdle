@@ -8,6 +8,10 @@ export const getDleAmcUserId = () => {
 export const getDleAmcIdFromRecord = (item) => {
   if (!item || typeof item !== 'object') return null
 
+  // If item belongs to UP, it is not user-assigned
+  const itemState = String(item.state || item.region || '').toLowerCase()
+  if (itemState === 'up' || itemState === 'uttar pradesh') return null
+
   const recordUserId =
     item.dle_amc_id ??
     item.dleAmcId ??
@@ -19,9 +23,13 @@ export const getDleAmcIdFromRecord = (item) => {
   return String(recordUserId)
 }
 
-export const matchesDleAmcUser = (item, userId = getDleAmcUserId()) => {
+export const matchesDleAmcUser = (item, userId = getDleAmcUserId(), region = null) => {
+  if (region === 'up') return true
   if (userId == null || userId === '') return true
   if (!item || typeof item !== 'object') return true
+
+  const itemState = String(item.state || item.region || '').toLowerCase()
+  if (itemState === 'up' || itemState === 'uttar pradesh') return true
 
   const recordUserId = getDleAmcIdFromRecord(item)
   if (recordUserId == null) return true
@@ -29,16 +37,18 @@ export const matchesDleAmcUser = (item, userId = getDleAmcUserId()) => {
   return recordUserId === String(userId)
 }
 
-export const filterExternalListByUser = (list, userId = getDleAmcUserId()) => {
+export const filterExternalListByUser = (list, userId = getDleAmcUserId(), region = null) => {
+  if (region === 'up') return list
   if (!Array.isArray(list) || userId == null) return list
-  return list.filter((item) => matchesDleAmcUser(item, userId))
+  return list.filter((item) => matchesDleAmcUser(item, userId, region))
 }
 
-export const filterExternalPayloadByUser = (payload, userId = getDleAmcUserId()) => {
+export const filterExternalPayloadByUser = (payload, userId = getDleAmcUserId(), region = null) => {
+  if (region === 'up') return payload
   if (payload == null || userId == null) return payload
 
   if (Array.isArray(payload)) {
-    return filterExternalListByUser(payload, userId)
+    return filterExternalListByUser(payload, userId, region)
   }
 
   if (typeof payload !== 'object') return payload
@@ -46,21 +56,21 @@ export const filterExternalPayloadByUser = (payload, userId = getDleAmcUserId())
   const next = { ...payload }
 
   if (Array.isArray(next.data)) {
-    next.data = filterExternalListByUser(next.data, userId)
+    next.data = filterExternalListByUser(next.data, userId, region)
   } else if (next.data && typeof next.data === 'object') {
-    next.data = filterExternalPayloadByUser(next.data, userId)
+    next.data = filterExternalPayloadByUser(next.data, userId, region)
   }
 
   if (Array.isArray(next.complaints)) {
-    next.complaints = filterExternalListByUser(next.complaints, userId)
+    next.complaints = filterExternalListByUser(next.complaints, userId, region)
   }
 
   if (Array.isArray(next.assignedsite)) {
-    next.assignedsite = filterExternalListByUser(next.assignedsite, userId)
+    next.assignedsite = filterExternalListByUser(next.assignedsite, userId, region)
   }
 
   if (Array.isArray(next.assigned_site)) {
-    next.assigned_site = filterExternalListByUser(next.assigned_site, userId)
+    next.assigned_site = filterExternalListByUser(next.assigned_site, userId, region)
   }
 
   return next

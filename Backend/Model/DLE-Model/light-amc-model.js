@@ -40,10 +40,11 @@ export const findLastLightAmc = async (sslId, companyId) => {
   return row;
 };
 
-export const findLightAmcs = async ({ companyId, state } = {}) => {
+export const findLightAmcs = async ({ companyId, state, userId } = {}) => {
   const where = {};
   if (companyId) where.company_id = String(companyId);
   if (state) where.state = String(state);
+  if (userId) where.user_id = String(userId);
 
   const rows = await prisma.biharLightAmc.findMany({
     where,
@@ -53,20 +54,60 @@ export const findLightAmcs = async ({ companyId, state } = {}) => {
   return rows;
 };
 
-export const findLightAmcById = async (id, companyId) => {
+export const findLightAmcById = async (id, companyId, userId) => {
   if (!id) return null;
 
   try {
     const where = { id: BigInt(id) };
     if (companyId) where.company_id = String(companyId);
+    if (userId) where.user_id = String(userId);
     return await prisma.biharLightAmc.findFirst({ where });
   } catch {
     return null;
   }
 };
 
+export const findRecentLightAmcs = async ({
+  companyId,
+  state,
+  userId,
+  district,
+  block,
+  panchayat,
+  withinDays = 80,
+} = {}) => {
+  const days = Math.max(1, Number(withinDays) || 80);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  cutoff.setHours(0, 0, 0, 0);
+
+  const where = {
+    amc_date: {
+      gte: cutoff,
+    },
+  };
+
+  if (companyId) where.company_id = String(companyId);
+  if (state) where.state = String(state);
+  if (userId) where.user_id = String(userId);
+
+  const rows = await prisma.biharLightAmc.findMany({
+    where,
+    orderBy: { amc_date: "desc" },
+  });
+
+  const norm = (value) => String(value || "").trim().toLowerCase();
+  return rows.filter((row) => {
+    if (district && norm(row.district) && norm(row.district) !== norm(district)) return false;
+    if (block && norm(row.block) && norm(row.block) !== norm(block)) return false;
+    if (panchayat && norm(row.panchayat) && norm(row.panchayat) !== norm(panchayat)) return false;
+    return true;
+  });
+};
+
 export const findLightAmcsInPeriod = async ({
   companyId,
+  userId,
   district,
   block,
   panchayat,
@@ -90,6 +131,7 @@ export const findLightAmcsInPeriod = async ({
   };
 
   if (companyId) where.company_id = String(companyId);
+  if (userId) where.user_id = String(userId);
 
   const rows = await prisma.biharLightAmc.findMany({
     where,

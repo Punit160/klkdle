@@ -58,8 +58,8 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
     setError('')
 
     try {
-      const { file: stampedFile } = await captureStampedCameraPhoto(videoRef.current)
-      onCapture(stampedFile)
+      const { file: stampedFile, coords } = await captureStampedCameraPhoto(videoRef.current)
+      onCapture(stampedFile, coords)
       setPreviewUrl(URL.createObjectURL(stampedFile))
       closeCamera()
     } catch (err) {

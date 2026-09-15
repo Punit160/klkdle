@@ -121,7 +121,7 @@ export const buildBiharSiteDeviceGroups = (details = {}, extras = {}) => {
   ]
 }
 
-/** UP: show whatever columns the fetch returned — not the Bihar device set. */
+/** UP: show whatever columns the fetch returned — plus ensure standard device fields are covered. */
 export const buildUpSiteDeviceGroups = (details = {}, extras = {}) => {
   const items = Object.entries(details)
     .filter(([key, value]) => !HIDDEN_DETAIL_KEYS.has(key) && hasDisplayValue(value))
@@ -129,6 +129,34 @@ export const buildUpSiteDeviceGroups = (details = {}, extras = {}) => {
       label: formatLabel(key, 'up'),
       value: formatValue(key, value),
     }))
+
+  const existingLabels = new Set(items.map((i) => i.label.toLowerCase()))
+
+  const candidateFields = [
+    { label: 'Unique ID', value: details.unique_id || details.uniqueId },
+    { label: 'Pole No', value: details.pole_no },
+    { label: 'Ward No', value: details.ward_no },
+    { label: 'Light No', value: details.light_no },
+    { label: 'Along With Pole', value: details.along_with_pole },
+    { label: 'Luminary No.', value: details.luminary_no },
+    { label: 'SIM No.', value: details.sim_no },
+    { label: 'Battery Serial No.', value: details.battery_serial_no },
+    { label: 'Module No.', value: details.module_no },
+    {
+      label: 'Date of Installation',
+      value: formatDisplayDate(
+        details.date_of_installation || details.installation_date || details.install_date
+      ),  
+    },
+    { label: 'Site Latitude', value: details.latitude },
+    { label: 'Site Longitude', value: details.longitude },
+  ]
+
+  candidateFields.forEach((field) => {
+    if (field.value && !existingLabels.has(field.label.toLowerCase())) {
+      items.push(field)
+    }
+  })
 
   return [
     {
@@ -146,17 +174,23 @@ export const buildSiteDeviceGroups = (region, details = {}, extras = {}) =>
 export const buildLightSelectLabel = (region, site = {}) => {
   if (region === 'up') {
     const sslId = site?.id ?? site?.ssl_id ?? ''
+    const uniqueId = site?.unique_id || site?.uniqueId || ''
+    const poleNo = site?.pole_no ? `Pole ${site.pole_no}` : ''
     const beneficiary =
       site?.beneficiary_name ||
       site?.beneficiary ||
       site?.beneficiaryName ||
+      site?.name ||
       ''
 
     const parts = []
-    if (sslId !== '' && sslId != null) parts.push(`SSL ID ${sslId}`)
+    if (uniqueId) parts.push(uniqueId)
+    else if (sslId !== '' && sslId != null) parts.push(`SSL ID ${sslId}`)
+    if (poleNo) parts.push(poleNo)
     if (beneficiary) parts.push(beneficiary)
 
     if (parts.length) return parts.join(' / ')
+    if (sslId !== '' && sslId != null) return `SSL ID ${sslId}`
     return 'Light'
   }
 

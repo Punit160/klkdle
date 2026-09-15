@@ -16,10 +16,11 @@ export const getSslLocationConfig = (region = 'bihar') => {
       isUp
         ? item?.village || item?.panchayat || item?.panchyat
         : item?.panchyat || item?.panchayat || item?.village,
-    // UP API expects param name `panchayat` with the village value inside it.
+    // UP API expects param name `panchayat` with the village value inside it, also send `village` for safety.
     withLocalityParam: (params, localityValue) => ({
       ...params,
       panchayat: localityValue,
+      ...(isUp ? { village: localityValue } : {}),
     }),
   }
 }

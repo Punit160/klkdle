@@ -18,6 +18,7 @@ externalApi.interceptors.request.use(
   (config) => {
     const companyId = getCompanyId()
     const userId = getDleAmcUserId()
+    const isUp = /\/up\//i.test(config.url || '')
 
     config.params = {
       ...(config.params || {}),
@@ -27,7 +28,7 @@ externalApi.interceptors.request.use(
       config.params.company_id = companyId
     }
 
-    if (userId) {
+    if (userId && !isUp) {
       config.params.dle_amc_id = userId
       config.params.user_id = config.params.user_id ?? userId
     }
@@ -40,8 +41,9 @@ externalApi.interceptors.request.use(
 externalApi.interceptors.response.use(
   (response) => {
     const userId = getDleAmcUserId()
+    const isUp = /\/up\//i.test(response?.config?.url || '')
 
-    if (response?.data && userId) {
+    if (response?.data && userId && !isUp) {
       response.data = filterExternalPayloadByUser(response.data, userId)
     }
 
@@ -51,4 +53,5 @@ externalApi.interceptors.response.use(
 )
 
 export { EXTERNAL_API_BASE }
+
 export default externalApi

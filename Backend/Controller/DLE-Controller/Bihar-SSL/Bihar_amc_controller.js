@@ -1,6 +1,11 @@
 import prisma from '../../../Config/Prisma.js'
 import { serializeAmcApprovalFields } from '../../../Utils/amcApproval.js'
 import { toPublicFileUrl } from '../../../Utils/publicUrl.js'
+import {
+    buildCreatedByDocumentWhere,
+    buildCreatedByUploadInclude,
+    resolveRequestUserId,
+} from '../../../Utils/requestUser.js'
 
 // ==========================================
 // JSON STRING -> ARRAY
@@ -113,10 +118,15 @@ const summarizeLights = (uploads = []) => {
     }
 }
 
-const findQuarterUploads = async ({ company_id, district, block, panchayat, start_month_year, end_month_year }) => {
+const findQuarterUploads = async ({ company_id, userId, district, block, panchayat, start_month_year, end_month_year }) => {
     const parents = await prisma.biharSslAmcDocument.findMany({
-        where: company_id ? { company_id: String(company_id) } : {},
-        include: { uploadDocuments: true },
+        where: {
+            ...(company_id ? { company_id: String(company_id) } : {}),
+            ...buildCreatedByDocumentWhere(userId),
+        },
+        include: {
+            uploadDocuments: buildCreatedByUploadInclude(userId),
+        },
         orderBy: { id: 'asc' },
     })
 
@@ -467,16 +477,24 @@ export const createAmcDocument = async (req, res) => {
 export const getAmcDocuments = async (req, res) => {
 
     try {
+        const userId = resolveRequestUserId(req)
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User authentication required',
+            })
+        }
 
         const documents =
             await prisma.biharSslAmcDocument.findMany({
-
+                where: buildCreatedByDocumentWhere(userId),
                 orderBy: {
                     id: 'desc',
                 },
 
                 include: {
-                    uploadDocuments: true,
+                    uploadDocuments: buildCreatedByUploadInclude(userId),
                 },
             })
 
@@ -724,6 +742,8 @@ export const getAmcDocuments = async (req, res) => {
         const data =
             Array.from(
                 groupedMap.values()
+            ).filter((row) =>
+                row.amc.some((period) => (period.document || []).length > 0)
             )
 
 
@@ -876,8 +896,18 @@ export const getQuarterStatus = async (req, res) => {
             })
         }
 
+        const userId = resolveRequestUserId(req)
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User authentication required',
+            })
+        }
+
         const { summary } = await findQuarterUploads({
             company_id,
+            userId,
             district,
             block,
             panchayat,
@@ -907,14 +937,24 @@ export const getQuarterStatus = async (req, res) => {
 
 export const getAllDistricts = async (req, res) => {
     try {
+        const userId = resolveRequestUserId(req)
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User authentication required',
+            })
+        }
+
         // ==========================================
         // FETCH ALL AMC DOCUMENTS
         // ==========================================
 
         const documents =
             await prisma.biharSslAmcDocument.findMany({
+                where: buildCreatedByDocumentWhere(userId),
                 include: {
-                    uploadDocuments: true,
+                    uploadDocuments: buildCreatedByUploadInclude(userId),
                 },
                 orderBy: {
                     id: 'desc',
