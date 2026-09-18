@@ -10,8 +10,13 @@ import {
   getUploadsInfo,
   getUploadsRoot,
 } from "./Utils/uploadsPath.js";
+import {
+  getObjectStorageDiagnostics,
+  logObjectStorageStartup,
+} from "./Utils/objectStorage.js";
 
-dotenv.config();
+const __backendDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__backendDir, ".env") });
 
 if (typeof BigInt !== "undefined") {
   BigInt.prototype.toJSON = function toJSON() {
@@ -20,7 +25,7 @@ if (typeof BigInt !== "undefined") {
 }
 
 const app = express();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = __backendDir;
 const frontendDist = path.resolve(__dirname, "../Frontend/dist");
 const hasFrontend = fs.existsSync(path.join(frontendDist, "index.html"));
 
@@ -175,6 +180,7 @@ if (hasFrontend) {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
+  logObjectStorageStartup();
   const uploadsInfo = getUploadsInfo();
   console.log(`Server running on port ${PORT}`);
   console.log(`Uploads root: ${uploadsInfo.uploadsRoot} (exists: ${uploadsInfo.exists})`);

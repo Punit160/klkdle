@@ -8,6 +8,7 @@ import {
   downloadDocument,
   changePassword,
   logoutUser,
+  uploadProfileImage,
 } from "../../Controller/DLE-Controller/dle-auth-contr.js";
 
 import upload from "../../Middleware/UploadMiddleware.js";
@@ -58,6 +59,12 @@ router.post("/logout", logoutUser);
 router.put("/profile", updateProfile);
 
 router.patch("/change-password", changePassword);
+
+router.patch(
+  "/profile-image",
+  upload.single("profile_image"),
+  uploadProfileImage
+);
 
 router.get(
   "/document/:field",

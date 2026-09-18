@@ -1,0 +1,509 @@
+/* Bihar ULA — list, details, 2nd visit form */
+
+.ula-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+
+@media (max-width: 991px) {
+  .ula-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ula-stat-card {
+  border: 1px solid var(--bs-border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ula-stat-card .ula-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--bs-dark, #283c50);
+}
+
+.ula-stat-card .ula-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bs-secondary, #64748b);
+  margin-top: 4px;
+}
+
+.ula-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bs-border-color, #e2e8f0);
+  background: #fafbfc;
+}
+
+.ula-search-wrap {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.ula-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bs-secondary, #64748b);
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.ula-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.ula-table tbody tr:hover {
+  background: rgba(52, 84, 209, 0.04);
+}
+
+.ula-ca-cell .ula-ca-no {
+  font-weight: 700;
+  color: var(--bs-primary, #3454d1);
+  font-size: 13px;
+}
+
+.ula-ca-cell .ula-ca-name {
+  font-size: 11px;
+  color: var(--bs-secondary, #64748b);
+}
+
+.ula-surveyor-cell {
+  min-width: 120px;
+  max-width: 200px;
+  word-break: break-word;
+}
+
+.ula-surveyor-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bs-dark, #283c50);
+  line-height: 1.3;
+}
+
+.ula-surveyor-second {
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.ula-second-visit-date {
+  color: var(--bs-secondary, #64748b);
+  margin-top: 2px;
+}
+
+.ula-visit-datetime-line {
+  line-height: 1.35;
+}
+
+.ula-visit-datetime-label {
+  font-weight: 700;
+  color: var(--bs-dark, #283c50);
+}
+
+.ula-location-cell .ula-village {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--bs-dark, #283c50);
+}
+
+.ula-gps-link {
+  color: var(--bs-primary, #3454d1);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.ula-gps-link:hover {
+  text-decoration: underline;
+}
+
+.ula-gps-link--second {
+  color: var(--bs-secondary, #64748b);
+  font-weight: 500;
+  font-size: 10px;
+}
+
+.ula-location-cell .ula-hierarchy {
+  font-size: 11px;
+  color: var(--bs-secondary, #64748b);
+}
+
+.ula-visit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ula-visit-pill--complete {
+  background: rgba(28, 187, 140, 0.12);
+  color: #0d9668;
+}
+
+.ula-visit-pill--first {
+  background: rgba(52, 84, 209, 0.1);
+  color: #3454d1;
+}
+
+.ula-visit-pill--pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.ula-table .ula-actions-col {
+  min-width: 168px;
+  width: 168px;
+  vertical-align: middle;
+}
+
+.ula-table .ula-photos-col {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ula-photos-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-family: inherit;
+  background: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.ula-photos-pill--complete {
+  background: rgba(28, 187, 140, 0.12);
+  color: #0d9668;
+  border-color: rgba(28, 187, 140, 0.25);
+}
+
+.ula-photos-pill--partial {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.ula-photos-pill:not(:disabled):hover {
+  filter: brightness(0.97);
+  border-color: rgba(52, 84, 209, 0.35);
+}
+
+.ula-photos-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ula-photos-count {
+  min-width: 1ch;
+  text-align: center;
+}
+
+.ula-photos-dl-icon {
+  opacity: 0.85;
+}
+
+.ula-photos-pill:not(:disabled):hover .ula-photos-dl-icon {
+  opacity: 1;
+}
+
+.ula-photos-spinner {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ula-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.ula-action-group .btn {
+  flex-shrink: 0;
+}
+
+.ula-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ula-detail-hero {
+  padding: 20px 24px;
+  border-radius: 0;
+  background: linear-gradient(120deg, #eef2ff 0%, #f8fafc 45%, #ecfdf5 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ula-detail-hero-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.ula-detail-hero-sub {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ula-detail-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ula-detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.ula-detail-section {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ula-detail-section:last-child {
+  border-bottom: none;
+}
+
+.ula-serial-card {
+  height: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ula-serial-card .ula-serial-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bs-primary, #3454d1);
+  word-break: break-all;
+}
+
+.ula-photo-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  height: 100%;
+  background: #fff;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.ula-photo-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.ula-photo-card-head {
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ula-photo-frame {
+  position: relative;
+  height: 200px;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ula-photo-frame img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.ula-photo-empty {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: 0 0 12px 12px;
+  color: #64748b;
+}
+
+.ula-second-visit-banner {
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 84, 209, 0.25);
+  background: linear-gradient(90deg, rgba(52, 84, 209, 0.08) 0%, rgba(28, 187, 140, 0.06) 100%);
+}
+
+.ula-second-visit-banner h6 {
+  font-weight: 800;
+  margin-bottom: 4px;
+  color: #1e293b;
+}
+
+.ula-saved-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.ula-saved-panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 12px;
+}
+
+.ula-step-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ula-step-pill {
+  flex: 1 1 200px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+  background: #fff;
+  font-size: 12px;
+}
+
+.ula-step-pill.is-done {
+  border-style: solid;
+  border-color: rgba(28, 187, 140, 0.45);
+  background: rgba(28, 187, 140, 0.06);
+}
+
+.ula-step-pill strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.ula-form-page-title {
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fafbfc;
+}
+
+.ula-form-page-title h5 {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.ula-form-page-title p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ula-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.ula-lightbox-panel {
+  width: min(920px, 100%);
+  max-height: min(92vh, 900px);
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+
+.ula-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ula-lightbox-body {
+  flex: 1;
+  min-height: 200px;
+  max-height: calc(92vh - 120px);
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.ula-lightbox-body img {
+  max-width: 100%;
+  max-height: calc(92vh - 140px);
+  object-fit: contain;
+}
+
+.ula-lightbox-foot {
+  padding: 12px 16px;
+  text-align: end;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ula-clickable-photo {
+  cursor: zoom-in;
+}
+
+.ula-clickable-photo:hover {
+  opacity: 0.95;
+}

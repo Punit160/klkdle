@@ -6,28 +6,27 @@ import {
     getAmcDocuments,
     updateAmcDocument,
 } from '../../../Controller/DLE-Controller/UP-SSL/UP_amc_controller.js'
-import { updateAmcApprovalStatus } from '../../../Controller/DLE-Controller/amc-approval-controller.js'
+import {
+    getAmcDocumentsForApproval,
+    updateAmcApprovalStatus,
+} from '../../../Controller/DLE-Controller/amc-approval-controller.js'
 
-import upload from '../../../Middleware/UploadMiddleware.js'
+import { upAmcUpload } from '../../../Middleware/upAmcUploadMiddleware.js'
 import { protect } from '../../../Middleware/authmiddleware.js'
 
 const router = express.Router()
 
-const amcUpload = upload.fields([
-    {
-        name: 'amc_document',
-        maxCount: 20
-    },
-    {
-        name: 'invoice_document',
-        maxCount: 1
+router.post('/create', ...upAmcUpload, createAmcDocument)
+router.post('/store', ...upAmcUpload, createAmcDocument)
+router.post('/update', ...upAmcUpload, updateAmcDocument)
+router.post('/approval/status', protect, updateAmcApprovalStatus('up'))
+router.get('/approval/list', protect, getAmcDocumentsForApproval('up'))
+router.get('/approval/pending', protect, (req, res, next) => {
+    if (req.query.approval_status == null || req.query.approval_status === '') {
+        req.query.approval_status = String(0)
     }
-])
-
-router.post('/create', amcUpload, createAmcDocument)
-router.post('/store', amcUpload, createAmcDocument)
-router.post('/update', amcUpload, updateAmcDocument)
-router.post('/approval/status', updateAmcApprovalStatus('up'))
+    return getAmcDocumentsForApproval('up')(req, res, next)
+})
 
 router.get(
     '/get',

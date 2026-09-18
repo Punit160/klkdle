@@ -1,19 +1,24 @@
 import express from "express";
-import upload from "../../../Middleware/UploadMiddleware.js";
+import { biharAmcUpload } from "../../../Middleware/biharAmcUploadMiddleware.js";
 import { protect } from "../../../Middleware/authmiddleware.js";
 import { createAmcDocument, getAmcDocuments, getAllDistricts, getQuarterStatus, updateAmcDocument } from "../../../Controller/DLE-Controller/Bihar-SSL/Bihar_amc_controller.js";
-import { updateAmcApprovalStatus } from "../../../Controller/DLE-Controller/amc-approval-controller.js";
+import {
+  getAmcDocumentsForApproval,
+  updateAmcApprovalStatus,
+} from "../../../Controller/DLE-Controller/amc-approval-controller.js";
 
 const router = express.Router();
 
-const amcUpload = upload.fields([
-  { name: "amc_document", maxCount: 10 },
-  { name: "invoice_document", maxCount: 1 }
-]);
-
-router.post("/store", amcUpload, createAmcDocument);
-router.post("/update", amcUpload, updateAmcDocument);
-router.post("/approval/status", updateAmcApprovalStatus("bihar"));
+router.post("/store", ...biharAmcUpload, createAmcDocument);
+router.post("/update", ...biharAmcUpload, updateAmcDocument);
+router.post("/approval/status", protect, updateAmcApprovalStatus("bihar"));
+router.get("/approval/list", protect, getAmcDocumentsForApproval("bihar"));
+router.get("/approval/pending", protect, (req, res, next) => {
+  if (req.query.approval_status == null || req.query.approval_status === "") {
+    req.query.approval_status = String(0);
+  }
+  return getAmcDocumentsForApproval("bihar")(req, res, next);
+});
 
 router.get('/get', protect, getAmcDocuments)
 router.get('/view', protect, getAmcDocuments)

@@ -9,6 +9,7 @@
  */
 
 const erpSsl = (state) => `/dle/${state}/ssl-amc`
+const erpUlaInstallation = (state) => `/dle/${state}/ula-installation`
 const apiSsl = (state) => `/api/${state}/amc`
 
 /** Browser page URLs */
@@ -32,6 +33,9 @@ export const pages = {
     lightAmcList: '/bihar/amc/light/list',
     lightAmcDetails: '/bihar/amc/light/details',
     assignAmc: '/bihar/amc/assign',
+    ulaForm: '/bihar/ula/form',
+    ulaList: '/bihar/ula/list',
+    ulaDetails: '/bihar/ula/details',
   },
 
   up: {
@@ -86,6 +90,12 @@ export const erp = {
     complaintStore: (state) => `${erpSsl(state)}/complaint/store`,
     complaintView: (state) => `${erpSsl(state)}/complaint/view`,
   },
+  /** Bihar ULA site survey — location master from klkerp */
+  ulaInstallation: {
+    district: (state = 'bihar') => `${erpUlaInstallation(state)}/district`,
+    blocks: (state = 'bihar') => `${erpUlaInstallation(state)}/blocks`,
+    panchayat: (state = 'bihar') => `${erpUlaInstallation(state)}/panchayat`,
+  },
 }
 
 /** This Node app — all paths start with /api */
@@ -96,6 +106,7 @@ export const api = {
     logout: '/api/auth/logout',
     profile: '/api/auth/profile',
     changePassword: '/api/auth/change-password',
+    profileImage: '/api/auth/profile-image',
   },
   ssl: {
     get: (state) => `${apiSsl(state)}/get`,
@@ -104,6 +115,8 @@ export const api = {
     view: (state) => `${apiSsl(state)}/view`,
     update: (state) => `${apiSsl(state)}/update`,
     approvalStatus: (state) => `${apiSsl(state)}/approval/status`,
+    approvalList: (state) => `${apiSsl(state)}/approval/list`,
+    approvalPending: (state) => `${apiSsl(state)}/approval/pending`,
     dashboard: (state) => `${apiSsl(state)}/dashboard/district`,
     dashboardDistrict: (state) => `${apiSsl(state)}/dashboard/district`,
   },
@@ -121,6 +134,13 @@ export const api = {
     month: '/api/attendance/month',
     punchIn: '/api/attendance/punch-in',
     punchOut: '/api/attendance/punch-out',
+  },
+  biharUla: {
+    list: '/api/bihar/ula/list',
+    store: '/api/bihar/ula/store',
+    view: (id) => `/api/bihar/ula/${id}`,
+    downloadImagesZip: (id) => `/api/bihar/ula/${id}/download-images`,
+    secondVisit: (id) => `/api/bihar/ula/${id}/second-visit`,
   },
 }
 

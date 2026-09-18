@@ -13,6 +13,12 @@ const SelectDropdown = ({ options, selectedOption, onSelectOption, className, de
     const dropdownRef = useRef(null);
 
     useEffect(() => {
+        setLocalSelectedOption(selectedOption || undefined);
+    }, [selectedOption]);
+
+    useEffect(() => {
+        if (selectedOption) return;
+
         if (defaultSelect) {
             const defaultOption = options?.find(option => option.value?.toLowerCase() === defaultSelect?.toLowerCase());
             if (defaultOption) {
@@ -30,7 +36,7 @@ const SelectDropdown = ({ options, selectedOption, onSelectOption, className, de
         return () => {
             document.removeEventListener('click', handleClickOutside);
         };
-    }, [defaultSelect, options]);
+    }, [defaultSelect, options, selectedOption]);
 
     useEffect(() => {
         if (!localSelectedOption) return

@@ -13,6 +13,7 @@ import {
     filterExternalListByUser,
     mapDistinctFieldOptions,
 } from '../../../../utils/externalApiUser'
+import { useBiharAmcLocationSelection } from '../../../../hooks/useBiharAmcLocationSelection'
 
 const addMonthsToInput = (monthValue, monthsToAdd) => {
     if (!monthValue) return ''
@@ -31,6 +32,14 @@ const toOptions = (arr) =>
         
 const getErrorMessage = (err, fallback = "Something went wrong. Please try again.") => {
     const data = err?.response?.data
+    const status = err?.response?.status
+    if (
+        status === 429 ||
+        (typeof data?.message === 'string' &&
+            /too many attempts/i.test(data.message))
+    ) {
+        return 'ERP server rate limit reached. Wait 1–2 minutes, refresh the page, then try again.'
+    }
     if (typeof data === 'string' && data.trim()) return data
     if (data?.message) return data.message
     if (data?.error) return typeof data.error === 'string' ? data.error : fallback
@@ -197,13 +206,24 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
     const [autoVolume, setAutoVolume] = useState(null)
     const [isVolumeResolving, setIsVolumeResolving] = useState(true)
 
-    const [selectedDistrict, setSelectedDistrict] = useState(null)
-    const [selectedBlock, setSelectedBlock] = useState(null)
-    const [selectedPanchayat, setSelectedPanchayat] = useState(null)
-
     const [districtOptions, setDistrictOptions] = useState([])
     const [blockOptions, setBlockOptions] = useState([])
     const [panchayatOptions, setPanchayatOptions] = useState([])
+
+    const {
+        selectedDistrict,
+        selectedBlock,
+        selectedPanchayat,
+        handleDistrictSelect,
+        handleBlockSelect,
+        handlePanchayatSelect,
+        resetLocationSelection,
+        rememberCurrentLocation,
+    } = useBiharAmcLocationSelection({
+        districtOptions,
+        blockOptions,
+        panchayatOptions,
+    })
 
     const [isDistrictLoading, setIsDistrictLoading] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState(false)
@@ -246,6 +266,12 @@ const UploadForm = ({ isModal = false, onSuccess = null, onCancel = null }) => {
         const resolveVolume = async () => {
             setIsVolumeResolving(true)
             try {
+                if (!getCompanyId() || !getUser()?.id) {
+                    setSubmitError('Session expired. Please log out and log in again.')
+                    setAutoVolume(null)
+                    return
+                }
+
                 const volume = await fetchAutoSslVolume('bihar')
                 if (cancelled) return
                 if (!volume) {
@@ -487,19 +513,6 @@ useEffect(() => {
      
 }, [selectedDistrict, selectedBlock, selectedPanchayat, autoVolume, startMonth, endMonth])
 
-    const handleDistrictSelect = (option) => {
-        setSelectedDistrict(option)
-        setSelectedBlock(null)
-        setSelectedPanchayat(null)
-    }
-
-    const handleBlockSelect = (option) => {
-        setSelectedBlock(option)
-        setSelectedPanchayat(null)
-    }
-
-    const handlePanchayatSelect = (option) => setSelectedPanchayat(option)
-
     // Remove a single site badge (keeps the raw list, just drops it from the selected ids)
     const removeSite = (id) => setSelectedSiteIds((prev) => prev.filter((sid) => sid !== id))
 
@@ -724,6 +737,7 @@ useEffect(() => {
             responseMessage
         )
 
+        rememberCurrentLocation()
 
         if (isModal && onSuccess) {
 
@@ -765,9 +779,7 @@ useEffect(() => {
 }
 
     const handleCancel = () => {
-        setSelectedDistrict(null)
-        setSelectedBlock(null)
-        setSelectedPanchayat(null)
+        resetLocationSelection()
         setStartMonth("")
         setEndMonth("")
         setDocuments([])
@@ -801,7 +813,7 @@ useEffect(() => {
                 <SectionHeading
                     icon={<FiMapPin size={16} />}
                     title="Location Details"
-                    subtitle="Select the district, block and panchayat"
+                    subtitle="Last used location is filled automatically — change anytime"
                 />
                 <div className="row">
                     <div className="col-lg-4 col-md-6">

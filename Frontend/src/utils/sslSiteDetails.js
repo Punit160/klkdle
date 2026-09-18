@@ -78,6 +78,34 @@ const hasDisplayValue = (value) => {
   return true
 }
 
+export const getSiteWardNo = (site) => {
+  const value = site?.ward_no ?? site?.ward ?? site?.wardNo ?? ''
+  return String(value).trim()
+}
+
+export const buildWardSelectOptions = (sites = []) => {
+  const wards = new Set()
+
+  for (const site of sites) {
+    const ward = getSiteWardNo(site)
+    if (ward) wards.add(ward)
+  }
+
+  return Array.from(wards)
+    .sort((left, right) => {
+      const leftNum = Number(left)
+      const rightNum = Number(right)
+      if (!Number.isNaN(leftNum) && !Number.isNaN(rightNum)) {
+        return leftNum - rightNum
+      }
+      return left.localeCompare(right, undefined, { numeric: true })
+    })
+    .map((ward) => ({
+      value: ward,
+      label: `Ward ${ward}`,
+    }))
+}
+
 const appendAmcCoords = (items, extras = {}) => {
   const { isLocating, amcLatitude, amcLongitude } = extras
   items.push({

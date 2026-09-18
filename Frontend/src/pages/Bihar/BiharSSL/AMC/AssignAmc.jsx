@@ -104,7 +104,6 @@ const AssignAmc = () => {
 
   useEffect(() => {
     fetchAssignments()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey])
 
   const pagedRows = useMemo(() => {

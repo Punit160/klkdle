@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import path from "node:path";
 
 import {
   createUser,
@@ -6,6 +7,7 @@ import {
   findUserById,
   syncLegacyApprovedUser,
   updateUser,
+  updateUserProfileImage,
   updateUserPassword,
 } from "../../Model/DLE-Model/dle-user-model.js";
 import { resolveStoredUploadPath } from "../../Utils/uploadsPath.js";
@@ -437,6 +439,61 @@ export const downloadDocument = async (req, res) => {
   }
 };
 
+
+export const uploadProfileImage = async (req, res) => {
+  try {
+    const tokenUserId = resolveUserIdFromToken(req);
+
+    if (!tokenUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization token required",
+      });
+    }
+
+    const userId = req.query.userId || tokenUserId;
+
+    if (String(userId) !== String(tokenUserId)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update your own profile photo",
+      });
+    }
+
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: "Profile image is required",
+      });
+    }
+
+    const profileImage = `/uploads/user/profile/${file.filename}`;
+
+    await updateUserProfileImage(userId, profileImage);
+
+    const updatedUser = await findUserById(userId);
+    const { password, ...safeUser } = updatedUser;
+
+    if (safeUser.id !== undefined && safeUser.id !== null) {
+      safeUser.id = safeUser.id.toString();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile photo updated successfully",
+      user: safeUser,
+    });
+  } catch (error) {
+    console.error("UPLOAD PROFILE IMAGE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to upload profile photo",
+    });
+  }
+};
 
 export const changePassword = async (req, res) => {
   try {

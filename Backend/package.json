@@ -1,8 +1,9 @@
 {
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1135.0",
     "@prisma/adapter-mariadb": "7.9.1",
     "@prisma/client": "7.9.1",
-    "prisma": "7.9.1",
+    "archiver": "^7.0.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -12,7 +13,8 @@
     "multer": "^2.2.0",
     "mysql2": "^3.23.4",
     "nodemailer": "^9.0.5",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "prisma": "7.9.1"
   },
   "name": "DLE",
   "version": "1.0.0",
@@ -23,7 +25,11 @@
     "dev": "node --watch index.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:migrate": "prisma migrate deploy"
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:ula-second-visit-at": "node scripts/ensure-bihar-ula-second-visit-at.js",
+    "prisma:ula-backfill": "node scripts/ensure-bihar-ula-second-visit-at.js && node scripts/backfill-bihar-ula-surveyor-names.js",
+    "prisma:ula-surveyor-names": "node scripts/backfill-bihar-ula-surveyor-names.js",
+    "test:r2": "node scripts/test-r2-upload.js"
   },
   "keywords": [],
   "author": "",

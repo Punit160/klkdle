@@ -123,6 +123,20 @@ export const findUserById = async (id) => {
 };
 
 
+export const updateUserProfileImage = async (id, profileImage) => {
+  const result = await prisma.user.update({
+    where: {
+      id: BigInt(id),
+    },
+    data: {
+      profile_image: profileImage ?? null,
+      updated_at: new Date(),
+    },
+  });
+
+  return result;
+};
+
 export const updateUser = async (id, userData) => {
   const {
     company_id,

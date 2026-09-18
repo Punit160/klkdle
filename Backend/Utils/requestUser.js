@@ -1,5 +1,18 @@
+/** Logged-in user id from JWT payload only (`id` on login token). */
+export const resolveJwtUserId = (req) => {
+  const user = req.user;
+  if (!user || typeof user !== "object") return null;
+
+  const id = user.id ?? user.user_id ?? user.userId;
+  if (id == null || id === "") return null;
+  return String(id);
+};
+
 export const resolveRequestUserId = (req) => {
-  const id = req.user?.id ?? req.query?.user_id ?? req.body?.user_id;
+  const fromJwt = resolveJwtUserId(req);
+  if (fromJwt) return fromJwt;
+
+  const id = req.query?.user_id ?? req.body?.user_id;
   if (id == null || id === "") return null;
   return String(id);
 };

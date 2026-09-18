@@ -9,23 +9,34 @@ const backendRoot = path.resolve(
 
 export const getBackendRoot = () => backendRoot;
 
-export const getUploadsRoot = () => path.join(backendRoot, "uploads");
+/** Use UPLOADS_DIR on live so git pull never deletes user files. */
+export const getUploadsRoot = () => {
+  const fromEnv = String(process.env.UPLOADS_DIR || process.env.UPLOADS_PATH || "").trim();
+  if (fromEnv) {
+    return path.resolve(fromEnv);
+  }
+  return path.join(backendRoot, "uploads");
+};
 
-export const resolveStoredUploadPath = (storedValue) => {
+export const toUploadRelativePath = (storedValue) => {
   const storedPath = String(storedValue || "").trim();
   if (!storedPath) return null;
 
-  const uploadsRoot = getUploadsRoot();
+  const relative = storedPath
+    .replace(/^\/uploads\/?/, "")
+    .replace(/^uploads\/?/, "");
 
-  if (storedPath.startsWith("/uploads/")) {
-    return path.join(backendRoot, storedPath.slice(1));
+  if (!relative || relative.includes("..")) {
+    return null;
   }
 
-  if (storedPath.startsWith("uploads/")) {
-    return path.join(backendRoot, storedPath);
-  }
+  return relative;
+};
 
-  return path.join(uploadsRoot, storedPath);
+export const resolveStoredUploadPath = (storedValue) => {
+  const relative = toUploadRelativePath(storedValue);
+  if (!relative) return null;
+  return path.join(getUploadsRoot(), relative);
 };
 
 export const uploadsRootExists = () => fs.existsSync(getUploadsRoot());
@@ -58,7 +69,39 @@ export const resolveUploadRequestPath = (requestPath = "") => {
   return absolutePath;
 };
 
-/** Try subfolder path first, then legacy flat files in uploads root. */
+const findByBasenameUnderUploads = (fileName, maxDepth = 6) => {
+  if (!fileName) return null;
+
+  const uploadsRoot = path.resolve(getUploadsRoot());
+  const stack = [{ dir: uploadsRoot, depth: 0 }];
+
+  while (stack.length) {
+    const { dir, depth } = stack.pop();
+    let entries;
+
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.isFile() && entry.name === fileName) {
+        return fullPath;
+      }
+
+      if (entry.isDirectory() && depth < maxDepth) {
+        stack.push({ dir: fullPath, depth: depth + 1 });
+      }
+    }
+  }
+
+  return null;
+};
+
+/** Try exact path, legacy flat root, then any subfolder with same filename. */
 export const findExistingUploadFile = (requestPath = "") => {
   const primary = resolveUploadRequestPath(requestPath);
   const candidates = [];
@@ -73,6 +116,9 @@ export const findExistingUploadFile = (requestPath = "") => {
     const uploadsRoot = path.resolve(getUploadsRoot());
     const fileName = path.basename(relative);
     candidates.push(path.resolve(uploadsRoot, fileName));
+
+    const nestedMatch = findByBasenameUnderUploads(fileName);
+    if (nestedMatch) candidates.push(nestedMatch);
   }
 
   for (const candidate of candidates) {
@@ -82,6 +128,12 @@ export const findExistingUploadFile = (requestPath = "") => {
   }
 
   return null;
+};
+
+export const uploadFileExists = (storedValue) => {
+  const relative = toUploadRelativePath(storedValue);
+  if (!relative) return false;
+  return Boolean(findExistingUploadFile(`/uploads/${relative}`));
 };
 
 export const getUploadsInfo = () => {

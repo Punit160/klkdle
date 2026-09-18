@@ -6,6 +6,7 @@ import React, {
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { FiDownload, FiShield } from "react-icons/fi";
+import { resolveUploadUrl } from "../../utils/uploadUrl";
 import "../../styles/DLE/dle-id-card.css";
 
 const EmployeeIdCard = forwardRef(
@@ -49,6 +50,10 @@ const EmployeeIdCard = forwardRef(
         employeeData?.status === 1
           ? "Valid Employee"
           : "Pending",
+
+      profilePhotoUrl: resolveUploadUrl(
+        employeeData?.profile_image
+      ),
     };
 
     const detailRows = [
@@ -219,11 +224,20 @@ const EmployeeIdCard = forwardRef(
             </div>
 
             <div className="photo-ring">
-              <div className="profile-avatar-placeholder">
-                {data.employeeName
-                  .charAt(0)
-                  .toUpperCase()}
-              </div>
+              {data.profilePhotoUrl ? (
+                <img
+                  className="id-card-profile-photo"
+                  src={data.profilePhotoUrl}
+                  alt={`${data.employeeName} profile`}
+                  crossOrigin="anonymous"
+                />
+              ) : (
+                <div className="profile-avatar-placeholder">
+                  {data.employeeName
+                    .charAt(0)
+                    .toUpperCase()}
+                </div>
+              )}
             </div>
 
             <div className="id-body">

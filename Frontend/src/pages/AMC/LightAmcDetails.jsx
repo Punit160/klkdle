@@ -4,11 +4,10 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { FiAlertCircle, FiArrowLeft, FiCalendar, FiImage, FiLoader, FiMapPin, FiUser, FiZap } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { getCompanyId } from '../../utils/auth'
-import localApi, { LOCAL_API_BASE } from '../../api/localApi'
+import localApi from '../../api/localApi'
 import { app } from '../../api/routes'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
-
-const LOCAL_API = LOCAL_API_BASE
+import { resolveUploadUrl } from '../../utils/uploadUrl'
 
 const formatDate = (value) => {
     if (!value) return '—'
@@ -17,11 +16,7 @@ const formatDate = (value) => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-const fileUrl = (path) => {
-    if (!path) return ''
-    if (/^https?:\/\//i.test(path)) return path
-    return `${LOCAL_API}${path.startsWith('/') ? path : `/${path}`}`
-}
+const fileUrl = (path) => resolveUploadUrl(path)
 
 const DetailItem = ({ label, value }) => (
     <div className="h-100 px-3 py-2 rounded-3" style={{ background: '#f7f8fb', border: '1px solid #eef0f5' }}>

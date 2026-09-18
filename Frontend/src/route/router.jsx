@@ -29,6 +29,12 @@ import LightAmcDetails from "../pages/AMC/LightAmcDetails"
 import AttendanceReport from "../pages/Attendance/AttendanceReport"
 import { legacyPages, pages } from "../api/routes"
 
+
+
+import BiharUlaForm from "../pages/Bihar/BiharULA/BiharUlaForm"
+import BiharUlaList from "../pages/Bihar/BiharULA/BiharUlaList"
+import BiharUlaDetails from "../pages/Bihar/BiharULA/BiharUlaDetails"
+
 const legacyRedirects = Object.entries(legacyPages).map(([from, to]) => ({
   path: from.replace(/^\/+/, "").replace(/\/+$/, ""),
   element: <Navigate to={to} replace />,
@@ -61,6 +67,10 @@ export const router = createBrowserRouter([
       { path: pages.bihar.lightAmc.slice(1), element: <StateRoute stateKey="bihar"><LightAmcForm region="bihar" /></StateRoute> },
       { path: pages.bihar.lightAmcList.slice(1), element: <StateRoute stateKey="bihar"><LightAmcList region="bihar" /></StateRoute> },
       { path: pages.bihar.lightAmcDetails.slice(1), element: <StateRoute stateKey="bihar"><LightAmcDetails region="bihar" /></StateRoute> },
+      
+            { path: (pages.bihar?.ulaForm || '/bihar/ula/form').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaForm /></StateRoute> },
+      { path: (pages.bihar?.ulaList || '/bihar/ula/list').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaList /></StateRoute> },
+      { path: (pages.bihar?.ulaDetails || '/bihar/ula/details').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaDetails /></StateRoute> },
 
       { path: pages.up.amcDashboard.slice(1), element: <StateRoute stateKey="up"><UPDashboard /></StateRoute> },
       { path: pages.up.amcUpload.slice(1), element: <StateRoute stateKey="up"><UPUploadForm /></StateRoute> },

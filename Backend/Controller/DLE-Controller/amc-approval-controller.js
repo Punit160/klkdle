@@ -4,14 +4,176 @@ import {
   buildAmcApprovalUpdateData,
   serializeAmcApprovalFields,
 } from "../../Utils/amcApproval.js";
+import { toPublicFileUrl } from "../../Utils/publicUrl.js";
+import { resolveRequestUserId } from "../../Utils/requestUser.js";
 
-const getUploadModel = (region) => {
-  if (region === "up") {
-    return prisma.upSslAmcUploadDocument;
+const REGION_CONFIG = {
+  bihar: {
+    uploadModel: () => prisma.biharSslAmcUploadDocument,
+    parentRelation: "biharSslAmc",
+    parentIdField: "bihar_ssl_amc_id",
+  },
+  up: {
+    uploadModel: () => prisma.upSslAmcUploadDocument,
+    parentRelation: "upSslAmc",
+    parentIdField: "up_ssl_amc_id",
+  },
+};
+
+const getRegionConfig = (region) => {
+  const key = region === "up" ? "up" : "bihar";
+  return REGION_CONFIG[key];
+};
+
+const parseJsonArray = (value) => {
+  if (value == null || value === "") return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [String(parsed)];
+  } catch {
+    return String(value)
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+};
+
+const serializeUploadForApproval = (req, region, upload, parent) => {
+  const config = getRegionConfig(region);
+  const row = {
+    id: upload.id?.toString?.() ?? String(upload.id),
+    region,
+    company_id: upload.company_id,
+    [config.parentIdField]: upload[config.parentIdField]?.toString?.() ?? null,
+    state: parent?.state ?? null,
+    district: parent?.district ?? null,
+    block: parent?.block ?? null,
+    panchayat: parent?.panchayat ?? null,
+    ssl_id: parseJsonArray(upload.ssl_id),
+    start_month_year: upload.start_month_year,
+    end_month_year: upload.end_month_year ?? null,
+    remarks: upload.remarks ?? null,
+    amc_document: upload.amc_document ?? null,
+    amc_doc_status: upload.amc_doc_status ?? 0,
+    invoice_document: upload.invoice_document ?? null,
+    invoice_status: upload.invoice_status ?? 0,
+    validation_status: upload.validation_status ?? "pending",
+    ...serializeAmcApprovalFields(upload),
+    created_by: upload.created_by?.toString?.() ?? null,
+    created_at: upload.created_at ?? null,
+    updated_at: upload.updated_at ?? null,
+    amc_document_url: toPublicFileUrl(req, upload.amc_document),
+    invoice_document_url: toPublicFileUrl(req, upload.invoice_document),
+  };
+
+  if (region === "bihar") {
+    row.pole_no = parseJsonArray(upload.pole_no);
+    row.pending_ssl_id = parseJsonArray(upload.pending_ssl_id);
+    row.pending_pole_no = parseJsonArray(upload.pending_pole_no);
+  } else {
+    row.unique_id = parseJsonArray(upload.unique_id);
   }
 
-  return prisma.biharSslAmcUploadDocument;
+  return row;
 };
+
+export const getAmcDocumentsForApproval =
+  (region = "bihar") =>
+  async (req, res) => {
+    try {
+      const config = getRegionConfig(region);
+      const model = config.uploadModel();
+
+      const approvalStatusParam = req.query.approval_status;
+      const scope = String(req.query.scope || "all").toLowerCase();
+      const companyId = req.query.company_id?.trim();
+      const district = req.query.district?.trim();
+      const block = req.query.block?.trim();
+      const panchayat = req.query.panchayat?.trim();
+
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+      const skip = (page - 1) * limit;
+
+      const where = {};
+
+      if (
+        approvalStatusParam != null &&
+        approvalStatusParam !== "" &&
+        String(approvalStatusParam).toLowerCase() !== "all"
+      ) {
+        where.approval_status = Number(approvalStatusParam);
+      }
+
+      if (companyId) {
+        where.company_id = companyId;
+      }
+
+      const userId = resolveRequestUserId(req);
+      if (scope === "mine") {
+        if (!userId) {
+          return res.status(401).json({
+            success: false,
+            message: "Login required to list your AMC documents.",
+          });
+        }
+        where.created_by = BigInt(userId);
+      }
+
+      const parentWhere = {};
+      if (district) parentWhere.district = district;
+      if (block) parentWhere.block = block;
+      if (panchayat) parentWhere.panchayat = panchayat;
+
+      if (Object.keys(parentWhere).length > 0) {
+        where[config.parentRelation] = { is: parentWhere };
+      }
+
+      const include = { [config.parentRelation]: true };
+
+      const [total, uploads] = await Promise.all([
+        model.count({ where }),
+        model.findMany({
+          where,
+          include,
+          orderBy: [{ created_at: "desc" }, { id: "desc" }],
+          skip,
+          take: limit,
+        }),
+      ]);
+
+      const data = uploads.map((upload) => {
+        const parent = upload[config.parentRelation];
+        return serializeUploadForApproval(req, region, upload, parent);
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "AMC documents for approval fetched successfully.",
+        meta: {
+          region,
+          page,
+          limit,
+          total,
+          total_pages: Math.ceil(total / limit) || 0,
+          approval_status_filter:
+            approvalStatusParam == null || approvalStatusParam === ""
+              ? "all"
+              : approvalStatusParam,
+          scope,
+        },
+        data,
+      });
+    } catch (error) {
+      console.error(`GET ${region.toUpperCase()} AMC APPROVAL LIST ERROR:`, error);
+
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || "Failed to fetch AMC documents for approval.",
+      });
+    }
+  };
 
 export const updateAmcApprovalStatus =
   (region = "bihar") =>
@@ -36,7 +198,7 @@ export const updateAmcApprovalStatus =
         });
       }
 
-      const model = getUploadModel(region);
+      const model = getRegionConfig(region).uploadModel();
       const existing = await model.findUnique({
         where: { id: BigInt(id) },
       });

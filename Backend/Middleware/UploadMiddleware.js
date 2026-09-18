@@ -1,7 +1,7 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { getBackendRoot } from "../Utils/uploadsPath.js";
+import { getUploadsRoot } from "../Utils/uploadsPath.js";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -63,7 +63,10 @@ const storage = multer.diskStorage({
       uploadDir = "uploads/light-amc";
     }
 
-    const absoluteUploadDir = path.join(getBackendRoot(), uploadDir);
+    const absoluteUploadDir = path.join(
+      getUploadsRoot(),
+      uploadDir.replace(/^uploads[/\\]/, "")
+    );
 
     fs.mkdirSync(absoluteUploadDir, {
       recursive: true

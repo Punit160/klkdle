@@ -66,6 +66,16 @@ export const menuList = [
                     { id: 2, name: "View AMC", path: pages.bihar.lightAmcList },
                 ],
             },
+            {
+                id: 5,
+                name: "Bihar ULA",
+                path: "#",
+                icon: "feather-sun",
+                dropdownMenu: [
+                    { id: 1, name: "ULA Form", path: pages.bihar.ulaForm },
+                    { id: 2, name: "ULA Data Table", path: pages.bihar.ulaList },
+                ],
+            },
         ],
     },
     {

@@ -1,8 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { FiAlertCircle, FiCamera, FiCheckCircle, FiX } from 'react-icons/fi'
-import { captureStampedCameraPhoto } from '../../utils/cameraCapture'
+import {
+  captureStampedCameraPhoto,
+  captureStampedDataUrlFromVideo,
+} from '../../utils/cameraCapture'
 
-const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
+const CameraCapture = ({
+  label,
+  hint,
+  file,
+  onCapture,
+  onClear,
+  /** Controlled preview (data URL) — same preview UI as Light AMC file photos */
+  previewDataUrl,
+  onCaptureDataUrl,
+  stampCaNumber,
+  stampMetadata,
+  onRawFrame,
+  beforeOpen,
+  modalNote,
+  /** Tap captured preview to open full-size popup (e.g. ULA 2nd visit) */
+  onPreviewClick,
+}) => {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [previewUrl, setPreviewUrl] = useState('')
@@ -25,6 +44,11 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
 
   const openCamera = async () => {
     setError('')
+
+    if (beforeOpen) {
+      const allowed = await beforeOpen()
+      if (allowed === false) return
+    }
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Camera is not supported on this device.')
@@ -58,9 +82,24 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
     setError('')
 
     try {
-      const { file: stampedFile, coords } = await captureStampedCameraPhoto(videoRef.current)
-      onCapture(stampedFile, coords)
-      setPreviewUrl(URL.createObjectURL(stampedFile))
+      if (onCaptureDataUrl) {
+        const { dataUrl, coords } = await captureStampedDataUrlFromVideo(
+          videoRef.current,
+          {
+            caNumber: stampCaNumber,
+            stampMetadata: stampMetadata || (stampCaNumber ? { caNumber: stampCaNumber } : undefined),
+            onRawFrame: onRawFrame,
+          }
+        )
+        onCaptureDataUrl(dataUrl, coords)
+        if (!previewDataUrl) setPreviewUrl(dataUrl)
+      } else {
+        const { file: stampedFile, coords } = await captureStampedCameraPhoto(
+          videoRef.current
+        )
+        onCapture?.(stampedFile, coords)
+        setPreviewUrl(URL.createObjectURL(stampedFile))
+      }
       closeCamera()
     } catch (err) {
       setError(err.message || 'Failed to capture photo.')
@@ -70,6 +109,7 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
   }
 
   useEffect(() => {
+    if (previewDataUrl) return undefined
     if (!file) {
       setPreviewUrl('')
       return undefined
@@ -78,13 +118,15 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
     const url = URL.createObjectURL(file)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
-  }, [file])
+  }, [file, previewDataUrl])
 
   useEffect(() => () => stopStream(), [])
 
+  const displayPreview = previewDataUrl || previewUrl
+
   return (
     <div>
-      {!previewUrl ? (
+      {!displayPreview ? (
         <button
           type="button"
           className="camera-capture-box w-100"
@@ -98,13 +140,27 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
         </button>
       ) : (
         <div className="camera-capture-preview">
-          <img src={previewUrl} alt={label} />
+          <img
+            src={displayPreview}
+            alt={label}
+            className={onPreviewClick ? 'ula-clickable-photo' : undefined}
+            onClick={() => onPreviewClick?.({ src: displayPreview, title: label })}
+            onKeyDown={(e) => {
+              if (onPreviewClick && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault()
+                onPreviewClick({ src: displayPreview, title: label })
+              }
+            }}
+            role={onPreviewClick ? 'button' : undefined}
+            tabIndex={onPreviewClick ? 0 : undefined}
+          />
           <button
             type="button"
             className="camera-capture-remove"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation()
               onClear?.()
-              setPreviewUrl('')
+              if (!previewDataUrl) setPreviewUrl('')
             }}
             aria-label="Remove photo"
           >
@@ -135,7 +191,8 @@ const CameraCapture = ({ label, hint, file, onCapture, onClear }) => {
               <video ref={videoRef} autoPlay playsInline muted />
             </div>
             <p className="camera-capture-modal-note">
-              Photo will include current latitude, longitude, and time on the image.
+              {modalNote ||
+                'Photo will include current latitude, longitude, and time on the image.'}
             </p>
             <button
               type="button"

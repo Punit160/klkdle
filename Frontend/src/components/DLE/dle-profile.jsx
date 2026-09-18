@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import localApi, { LOCAL_API_BASE } from "../../api/localApi";
+import localApi from "../../api/localApi";
+import { resolveUploadUrl } from "../../utils/uploadUrl";
 import { app } from "../../api/routes";
 import { getUser } from "../../utils/auth";
 import HorizontalProgress from "@/components/shared/HorizontalProgress";
@@ -24,6 +25,7 @@ import {
   FiUser,
   FiBriefcase,
   FiLock,
+  FiCamera,
 } from "react-icons/fi";
 
 import {
@@ -31,9 +33,6 @@ import {
   FaCar,
   FaRegIdCard,
 } from "react-icons/fa";
-
-const API_URL = LOCAL_API_BASE;
-
 
 const documentList = [
   {
@@ -140,11 +139,7 @@ function InfoItem({
 function DocumentCard({ document: doc, user }) {
   const fileName = user[doc.key];
 
-  const fileUrl = fileName
-    ? (/^https?:\/\//i.test(fileName)
-      ? fileName
-      : `${API_URL}${fileName.startsWith("/") ? fileName : `/uploads/${fileName}`}`)
-    : "";
+  const fileUrl = resolveUploadUrl(fileName);
 
   const handleView = () => {
     if (!fileUrl) return;
@@ -245,6 +240,11 @@ export default function EmployeeRegistration() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
+  const profilePhotoInputRef = useRef(null);
+  const [profilePhotoFile, setProfilePhotoFile] = useState(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
+  const [uploadingProfilePhoto, setUploadingProfilePhoto] = useState(false);
+
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -271,6 +271,14 @@ export default function EmployeeRegistration() {
       100
     )
     : 0;
+
+  useEffect(() => {
+    return () => {
+      if (profilePhotoPreview) {
+        URL.revokeObjectURL(profilePhotoPreview);
+      }
+    };
+  }, [profilePhotoPreview]);
 
   useEffect(() => {
     const user = getUser();
@@ -331,6 +339,87 @@ export default function EmployeeRegistration() {
   };
 
 
+
+  const profilePhotoUrl = resolveUploadUrl(employeeData?.profile_image);
+
+  const profileInitials = employeeData?.name
+    ? employeeData.name
+        .split(" ")
+        .map((word) => word[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "DL";
+
+  const handleProfilePhotoSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/jpg", "image/png"];
+    if (!allowed.includes(file.type)) {
+      alert("Only JPG, JPEG and PNG images are allowed");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be 5 MB or smaller");
+      return;
+    }
+
+    setProfilePhotoFile(file);
+    setProfilePhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleUploadProfilePhoto = async () => {
+    if (!profilePhotoFile) {
+      alert("Please choose a photo first");
+      return;
+    }
+
+    try {
+      setUploadingProfilePhoto(true);
+
+      const payload = new FormData();
+      payload.append("profile_image", profilePhotoFile);
+
+      const response = await localApi.patch(
+        app.auth.profileImage,
+        payload,
+        {
+          params: { userId: employeeData.id },
+        }
+      );
+
+      if (response.data.success) {
+        setEmployeeData(response.data.user);
+        setFormData(response.data.user);
+        localStorage.setItem(
+          "dleUser",
+          JSON.stringify(response.data.user)
+        );
+        localStorage.setItem(
+          "user",
+          JSON.stringify(response.data.user)
+        );
+
+        setProfilePhotoFile(null);
+        setProfilePhotoPreview("");
+        if (profilePhotoInputRef.current) {
+          profilePhotoInputRef.current.value = "";
+        }
+
+        alert("Profile photo updated. It will appear on your ID card.");
+      }
+    } catch (error) {
+      console.error("UPLOAD PROFILE PHOTO ERROR:", error);
+      alert(
+        error.response?.data?.message ||
+          "Failed to upload profile photo"
+      );
+    } finally {
+      setUploadingProfilePhoto(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -410,14 +499,15 @@ export default function EmployeeRegistration() {
           {/* Avatar */}
           <div className="profile-avatar-wrapper">
             <div className="profile-avatar">
-              {employeeData?.name
-                ? employeeData.name
-                  .split(" ")
-                  .map((word) => word[0])
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase()
-                : "DL"}
+              {profilePhotoUrl ? (
+                <img
+                  src={profilePhotoPreview || profilePhotoUrl}
+                  alt={employeeData?.name || "Profile"}
+                  className="profile-avatar-photo"
+                />
+              ) : (
+                profileInitials
+              )}
             </div>
 
             <span
@@ -617,6 +707,21 @@ export default function EmployeeRegistration() {
             </span>
           </button>
 
+
+          <button
+            type="button"
+            className={`profile-tab ${activeTab === "profile-photo"
+                ? "active"
+                : ""
+              }`}
+            onClick={() =>
+              setActiveTab("profile-photo")
+            }
+          >
+            <span>
+              Profile Photo
+            </span>
+          </button>
 
           <button
             type="button"
@@ -1187,6 +1292,69 @@ export default function EmployeeRegistration() {
 
           </div>
 
+        )}
+
+        {activeTab === "profile-photo" && (
+          <section className="profile-content-card">
+            <div className="section-title-row">
+              <div>
+                <span className="section-eyebrow">
+                  ID CARD PHOTO
+                </span>
+                <h2>Profile Photo</h2>
+                <p className="section-description">
+                  Upload a clear passport-style photo. It appears on your employee ID card.
+                </p>
+              </div>
+            </div>
+
+            <div className="profile-photo-upload-wrapper">
+              <div className="profile-photo-preview-box">
+                {profilePhotoPreview || profilePhotoUrl ? (
+                  <img
+                    src={profilePhotoPreview || profilePhotoUrl}
+                    alt="Profile preview"
+                    className="profile-photo-preview-img"
+                  />
+                ) : (
+                  <div className="profile-photo-preview-placeholder">
+                    {profileInitials}
+                  </div>
+                )}
+              </div>
+
+              <div className="profile-photo-actions">
+                <input
+                  ref={profilePhotoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  className="profile-photo-input"
+                  onChange={handleProfilePhotoSelect}
+                />
+
+                <button
+                  type="button"
+                  className="secondary-profile-btn"
+                  onClick={() => profilePhotoInputRef.current?.click()}
+                  disabled={uploadingProfilePhoto}
+                >
+                  <FiCamera />
+                  Choose Photo
+                </button>
+
+                <button
+                  type="button"
+                  className="primary-profile-btn"
+                  onClick={handleUploadProfilePhoto}
+                  disabled={uploadingProfilePhoto || !profilePhotoFile}
+                >
+                  {uploadingProfilePhoto
+                    ? "Uploading..."
+                    : "Save Profile Photo"}
+                </button>
+              </div>
+            </div>
+          </section>
         )}
 
         {/* =================================================

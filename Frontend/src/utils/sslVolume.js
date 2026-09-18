@@ -4,16 +4,21 @@ import { filterExternalListByUser } from './externalApiUser'
 
 export const fetchAutoSslVolume = async (state = 'bihar') => {
   const res = await externalApi.get(external.ssl.volume(state))
-  const list = filterExternalListByUser(res?.data?.data || [])
+  const rawList = res?.data?.data ?? res?.data ?? []
+  const list = Array.isArray(rawList) ? rawList : []
+  const scoped = filterExternalListByUser(list)
 
-  for (const item of list) {
-    const value = item?.volume ?? item
-    if (value != null && String(value).trim() !== '') {
-      return String(value).trim()
+  const pickVolume = (rows) => {
+    for (const item of rows) {
+      const value = item?.volume ?? item
+      if (value != null && String(value).trim() !== '') {
+        return String(value).trim()
+      }
     }
+    return null
   }
 
-  return null
+  return pickVolume(scoped) ?? pickVolume(list)
 }
 
 export const withSslVolume = (params = {}, volume) => {

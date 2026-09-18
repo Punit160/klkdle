@@ -1,5 +1,9 @@
 import prisma from '../../../Config/Prisma.js'
 import { serializeAmcApprovalFields } from '../../../Utils/amcApproval.js'
+import {
+    joinStoredPaths,
+    storedPathFromUploadedFile,
+} from '../../../Utils/amcStoredUploadPath.js'
 import { toPublicFileUrl } from '../../../Utils/publicUrl.js'
 import {
     buildCreatedByDocumentWhere,
@@ -135,18 +139,15 @@ export const createAmcDocument = async (req, res) => {
         // UP FILE PATH
         // ==========================================
 
-        const amcDocumentNames = amcFiles
-            .map(
-                (file) =>
-                    `/uploads/up/ssl/amc/doc/${file.filename}`
-            )
-            .join(',')
+        const amcDocumentNames = joinStoredPaths(amcFiles, (name) =>
+            `/uploads/up/ssl/amc/doc/${name}`
+        )
 
-
-        const invoiceDocumentName =
-            invoiceFile
-                ? `/uploads/up/ssl/amc/invoice/${invoiceFile.filename}`
-                : null
+        const invoiceDocumentName = invoiceFile
+            ? storedPathFromUploadedFile(invoiceFile, (name) =>
+                  `/uploads/up/ssl/amc/invoice/${name}`
+              )
+            : null
 
 
         // ==========================================
@@ -1206,10 +1207,15 @@ export const updateAmcDocument = async (req, res) => {
         }
 
         if (amcFile) {
-            data.amc_document = `/uploads/up/ssl/amc/doc/${amcFile.filename}`
+            data.amc_document = storedPathFromUploadedFile(amcFile, (name) =>
+                `/uploads/up/ssl/amc/doc/${name}`
+            )
         }
         if (invoiceFile) {
-            data.invoice_document = `/uploads/up/ssl/amc/invoice/${invoiceFile.filename}`
+            data.invoice_document = storedPathFromUploadedFile(
+                invoiceFile,
+                (name) => `/uploads/up/ssl/amc/invoice/${name}`
+            )
         }
 
         const updated = await prisma.upSslAmcUploadDocument.update({

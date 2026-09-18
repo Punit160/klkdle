@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     FiAlertCircle,
@@ -25,11 +25,22 @@ import {
 } from '../../utils/geolocation'
 import { fetchAutoSslVolume } from '../../utils/sslVolume'
 import { getSslAmcConfig, withRegionVolume } from '../../utils/sslAmcConfig'
-import { buildLightSelectLabel, buildSiteDeviceGroups } from '../../utils/sslSiteDetails'
+import {
+    buildLightSelectLabel,
+    buildSiteDeviceGroups,
+    buildWardSelectOptions,
+    getSiteWardNo,
+} from '../../utils/sslSiteDetails'
+import {
+    loadBiharAmcLocationPrefs,
+    pickLocationOption,
+    saveBiharAmcLocationSnapshot,
+} from '../../utils/biharAmcLocationPrefs'
 import {
     AMC_LIGHT_COOLDOWN_DAYS,
     filterLightsDueForAmc,
 } from '../../utils/lightAmcCooldown'
+import { useBiharAmcLocationSelection } from '../../hooks/useBiharAmcLocationSelection'
 import {
   filterExternalListByUser,
   mapDistinctFieldOptions,
@@ -53,6 +64,14 @@ const toOptions = (arr) =>
 
 const getErrorMessage = (err, fallback = 'Something went wrong. Please try again.') => {
     const data = err?.response?.data
+    const status = err?.response?.status
+    if (
+        status === 429 ||
+        (typeof data?.message === 'string' &&
+            /too many attempts/i.test(data.message))
+    ) {
+        return 'ERP server rate limit reached. Wait 1–2 minutes, refresh the page, then try again.'
+    }
     if (typeof data === 'string' && data.trim()) return data
     if (data?.message) return data.message
     if (data?.error) return typeof data.error === 'string' ? data.error : fallback
@@ -133,21 +152,53 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [autoVolume, setAutoVolume] = useState(null)
     const [isVolumeResolving, setIsVolumeResolving] = useState(amcConfig.requiresVolume)
 
-    const [selectedDistrict, setSelectedDistrict] = useState(null)
-    const [selectedBlock, setSelectedBlock] = useState(null)
-    const [selectedPanchayat, setSelectedPanchayat] = useState(null)
     const [districtOptions, setDistrictOptions] = useState([])
     const [blockOptions, setBlockOptions] = useState([])
     const [panchayatOptions, setPanchayatOptions] = useState([])
+
+    const {
+        selectedDistrict,
+        selectedBlock,
+        selectedPanchayat,
+        handleDistrictSelect: applyDistrictSelect,
+        handleBlockSelect: applyBlockSelect,
+        handlePanchayatSelect: applyPanchayatSelect,
+        rememberCurrentLocation,
+    } = useBiharAmcLocationSelection({
+        enabled: region === 'bihar',
+        districtOptions,
+        blockOptions,
+        panchayatOptions,
+    })
     const [isDistrictLoading, setIsDistrictLoading] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState(false)
     const [isPanchayatLoading, setIsPanchayatLoading] = useState(false)
 
-    const [siteDetails, setSiteDetails] = useState([])
+    const [allPanchayatSites, setAllPanchayatSites] = useState([])
+    const [selectedWard, setSelectedWard] = useState(null)
+    const wardRestoreDoneRef = useRef(false)
+    const lastSitesFetchKeyRef = useRef('')
+    const lastSitesCountRef = useRef(0)
     const [isSitesLoading, setIsSitesLoading] = useState(false)
     const [sitesError, setSitesError] = useState('')
     const [lightsCooldownNote, setLightsCooldownNote] = useState('')
     const [selectedLight, setSelectedLight] = useState(null)
+
+    const wardOptions = useMemo(
+        () => buildWardSelectOptions(allPanchayatSites),
+        [allPanchayatSites]
+    )
+
+    const wardsInData = wardOptions.length > 0
+
+    const siteDetails = useMemo(() => {
+        if (!allPanchayatSites.length) return []
+        if (!wardsInData) return allPanchayatSites
+        if (!selectedWard?.value) return []
+        return allPanchayatSites.filter(
+            (site) => getSiteWardNo(site) === selectedWard.value
+        )
+    }, [allPanchayatSites, selectedWard, wardsInData])
     const [lightInfo, setLightInfo] = useState(null)
     const [isLightLoading, setIsLightLoading] = useState(false)
     const [detailsError, setDetailsError] = useState('')
@@ -190,6 +241,12 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         const resolveVolume = async () => {
             setIsVolumeResolving(true)
             try {
+                if (!getCompanyId() || !getUser()?.id) {
+                    setSubmitError('Session expired. Please log out and log in again.')
+                    setAutoVolume(null)
+                    return
+                }
+
                 const volume = await fetchAutoSslVolume(amcConfig.sslState)
                 if (cancelled) return
                 if (!volume) {
@@ -307,18 +364,37 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             !selectedPanchayat ||
             (amcConfig.requiresVolume && !autoVolume)
         ) {
-            setSiteDetails([])
+            setAllPanchayatSites([])
+            setSelectedWard(null)
+            wardRestoreDoneRef.current = false
             setSelectedLight(null)
+            lastSitesFetchKeyRef.current = ''
+            lastSitesCountRef.current = 0
             return
         }
 
         let cancelled = false
 
+        const fetchKey = [
+            selectedDistrict.value,
+            selectedBlock.value,
+            selectedPanchayat.value,
+            autoVolume || '',
+        ].join('|')
+
+        if (fetchKey === lastSitesFetchKeyRef.current && lastSitesCountRef.current > 0) {
+            return () => {
+                cancelled = true
+            }
+        }
+
         const fetchSites = async () => {
             setIsSitesLoading(true)
             setSitesError('')
             setLightsCooldownNote('')
-            setSiteDetails([])
+            setAllPanchayatSites([])
+            setSelectedWard(null)
+            wardRestoreDoneRef.current = false
             setSelectedLight(null)
             try {
                 const params = withRegionVolume(
@@ -363,10 +439,13 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 }
 
                 if (cancelled) return
-                setSiteDetails(list)
+                setAllPanchayatSites(list)
+                lastSitesFetchKeyRef.current = fetchKey
+                lastSitesCountRef.current = list.length
             } catch (err) {
                 if (!cancelled) {
-                    setSiteDetails([])
+                    setAllPanchayatSites([])
+                    lastSitesCountRef.current = 0
                     setSitesError(getErrorMessage(err, 'Failed to load lights.'))
                 }
             } finally {
@@ -376,7 +455,31 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
         fetchSites()
         return () => { cancelled = true }
-    }, [selectedDistrict, selectedBlock, selectedPanchayat, autoVolume, amcConfig.requiresVolume, sslState, region, stateName, locationConfig])
+    }, [
+        selectedDistrict,
+        selectedBlock,
+        selectedPanchayat,
+        autoVolume,
+        amcConfig.requiresVolume,
+        sslState,
+        region,
+        stateName,
+    ])
+
+    useEffect(() => {
+        if (region !== 'bihar' || selectedWard || wardRestoreDoneRef.current) return
+        if (!wardOptions.length) {
+            wardRestoreDoneRef.current = true
+            return
+        }
+
+        const savedWard = loadBiharAmcLocationPrefs()?.ward
+        const option = pickLocationOption(wardOptions, savedWard)
+        if (option) {
+            setSelectedWard(option)
+        }
+        wardRestoreDoneRef.current = true
+    }, [region, wardOptions, selectedWard])
 
     useEffect(() => {
         if (!selectedLight) {
@@ -518,21 +621,41 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     }, [amcDate, periodStart])
 
     const handleDistrictSelect = (option) => {
-        setSelectedDistrict(option)
-        setSelectedBlock(null)
-        setSelectedPanchayat(null)
+        applyDistrictSelect(option)
         setSelectedLight(null)
     }
 
     const handleBlockSelect = (option) => {
-        setSelectedBlock(option)
-        setSelectedPanchayat(null)
+        applyBlockSelect(option)
         setSelectedLight(null)
     }
 
     const handlePanchayatSelect = (option) => {
-        setSelectedPanchayat(option)
+        applyPanchayatSelect(option)
+        setSelectedWard(null)
+        wardRestoreDoneRef.current = false
         setSelectedLight(null)
+        if (region === 'bihar') {
+            saveBiharAmcLocationSnapshot({
+                district: selectedDistrict,
+                block: selectedBlock,
+                panchayat: option,
+                ward: '',
+            })
+        }
+    }
+
+    const handleWardSelect = (option) => {
+        setSelectedWard(option)
+        setSelectedLight(null)
+        if (region === 'bihar') {
+            saveBiharAmcLocationSnapshot({
+                district: selectedDistrict,
+                block: selectedBlock,
+                panchayat: selectedPanchayat,
+                ward: option,
+            })
+        }
     }
 
     const handleSubmit = async (e) => {
@@ -545,6 +668,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         const user = getUser()
         if (!companyId || !user?.id) {
             setSubmitError('Please login again.')
+            return
+        }
+        if (region === 'bihar' && wardsInData && !selectedWard) {
+            setSubmitError('Please select ward, then choose a light.')
             return
         }
         if (!selectedLight || !lightInfo || !amcDate || !beneficiaryName || !beneficiaryContact || !image1 || !image2) {
@@ -664,6 +791,15 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
             setSubmitSuccess(true)
             setSuccessMessage(res?.data?.message || 'Light AMC saved successfully.')
+            if (region === 'bihar') {
+                rememberCurrentLocation()
+                saveBiharAmcLocationSnapshot({
+                    district: selectedDistrict,
+                    block: selectedBlock,
+                    panchayat: selectedPanchayat,
+                    ward: selectedWard?.value || getSiteWardNo(lightInfo),
+                })
+            }
             setTimeout(() => navigate(viewPath), 1200)
         } catch (err) {
             setSubmitError(getErrorMessage(err, 'Failed to save AMC.'))
@@ -700,7 +836,11 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                             <SectionHeading
                                 icon={<FiMapPin size={16} />}
                                 title="Find Light"
-                                subtitle="Select location, then pick one light"
+                                subtitle={
+                                    region === 'bihar'
+                                        ? 'Location is remembered; pick ward, then select one light in that ward'
+                                        : 'Select location, then pick one light'
+                                }
                             />
                             <div
                                 className="border rounded-3 p-3 mb-4"
@@ -750,6 +890,27 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                             onSelectOption={handlePanchayatSelect}
                                         />
                                     </div>
+                                    {region === 'bihar' && (
+                                        <div className="col-lg-6">
+                                            <label className="form-label">
+                                                Ward <span className="text-danger">*</span>
+                                            </label>
+                                            <SelectDropdown
+                                                options={wardOptions}
+                                                defaultSelect={
+                                                    !selectedPanchayat
+                                                        ? locationConfig.selectLocalityFirstText
+                                                        : isSitesLoading
+                                                            ? 'Loading wards...'
+                                                            : wardOptions.length
+                                                                ? 'Select Ward'
+                                                                : 'No ward data in response'
+                                                }
+                                                selectedOption={selectedWard}
+                                                onSelectOption={handleWardSelect}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="col-lg-6">
                                         <label className="form-label">Light <span className="text-danger">*</span></label>
                                         <SelectDropdown
@@ -757,6 +918,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                             defaultSelect={
                                                 !selectedPanchayat
                                                     ? locationConfig.selectLocalityFirstText
+                                                    : region === 'bihar' && wardsInData && !selectedWard
+                                                        ? 'Select Ward First'
                                                     : isSitesLoading
                                                         ? 'Loading lights...'
                                                         : lightOptions.length
@@ -776,6 +939,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         {selectedDistrict && <span className="badge bg-soft-secondary text-secondary">{selectedDistrict.label}</span>}
                                         {selectedBlock && <span className="badge bg-soft-secondary text-secondary">{selectedBlock.label}</span>}
                                         {selectedPanchayat && <span className="badge bg-soft-secondary text-secondary">{selectedPanchayat.label}</span>}
+                                        {selectedWard && <span className="badge bg-soft-secondary text-secondary">{selectedWard.label}</span>}
                                         {selectedLight && <span className="badge bg-soft-success text-success">{selectedLight.label}</span>}
                                         {isSitesLoading && (
                                             <span className="fs-12 text-muted d-inline-flex align-items-center gap-1">
