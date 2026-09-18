@@ -1,4 +1,4 @@
--- MariaDB / MySQL: skip if column already exists (manual runs safe)
+-- MySQL-compatible (no ADD COLUMN IF NOT EXISTS — MariaDB-only syntax)
 ALTER TABLE `users`
-  ADD COLUMN IF NOT EXISTS `profile_image` VARCHAR(255) NULL
+  ADD COLUMN `profile_image` VARCHAR(255) NULL
   AFTER `rent_agreement_electricity_bill`;
