@@ -8,6 +8,7 @@ import { toPublicFileUrl } from '../../../Utils/publicUrl.js'
 import {
     buildCreatedByDocumentWhere,
     buildCreatedByUploadInclude,
+    resolveJwtUserId,
     resolveRequestUserId,
 } from '../../../Utils/requestUser.js'
 
@@ -481,12 +482,16 @@ export const getAmcDocuments = async (req, res) => {
         const portalCompanyId = req.portalCompanyId
             ? String(req.portalCompanyId).trim()
             : ''
+        const jwtUserId = resolveJwtUserId(req)
         const userId = resolveRequestUserId(req)
 
         let documentWhere
         let uploadInclude
 
-        if (portalCompanyId) {
+        if (jwtUserId) {
+            documentWhere = buildCreatedByDocumentWhere(userId)
+            uploadInclude = buildCreatedByUploadInclude(userId)
+        } else if (portalCompanyId) {
             documentWhere = { company_id: portalCompanyId }
             uploadInclude = true
         } else if (!userId) {

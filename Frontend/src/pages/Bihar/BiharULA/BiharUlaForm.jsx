@@ -376,14 +376,6 @@ const BiharUlaForm = () => {
       return
     }
 
-    if (beneficiaryContact.trim() && !isValidIndianMobile(beneficiaryContact)) {
-      setSubmitError(
-        'Beneficiary contact must be a 10-digit mobile number (digits only, starting with 6–9).'
-      )
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
-
     if (!latitude || !longitude) {
       setSubmitError('Please tap Auto Detect GPS before capturing photos.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -409,6 +401,23 @@ const BiharUlaForm = () => {
       }
       if (!selectedPanchayat?.value) {
         setSubmitError('Please select panchayat from the list.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+      if (!village.trim()) {
+        setSubmitError('Please enter Village.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+      if (!beneficiaryContact.trim()) {
+        setSubmitError('Please enter Beneficiary contact.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+      if (!isValidIndianMobile(beneficiaryContact)) {
+        setSubmitError(
+          'Beneficiary contact must be a 10-digit mobile number (digits only, starting with 6–9).'
+        )
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
@@ -641,7 +650,9 @@ const BiharUlaForm = () => {
 
           {/* Village */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">Village</label>
+            <label className="form-label">
+              Village <span className="text-danger">*</span>
+            </label>
             <input
               type="text"
               className="form-control"
@@ -649,6 +660,7 @@ const BiharUlaForm = () => {
               value={village}
               onChange={(e) => setVillage(e.target.value)}
               readOnly={isSecondVisitMode}
+              required={!isSecondVisitMode}
             />
           </div>
 
@@ -752,7 +764,9 @@ const BiharUlaForm = () => {
 
           {/* Beneficiary contact */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">Beneficiary Contact</label>
+            <label className="form-label">
+              Beneficiary Contact <span className="text-danger">*</span>
+            </label>
             <input
               type="tel"
               inputMode="numeric"
@@ -763,8 +777,9 @@ const BiharUlaForm = () => {
               onChange={(e) => setBeneficiaryContact(sanitizeMobileInput(e.target.value))}
               readOnly={isSecondVisitMode}
               maxLength={10}
+              required={!isSecondVisitMode}
             />
-            <div className="fs-11 text-muted mt-1">Digits only (optional)</div>
+            <div className="fs-11 text-muted mt-1">10-digit mobile (6–9)</div>
           </div>
 
           {/* Date & Time */}

@@ -2,6 +2,11 @@
 export const resolveCompanyId = (req) =>
   String(req.query?.company_id ?? req.body?.company_id ?? "").trim();
 
+const hasBearerAuth = (req) => {
+  const authHeader = req.headers.authorization;
+  return Boolean(authHeader && authHeader.startsWith("Bearer "));
+};
+
 export const attachPortalCompanyFromQuery = (req, res, next) => {
   const companyId = resolveCompanyId(req);
   if (!companyId) {
@@ -14,10 +19,11 @@ export const attachPortalCompanyFromQuery = (req, res, next) => {
   return next();
 };
 
-/** Portal read on same path as DLE app: skip public router when company_id omitted. */
+/** Portal read on same path as DLE app: skip when no company_id or Bearer token (DLE app). */
 export const attachPortalCompanyOrSkipRouter = (req, res, next) => {
   const companyId = resolveCompanyId(req);
   if (!companyId) return next("router");
+  if (hasBearerAuth(req)) return next("router");
   req.portalCompanyId = companyId;
   return next();
 };

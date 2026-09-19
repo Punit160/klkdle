@@ -313,7 +313,10 @@ const parseCaNo = (raw) => {
 const parseBeneficiaryMobile = (raw) => {
   const mobile = digitsOnly(raw, 10);
   if (!mobile) {
-    return { ok: true, value: "-" };
+    return {
+      ok: false,
+      message: "Beneficiary contact is required (10-digit mobile).",
+    };
   }
   if (!/^[6-9]\d{9}$/.test(mobile)) {
     return {
@@ -410,6 +413,13 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       return res.status(422).json({ success: false, message: mobileParsed.message });
     }
 
+    if (!String(village || "").trim()) {
+      return res.status(422).json({
+        success: false,
+        message: "village is required.",
+      });
+    }
+
     const caNoNormalized = caParsed.value;
 
     const existing = await prisma.biharUlaSurvey.findUnique({
@@ -495,12 +505,12 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         ca_no: clip(caNoNormalized, 100),
         ca_name: clip(ca_name, 100),
         beneficiary_name: clip(beneficiary_name || ca_name, 255),
-        beneficiary_contact: clip(mobileParsed.value, 20) || "-",
+        beneficiary_contact: clip(mobileParsed.value, 20),
         state: "Bihar",
         district: district?.trim() || null,
         block: block?.trim() || null,
         panchayat: panchayat?.trim() || null,
-        village: village?.trim() || null,
+        village: clip(String(village).trim(), 255),
         survey_date: parseSurveyDate(survey_date),
         panel_one_img: stored.panel_one_img,
         panel_one_no: panel_one_no?.trim() || null,
@@ -675,23 +685,22 @@ const surveyMatchesPortalCompany = (row, portalCompanyId) =>
 
 export const listBiharUlaSurveys = async (req, res) => {
   try {
+    const jwtUserId = String(resolveJwtUserId(req) || "").trim();
     const portalCompanyId = req.portalCompanyId
       ? String(req.portalCompanyId).trim()
       : "";
     let where;
 
-    if (portalCompanyId) {
+    if (jwtUserId) {
+      // DLE app: only records created by this user (user_id column).
+      where = { user_id: jwtUserId };
+    } else if (portalCompanyId) {
       where = { company_id: portalCompanyId };
     } else {
-      const userId = String(resolveJwtUserId(req) || "").trim();
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: "Login required to list your ULA surveys.",
-        });
-      }
-      // Scope by logged-in creator only (ignore company_id query — localStorage can be stale).
-      where = { user_id: userId };
+      return res.status(401).json({
+        success: false,
+        message: "Login required to list your ULA surveys.",
+      });
     }
 
     const rows = await prisma.biharUlaSurvey.findMany({
@@ -730,10 +739,18 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
       return res.status(404).json({ success: false, message: "ULA record not found." });
     }
 
+    const jwtUserId = resolveJwtUserId(req);
     const portalCompanyId = req.portalCompanyId
       ? String(req.portalCompanyId).trim()
       : "";
-    if (portalCompanyId) {
+    if (jwtUserId) {
+      if (!surveyOwnedByUser(row, jwtUserId)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only download images for your own ULA records.",
+        });
+      }
+    } else if (portalCompanyId) {
       if (!surveyMatchesPortalCompany(row, portalCompanyId)) {
         return res.status(403).json({
           success: false,
@@ -741,13 +758,10 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
         });
       }
     } else {
-      const userId = resolveJwtUserId(req);
-      if (!surveyOwnedByUser(row, userId)) {
-        return res.status(403).json({
-          success: false,
-          message: "You can only download images for your own ULA records.",
-        });
-      }
+      return res.status(401).json({
+        success: false,
+        message: "Login required.",
+      });
     }
 
     const entries = collectUlaImageEntries(row);
@@ -793,18 +807,16 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
 
 export const getBiharUlaSurvey = async (req, res) => {
   try {
+    const jwtUserId = resolveJwtUserId(req);
     const portalCompanyId = req.portalCompanyId
       ? String(req.portalCompanyId).trim()
       : "";
 
-    if (!portalCompanyId) {
-      const userId = resolveJwtUserId(req);
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: "Login required to view ULA record.",
-        });
-      }
+    if (!jwtUserId && !portalCompanyId) {
+      return res.status(401).json({
+        success: false,
+        message: "Login required to view ULA record.",
+      });
     }
 
     const id = req.params.id;
@@ -816,21 +828,18 @@ export const getBiharUlaSurvey = async (req, res) => {
       return res.status(404).json({ success: false, message: "ULA record not found." });
     }
 
-    if (portalCompanyId) {
-      if (!surveyMatchesPortalCompany(row, portalCompanyId)) {
-        return res.status(403).json({
-          success: false,
-          message: "ULA record does not belong to this company.",
-        });
-      }
-    } else {
-      const userId = resolveJwtUserId(req);
-      if (!surveyOwnedByUser(row, userId)) {
+    if (jwtUserId) {
+      if (!surveyOwnedByUser(row, jwtUserId)) {
         return res.status(403).json({
           success: false,
           message: "You can only view ULA records you created.",
         });
       }
+    } else if (!surveyMatchesPortalCompany(row, portalCompanyId)) {
+      return res.status(403).json({
+        success: false,
+        message: "ULA record does not belong to this company.",
+      });
     }
 
     return res.json({
