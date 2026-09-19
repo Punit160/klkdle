@@ -260,6 +260,8 @@ const serializeSurvey = (req, row, nameMap = new Map()) => {
     user_name2: nameFromMap(nameMap, row.user_id2),
     second_visit_at: resolveSecondVisitAt(row),
     modification: row.modification,
+    visit1_note: String(parseSurveyRemarksMeta(row.remarks).visit1_note || "").trim() || null,
+    visit2_note: String(parseSurveyRemarksMeta(row.remarks).visit2_note || "").trim() || null,
     remarks: row.remarks,
     structure_img_url,
     created_at: row.created_at,
@@ -388,6 +390,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       latitude,
       longitude,
       solar_meter_on_first_visit,
+      remarks: visit1NoteBody,
     } = req.body;
 
     if (!companyIdResolved || !ca_name?.trim()) {
@@ -516,6 +519,9 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         remarks: mergeSurveyRemarksMeta(null, {
           structure_img: structurePath,
           surveyor_name: surveyorName,
+          ...(clip(visit1NoteBody, 500)
+            ? { visit1_note: clip(visit1NoteBody, 500) }
+            : {}),
         }),
       },
     });
@@ -592,7 +598,7 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       });
     }
 
-    const { latitude2, longitude2, remarks } = req.body;
+    const { latitude2, longitude2, remarks: visit2NoteBody } = req.body;
     const files = req.files || {};
 
     const solarFile = files.solar_meter_img2?.[0];
@@ -638,7 +644,9 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
         remarks: mergeSurveyRemarksMeta(existing.remarks, {
           surveyor_name2: surveyorName2,
           second_visit_at: secondVisitAt.toISOString(),
-          ...(remarks?.trim() ? { visit2_note: clip(remarks, 500) } : {}),
+          ...(clip(visit2NoteBody, 500)
+            ? { visit2_note: clip(visit2NoteBody, 500) }
+            : {}),
         }),
         updated_at: new Date(),
       },
@@ -658,19 +666,36 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
   }
 };
 
+const surveyMatchesPortalCompany = (row, portalCompanyId) =>
+  Boolean(
+    row &&
+      portalCompanyId &&
+      String(row.company_id || "").trim() === String(portalCompanyId).trim()
+  );
+
 export const listBiharUlaSurveys = async (req, res) => {
   try {
-    const userId = String(resolveJwtUserId(req) || "").trim();
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Login required to list your ULA surveys.",
-      });
+    const portalCompanyId = req.portalCompanyId
+      ? String(req.portalCompanyId).trim()
+      : "";
+    let where;
+
+    if (portalCompanyId) {
+      where = { company_id: portalCompanyId };
+    } else {
+      const userId = String(resolveJwtUserId(req) || "").trim();
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Login required to list your ULA surveys.",
+        });
+      }
+      // Scope by logged-in creator only (ignore company_id query — localStorage can be stale).
+      where = { user_id: userId };
     }
 
-    // Scope by logged-in creator only (ignore company_id query — localStorage can be stale).
     const rows = await prisma.biharUlaSurvey.findMany({
-      where: { user_id: userId },
+      where,
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
       take: Math.min(Number(req.query.limit) || 200, 500),
     });
@@ -705,12 +730,24 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
       return res.status(404).json({ success: false, message: "ULA record not found." });
     }
 
-    const userId = resolveJwtUserId(req);
-    if (!surveyOwnedByUser(row, userId)) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only download images for your own ULA records.",
-      });
+    const portalCompanyId = req.portalCompanyId
+      ? String(req.portalCompanyId).trim()
+      : "";
+    if (portalCompanyId) {
+      if (!surveyMatchesPortalCompany(row, portalCompanyId)) {
+        return res.status(403).json({
+          success: false,
+          message: "ULA record does not belong to this company.",
+        });
+      }
+    } else {
+      const userId = resolveJwtUserId(req);
+      if (!surveyOwnedByUser(row, userId)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only download images for your own ULA records.",
+        });
+      }
     }
 
     const entries = collectUlaImageEntries(row);
@@ -756,12 +793,18 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
 
 export const getBiharUlaSurvey = async (req, res) => {
   try {
-    const userId = resolveJwtUserId(req);
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Login required to view ULA record.",
-      });
+    const portalCompanyId = req.portalCompanyId
+      ? String(req.portalCompanyId).trim()
+      : "";
+
+    if (!portalCompanyId) {
+      const userId = resolveJwtUserId(req);
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Login required to view ULA record.",
+        });
+      }
     }
 
     const id = req.params.id;
@@ -773,11 +816,21 @@ export const getBiharUlaSurvey = async (req, res) => {
       return res.status(404).json({ success: false, message: "ULA record not found." });
     }
 
-    if (!surveyOwnedByUser(row, userId)) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only view ULA records you created.",
-      });
+    if (portalCompanyId) {
+      if (!surveyMatchesPortalCompany(row, portalCompanyId)) {
+        return res.status(403).json({
+          success: false,
+          message: "ULA record does not belong to this company.",
+        });
+      }
+    } else {
+      const userId = resolveJwtUserId(req);
+      if (!surveyOwnedByUser(row, userId)) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only view ULA records you created.",
+        });
+      }
     }
 
     return res.json({

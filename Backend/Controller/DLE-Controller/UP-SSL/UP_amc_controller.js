@@ -387,24 +387,36 @@ export const createAmcDocument = async (req, res) => {
 export const getAmcDocuments = async (req, res) => {
 
     try {
+        const portalCompanyId = req.portalCompanyId
+            ? String(req.portalCompanyId).trim()
+            : ''
         const userId = resolveRequestUserId(req)
 
-        if (!userId) {
+        let documentWhere
+        let uploadInclude
+
+        if (portalCompanyId) {
+            documentWhere = { company_id: portalCompanyId }
+            uploadInclude = true
+        } else if (!userId) {
             return res.status(401).json({
                 success: false,
                 message: 'User authentication required',
             })
+        } else {
+            documentWhere = buildCreatedByDocumentWhere(userId)
+            uploadInclude = buildCreatedByUploadInclude(userId)
         }
 
         const documents =
             await prisma.upSslAmcDocument.findMany({
-                where: buildCreatedByDocumentWhere(userId),
+                where: documentWhere,
                 orderBy: {
                     id: 'desc',
                 },
 
                 include: {
-                    uploadDocuments: buildCreatedByUploadInclude(userId),
+                    uploadDocuments: uploadInclude,
                 },
             })
 

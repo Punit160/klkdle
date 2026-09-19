@@ -42,6 +42,34 @@ export const resolveUlaSurveyorDisplayName = (surveyRow, { userIdField = 'user_i
   return '—'
 }
 
+/** User remarks stored in survey `remarks` JSON (visit1_note / visit2_note). */
+export const parseUlaSurveyVisitNotes = (survey) => {
+  if (!survey) return { visit1Note: '', visit2Note: '' }
+
+  const fromApi = {
+    visit1Note: String(survey.visit1_note ?? '').trim(),
+    visit2Note: String(survey.visit2_note ?? '').trim(),
+  }
+  if (fromApi.visit1Note || fromApi.visit2Note) return fromApi
+
+  try {
+    const meta = JSON.parse(survey.remarks || '{}')
+    if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+      return {
+        visit1Note: String(meta.visit1_note ?? '').trim(),
+        visit2Note: String(meta.visit2_note ?? '').trim(),
+      }
+    }
+  } catch {
+    const plain = String(survey.remarks || '').trim()
+    if (plain && !plain.startsWith('{')) {
+      return { visit1Note: plain, visit2Note: '' }
+    }
+  }
+
+  return { visit1Note: '', visit2Note: '' }
+}
+
 /** Digits-only CA number (max 20). */
 export const sanitizeCaNumberInput = (value) =>
   String(value ?? '')
@@ -96,87 +124,11 @@ export const ULA_SERIAL_API_FIELD = {
 /** Slots where serial is read from QR on capture, or entered manually if scan fails. */
 export const ULA_QR_SERIAL_SLOT_KEYS = Object.keys(ULA_SERIAL_API_FIELD)
 
-/** Pull equipment serial from raw QR / barcode text (plain, URL, or JSON). */
-export const parseEquipmentSerialFromScan = (rawValue) => {
-  if (rawValue == null) return ''
-  let text = String(rawValue).trim()
-  if (!text) return ''
-
-  const klkMatch = text.match(/\b(KLK[A-Z0-9]{8,})\b/i)
-  if (klkMatch) return klkMatch[1].toUpperCase()
-
-  const invMatch = text.match(/\b(INV[-A-Z0-9]{4,})\b/i)
-  if (invMatch) return invMatch[1].toUpperCase()
-
-  try {
-    if (text.startsWith('{') || text.startsWith('[')) {
-      const parsed = JSON.parse(text)
-      const fromJson =
-        parsed?.serial ??
-        parsed?.serialNo ??
-        parsed?.serial_number ??
-        parsed?.sn ??
-        parsed?.barcode
-      if (fromJson) return parseEquipmentSerialFromScan(String(fromJson))
-    }
-  } catch {
-    /* not JSON */
-  }
-
-  try {
-    const asUrl = text.includes('://') ? new URL(text) : null
-    if (asUrl) {
-      for (const key of ['serial', 'sn', 'barcode', 'id', 'code']) {
-        const param = asUrl.searchParams.get(key)
-        if (param) {
-          const normalized = parseEquipmentSerialFromScan(param)
-          if (normalized) return normalized
-        }
-      }
-    }
-  } catch {
-    /* not a URL */
-  }
-
-  if (/^[A-Z0-9][A-Z0-9\-_/]{5,}$/i.test(text)) {
-    return text.replace(/\s+/g, '').toUpperCase()
-  }
-
-  return text.replace(/\s+/g, '')
-}
-
-const detectOnCanvas = async (canvas) => {
-  if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-    try {
-      const formats = await window.BarcodeDetector.getSupportedFormats()
-      const detector = new window.BarcodeDetector({
-        formats: formats?.length
-          ? formats
-          : ['qr_code', 'code_128', 'code_39', 'data_matrix', 'ean_13'],
-      })
-      const barcodes = await detector.detect(canvas)
-      if (barcodes?.[0]?.rawValue) {
-        return parseEquipmentSerialFromScan(barcodes[0].rawValue)
-      }
-    } catch (err) {
-      console.warn('Native BarcodeDetector detection error:', err)
-    }
-  }
-
-  const jsQR = await loadJsQr()
-  if (jsQR && canvas) {
-    const ctx = canvas.getContext('2d')
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const qrCode = jsQR(imgData.data, imgData.width, imgData.height, {
-      inversionAttempts: 'attemptBoth',
-    })
-    if (qrCode?.data) {
-      return parseEquipmentSerialFromScan(qrCode.data)
-    }
-  }
-
-  return null
-}
+export {
+  parseEquipmentSerialFromScan,
+  loadJsQr,
+  scanQrOrBarcode,
+} from '../../../utils/equipmentQrScan'
 
 export const ULA_IMAGE_SLOTS = [
   {
@@ -449,95 +401,6 @@ export const formatSurveyDateDisplay = (value) => {
   return formatIndianDateTime(d)
 }
 
-/**
- * Load jsQR script dynamically if needed
- */
-export const loadJsQr = () => {
-  if (typeof window !== 'undefined' && window.jsQR) return Promise.resolve(window.jsQR)
-  return new Promise((resolve) => {
-    if (typeof document === 'undefined') return resolve(null)
-    const existing = document.getElementById('jsqr-script')
-    if (existing) {
-      existing.addEventListener('load', () => resolve(window.jsQR))
-      return
-    }
-    const script = document.createElement('script')
-    script.id = 'jsqr-script'
-    script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
-    script.async = true
-    script.onload = () => resolve(window.jsQR)
-    script.onerror = () => resolve(null)
-    document.head.appendChild(script)
-  })
-}
-
-/**
- * Scan QR Code or Barcode from canvas or image source
- * Automatically detects solar panel / equipment serial numbers (e.g. KLK3M0300526128613)
- */
-export const scanQrOrBarcode = async (imageOrCanvas) => {
-  try {
-    let canvas = imageOrCanvas
-    if (!(imageOrCanvas instanceof HTMLCanvasElement)) {
-      const img =
-        imageOrCanvas instanceof HTMLImageElement
-          ? imageOrCanvas
-          : await new Promise((res, rej) => {
-              const i = new Image()
-              i.crossOrigin = 'anonymous'
-              i.onload = () => res(i)
-              i.onerror = rej
-              i.src =
-                typeof imageOrCanvas === 'string'
-                  ? imageOrCanvas
-                  : URL.createObjectURL(imageOrCanvas)
-            })
-
-      canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth || img.width || 800
-      canvas.height = img.naturalHeight || img.height || 600
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    }
-
-    let found = await detectOnCanvas(canvas)
-    if (found) return found
-
-    const w = canvas.width
-    const h = canvas.height
-    const regions = [
-      { x: 0, y: 0, w, h },
-      { x: Math.floor(w * 0.15), y: Math.floor(h * 0.15), w: Math.floor(w * 0.7), h: Math.floor(h * 0.7) },
-      { x: Math.floor(w * 0.25), y: Math.floor(h * 0.2), w: Math.floor(w * 0.5), h: Math.floor(h * 0.6) },
-    ]
-
-    for (const region of regions) {
-      if (region.w < 80 || region.h < 80) continue
-      found = await detectOnCanvas(
-        (() => {
-          const slice = document.createElement('canvas')
-          slice.width = region.w
-          slice.height = region.h
-          slice.getContext('2d').drawImage(canvas, region.x, region.y, region.w, region.h, 0, 0, region.w, region.h)
-          return slice
-        })()
-      )
-      if (found) return found
-    }
-
-    const upscaled = document.createElement('canvas')
-    upscaled.width = Math.min(w * 2, 2560)
-    upscaled.height = Math.min(h * 2, 2560)
-    upscaled.getContext('2d').drawImage(canvas, 0, 0, upscaled.width, upscaled.height)
-    found = await detectOnCanvas(upscaled)
-    if (found) return found
-  } catch (err) {
-    console.warn('Failed to scan QR/Barcode:', err)
-  }
-
-  return null
-}
-
 /** ULA image stamp (full site fields on system photos). */
 export const stampImageWithMetadata = (imageSrc, metadata = {}) =>
   stampImageDataUrl(imageSrc, {
@@ -756,6 +619,7 @@ export const submitUlaFirstVisit = async ({
   images,
   serialNumbers,
   solarMeterOnFirstVisit,
+  remarks,
 }) => {
   const user = getUser()
   const companyId = getCompanyId() || user?.company_id || user?.companyId
@@ -774,6 +638,8 @@ export const submitUlaFirstVisit = async ({
   fd.append('latitude', form.latitude || '')
   fd.append('longitude', form.longitude || '')
   fd.append('solar_meter_on_first_visit', solarMeterOnFirstVisit ? '1' : '0')
+  const visit1Note = String(remarks ?? '').trim().slice(0, 500)
+  if (visit1Note) fd.append('remarks', visit1Note)
 
   Object.entries(ULA_SERIAL_API_FIELD).forEach(([slotKey, fieldName]) => {
     if (serialNumbers[slotKey]) {
@@ -803,7 +669,8 @@ export const submitUlaSecondVisit = async ({ recordId, images, latitude, longitu
   const fd = new FormData()
   fd.append('latitude2', latitude || '')
   fd.append('longitude2', longitude || '')
-  if (remarks) fd.append('remarks', remarks)
+  const visit2Note = String(remarks ?? '').trim().slice(0, 500)
+  if (visit2Note) fd.append('remarks', visit2Note)
 
   for (const key of ['solar_meter_v2', 'system_complete']) {
     const apiField = ULA_SLOT_API_FIELD[key]
@@ -857,6 +724,7 @@ export const mapSurveyToDetailsRecord = (survey) => {
   if (!survey) return null
 
   const images = mapSurveyToDisplayImages(survey)
+  const visitNotes = parseUlaSurveyVisitNotes(survey)
 
   return {
     id: survey.id,
@@ -888,6 +756,10 @@ export const mapSurveyToDetailsRecord = (survey) => {
       inverter_qr: survey.inverter_no,
     },
     images,
+    visit1Note: visitNotes.visit1Note || null,
+    visit2Note: visitNotes.visit2Note || null,
+    visit1Remarks: visitNotes.visit1Note || null,
+    visit2Remarks: visitNotes.visit2Note || null,
     remarks: survey.remarks,
     createdAt: survey.created_at,
     updatedAt: survey.updated_at,

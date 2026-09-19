@@ -110,6 +110,11 @@
   padding: 16px;
 }
 
+.punch-in-modal-card {
+  max-width: 440px;
+  width: calc(100% - 2rem);
+}
+
 .camera-capture-modal-card {
   width: min(420px, 100%);
   background: #fff;

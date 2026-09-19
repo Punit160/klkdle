@@ -4,7 +4,11 @@ import { Link, useLocation } from "react-router-dom";
 import { menuList } from "@/components/shared/navigationMenu/menuList";
 import getIcon from "@/utils/getIcon";
 import { getUser } from "@/utils/auth";
-import { filterMenuByUserState } from "@/utils/stateAccess";
+import { filterMenuByUserState, getStateLabel } from "@/utils/stateAccess";
+import { usePunchInStatus } from "@/hooks/usePunchInStatus";
+import { openPunchInFirstModal } from "../../../utils/punchInModal";
+
+const FIELD_MODULE_GROUPS = new Set(["bihar", "up"]);
 
 // Normalize a route path for comparison: strip leading slashes, lowercase.
 const normalize = (p = "") => p.replace(/^\/+/, "").toLowerCase();
@@ -15,7 +19,18 @@ const Menus = () => {
     const pathName = useLocation().pathname;
     const currentPath = normalize(pathName);
     const user = getUser();
+    const { isPunchedIn, loading: punchLoading } = usePunchInStatus();
     const visibleMenu = filterMenuByUserState(menuList, user);
+
+    const blockFieldModuleNav = (event, groupId) => {
+        if (punchLoading || isPunchedIn || !FIELD_MODULE_GROUPS.has(groupId)) {
+            return false;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        openPunchInFirstModal(getStateLabel(user));
+        return true;
+    };
 
     const isPathActive = (path) => !!path && normalize(path) === currentPath;
 
@@ -64,7 +79,11 @@ const Menus = () => {
                         if (!Array.isArray(dropdownMenu) || dropdownMenu.length === 0) {
                             return (
                                 <li key={key} className={`nxl-item ${isPathActive(path) ? "active" : ""}`}>
-                                    <Link to={path} className="nxl-link text-capitalize">
+                                    <Link
+                                        to={path}
+                                        className="nxl-link text-capitalize"
+                                        onClick={(e) => blockFieldModuleNav(e, group.id)}
+                                    >
                                         <span className="nxl-micon"> {getIcon(icon)} </span>
                                         <span className="nxl-mtext" style={{ paddingLeft: "2.5px" }}>
                                             {name}
@@ -102,7 +121,11 @@ const Menus = () => {
                                             key={leaf.id}
                                             className={`nxl-item ${isPathActive(leaf.path) ? "active" : ""}`}
                                         >
-                                            <Link className="nxl-link text-capitalize" to={leaf.path}>
+                                            <Link
+                                                className="nxl-link text-capitalize"
+                                                to={leaf.path}
+                                                onClick={(e) => blockFieldModuleNav(e, group.id)}
+                                            >
                                                 {leaf.name}
                                             </Link>
                                         </li>

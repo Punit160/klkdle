@@ -56,6 +56,12 @@ export const filterMenuByUserState = (menuList, user) => {
   })
 }
 
+/** Hide Bihar / UP menu until user has an active punch-in session. */
+export const filterMenuByPunchIn = (menuList, isPunchedIn) => {
+  if (isPunchedIn) return menuList
+  return menuList.filter((group) => group.id === 'account')
+}
+
 const stateHubConfig = {
   bihar: {
     title: 'Bihar Operations',

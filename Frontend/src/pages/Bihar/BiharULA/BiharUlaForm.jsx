@@ -27,11 +27,13 @@ import {
   formatSurveyDateDisplay,
   mapSurveyToDisplayImages,
   scanQrOrBarcode,
+  loadJsQr,
   ULA_QR_SERIAL_SLOT_KEYS,
   ULA_SERIAL_API_FIELD,
   fetchUlaSurveyById,
   submitUlaFirstVisit,
   submitUlaSecondVisit,
+  parseUlaSurveyVisitNotes,
   sanitizeCaNumberInput,
   sanitizeMobileInput,
   isValidCaNumber,
@@ -90,6 +92,8 @@ const BiharUlaForm = () => {
   const [visitType, setVisitType] = useState(isSecondVisitMode ? '2nd Visit' : '1st Visit')
   const [solarMeterOnFirstVisit, setSolarMeterOnFirstVisit] = useState(false)
   const [beneficiaryContact, setBeneficiaryContact] = useState('')
+  const [visit1Remarks, setVisit1Remarks] = useState('')
+  const [visit2Remarks, setVisit2Remarks] = useState('')
   const [loadedSurvey, setLoadedSurvey] = useState(null)
   const [isLoadingRecord, setIsLoadingRecord] = useState(false)
 
@@ -113,6 +117,10 @@ const BiharUlaForm = () => {
     () => getUlaSlotsForVisit(visitType, solarMeterOnFirstVisit),
     [visitType, solarMeterOnFirstVisit]
   )
+
+  useEffect(() => {
+    loadJsQr()
+  }, [])
 
   const ulaSiteStampMeta = useMemo(
     () => ({
@@ -259,6 +267,9 @@ const BiharUlaForm = () => {
           panel2_qr: survey.panel_two_no || '',
           inverter_qr: survey.inverter_no || '',
         })
+        const notes = parseUlaSurveyVisitNotes(survey)
+        setVisit1Remarks(notes.visit1Note)
+        setVisit2Remarks('')
       })
       .catch(() => {
         setSubmitError('Failed to load ULA record for 2nd visit.')
@@ -284,27 +295,43 @@ const BiharUlaForm = () => {
   }
 
   // Panel 1 / Panel 2 / Inverter: serial from QR on capture, or manual entry below
+  const applyScannedSerial = (slot, detectedCode, sourceLabel, { overwrite = false } = {}) => {
+    if (!slot?.key || !detectedCode) return false
+    setSerialNumbers((prev) => {
+      if (!overwrite && String(prev[slot.key] || '').trim()) return prev
+      return { ...prev, [slot.key]: detectedCode }
+    })
+    setSerialFromQr((prev) => ({ ...prev, [slot.key]: true }))
+    setScanNotice(`${sourceLabel} for ${slot.title}: ${detectedCode}`)
+    setTimeout(() => setScanNotice(''), 5000)
+    return true
+  }
+
   const attemptQrAutoDetect = async (canvas, slot) => {
     if (!slot?.hasSerialInput) return
     setScanningSlot(slot.key)
     try {
       const detectedCode = await scanQrOrBarcode(canvas)
-      if (detectedCode) {
-        setSerialNumbers((prev) => ({ ...prev, [slot.key]: detectedCode }))
-        setSerialFromQr((prev) => ({ ...prev, [slot.key]: true }))
-        setScanNotice(`Serial auto-read from QR for ${slot.title}: ${detectedCode}`)
-        setTimeout(() => setScanNotice(''), 5000)
+      if (detectedCode && applyScannedSerial(slot, detectedCode, 'Serial auto-read from QR')) {
         return
       }
 
       setScanNotice(
-        `Could not read QR from ${slot.title} photo. Enter the serial number manually in the box below.`
+        `Could not read QR from ${slot.title} photo. Use Scan on the serial field or type manually.`
       )
       setTimeout(() => setScanNotice(''), 7000)
     } catch (err) {
       console.warn('QR auto detect error:', err)
     } finally {
       setScanningSlot(null)
+    }
+  }
+
+  const attemptQrFromCapturedPhoto = async (dataUrl, slot) => {
+    if (!slot?.hasSerialInput || !dataUrl) return
+    const detectedCode = await scanQrOrBarcode(dataUrl)
+    if (detectedCode) {
+      applyScannedSerial(slot, detectedCode, 'Serial read from captured photo')
     }
   }
 
@@ -422,6 +449,7 @@ const BiharUlaForm = () => {
           images,
           latitude,
           longitude,
+          remarks: visit2Remarks,
         })
         setSuccessMessage(`2nd visit saved for CA #${caNumber}.`)
       } else {
@@ -440,6 +468,7 @@ const BiharUlaForm = () => {
           images,
           serialNumbers,
           solarMeterOnFirstVisit,
+          remarks: visit1Remarks,
         })
         setSuccessMessage(`1st visit saved for CA #${caNumber}.`)
       }
@@ -790,6 +819,22 @@ const BiharUlaForm = () => {
             </div>
           )}
 
+          <div className="col-12">
+            <label className="form-label" htmlFor="ula-visit1-remarks">
+              1st visit remarks <span className="text-muted fw-normal">(optional)</span>
+            </label>
+            <textarea
+              id="ula-visit1-remarks"
+              className="form-control"
+              rows={3}
+              maxLength={500}
+              placeholder="Site condition, issues, or notes for this survey…"
+              value={visit1Remarks}
+              onChange={(e) => setVisit1Remarks(e.target.value.slice(0, 500))}
+            />
+            <div className="fs-11 text-muted mt-1">{visit1Remarks.length}/500</div>
+          </div>
+
         </div>
 
         <hr className="border-dashed" />
@@ -828,6 +873,14 @@ const BiharUlaForm = () => {
                     : '—'
                 }
               />
+              {visit1Remarks ? (
+                <div className="col-12">
+                  <label className="form-label fs-11 text-muted mb-1">1st visit remarks</label>
+                  <div className="form-control bg-light fs-13" style={{ minHeight: '4.5rem' }}>
+                    {visit1Remarks}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="row g-2 mb-3">
@@ -933,6 +986,21 @@ const BiharUlaForm = () => {
                 <label className="form-label">Capture time</label>
                 <input type="text" className="form-control bg-light" value={dateTime} readOnly />
               </div>
+              <div className="col-12">
+                <label className="form-label" htmlFor="ula-visit2-remarks">
+                  2nd visit remarks <span className="text-muted fw-normal">(optional)</span>
+                </label>
+                <textarea
+                  id="ula-visit2-remarks"
+                  className="form-control"
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Notes for 2nd visit (installation, meter, wiring, etc.)…"
+                  value={visit2Remarks}
+                  onChange={(e) => setVisit2Remarks(e.target.value.slice(0, 500))}
+                />
+                <div className="fs-11 text-muted mt-1">{visit2Remarks.length}/500</div>
+              </div>
             </div>
             <hr className="border-dashed my-4" />
           </>
@@ -1029,12 +1097,13 @@ const BiharUlaForm = () => {
                           return true
                         }}
                         onRawFrame={(canvas) => attemptQrAutoDetect(canvas, slot)}
-                        onCaptureDataUrl={(dataUrl, coords) => {
+                        onCaptureDataUrl={async (dataUrl, coords) => {
                           setImages((prev) => ({ ...prev, [slot.key]: dataUrl }))
                           setLatitude(Number(coords.latitude).toFixed(6))
                           setLongitude(Number(coords.longitude).toFixed(6))
                           refreshDateTime()
                           setSubmitError('')
+                          await attemptQrFromCapturedPhoto(dataUrl, slot)
                         }}
                         onClear={() => removePhoto(slot.key)}
                         onPreviewClick={(photo) => setLightboxPhoto(photo)}
@@ -1085,16 +1154,9 @@ const BiharUlaForm = () => {
                             }))
                           }}
                           onScan={(serial) => {
-                            setSerialNumbers((prev) => ({
-                              ...prev,
-                              [slot.key]: serial,
-                            }))
-                            setSerialFromQr((prev) => ({
-                              ...prev,
-                              [slot.key]: true,
-                            }))
-                            setScanNotice(`Serial scanned for ${slot.title}: ${serial}`)
-                            setTimeout(() => setScanNotice(''), 5000)
+                            applyScannedSerial(slot, serial, 'Serial scanned', {
+                              overwrite: true,
+                            })
                           }}
                         />
                         {!currentSerial && currentImage && (

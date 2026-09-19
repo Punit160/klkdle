@@ -5,7 +5,7 @@ import {
   serializeAmcApprovalFields,
 } from "../../Utils/amcApproval.js";
 import { toPublicFileUrl } from "../../Utils/publicUrl.js";
-import { resolveRequestUserId } from "../../Utils/requestUser.js";
+import { resolveCompanyId } from "../../Utils/portalCompany.js";
 
 const REGION_CONFIG = {
   bihar: {
@@ -87,16 +87,23 @@ export const getAmcDocumentsForApproval =
 
       const approvalStatusParam = req.query.approval_status;
       const scope = String(req.query.scope || "all").toLowerCase();
-      const companyId = req.query.company_id?.trim();
+      const companyId = resolveCompanyId(req);
       const district = req.query.district?.trim();
       const block = req.query.block?.trim();
       const panchayat = req.query.panchayat?.trim();
+
+      if (!companyId) {
+        return res.status(422).json({
+          success: false,
+          message: "company_id is required.",
+        });
+      }
 
       const page = Math.max(1, Number(req.query.page) || 1);
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
       const skip = (page - 1) * limit;
 
-      const where = {};
+      const where = { company_id: companyId };
 
       if (
         approvalStatusParam != null &&
@@ -106,16 +113,12 @@ export const getAmcDocumentsForApproval =
         where.approval_status = Number(approvalStatusParam);
       }
 
-      if (companyId) {
-        where.company_id = companyId;
-      }
-
-      const userId = resolveRequestUserId(req);
       if (scope === "mine") {
-        if (!userId) {
-          return res.status(401).json({
+        const userId = String(req.query.user_id ?? "").trim();
+        if (!userId || !/^\d+$/.test(userId)) {
+          return res.status(422).json({
             success: false,
-            message: "Login required to list your AMC documents.",
+            message: "user_id is required when scope=mine.",
           });
         }
         where.created_by = BigInt(userId);
@@ -180,6 +183,14 @@ export const updateAmcApprovalStatus =
   async (req, res) => {
     try {
       const { id, approval_status, approval_remarks, approval_by } = req.body;
+      const companyId = resolveCompanyId(req);
+
+      if (!companyId) {
+        return res.status(422).json({
+          success: false,
+          message: "company_id is required.",
+        });
+      }
 
       if (!id) {
         return res.status(422).json({
@@ -207,6 +218,13 @@ export const updateAmcApprovalStatus =
         return res.status(404).json({
           success: false,
           message: "AMC document not found.",
+        });
+      }
+
+      if (String(existing.company_id || "").trim() !== companyId) {
+        return res.status(403).json({
+          success: false,
+          message: "Document does not belong to this company.",
         });
       }
 

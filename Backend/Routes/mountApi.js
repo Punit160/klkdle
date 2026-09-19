@@ -5,7 +5,18 @@ import upSslAmcRoutes from "./DLE-Router/UP-SSL-Router/UP_ssl_amc_route.js";
 import lightAmcRoutes from "./DLE-Router/light-amc-route.js";
 import attendanceRoutes from "./DLE-Router/attendance-route.js";
 import biharUlaRoutes from "./DLE-Router/bihar-ula-route.js";
+import { createAmcApprovalRouter } from "./DLE-Router/amc-approval-public-router.js";
+import biharUlaPublicRoutes from "./DLE-Router/bihar-ula-public-router.js";
+import { protect } from "../Middleware/authmiddleware.js";
+import { requireActivePunchIn } from "../Middleware/requireActivePunchIn.js";
 import { getObjectStorageDiagnostics } from "../Utils/objectStorage.js";
+
+const fieldModuleAuth = [protect, requireActivePunchIn];
+
+const mountAmcWithPublicApproval = (app, basePath, region, mainRouter) => {
+  app.use(basePath, createAmcApprovalRouter(region));
+  app.use(basePath, ...fieldModuleAuth, mainRouter);
+};
 
 /** Mount every Node API under /api — one place to read all routes. */
 export const mountApiRoutes = (app) => {
@@ -19,20 +30,19 @@ export const mountApiRoutes = (app) => {
   app.use("/api/auth", authRoutes);
   app.use("/api/admin", adminRoutes);
 
-  // AMC documents (Node DB)
-  app.use("/api/bihar/amc", biharSslAmcRoutes);
-  app.use("/api/up/amc", upSslAmcRoutes);
-
-  // Legacy aliases — keep until live is fully updated
-  app.use("/api/bihar/ssl-amc", biharSslAmcRoutes);
-  app.use("/api/up/ssl-amc", upSslAmcRoutes);
+  // AMC approval (public portal) + field routes (JWT + punch in)
+  mountAmcWithPublicApproval(app, "/api/bihar/amc", "bihar", biharSslAmcRoutes);
+  mountAmcWithPublicApproval(app, "/api/up/amc", "up", upSslAmcRoutes);
+  mountAmcWithPublicApproval(app, "/api/bihar/ssl-amc", "bihar", biharSslAmcRoutes);
+  mountAmcWithPublicApproval(app, "/api/up/ssl-amc", "up", upSslAmcRoutes);
 
   // Light AMC (field visits)
-  app.use("/api/light-amc", lightAmcRoutes);
+  app.use("/api/light-amc", ...fieldModuleAuth, lightAmcRoutes);
 
-  // Attendance (punch in/out)
+  // Attendance (punch in/out) — always available without punch-in gate
   app.use("/api/attendance", attendanceRoutes);
-  app.use("/api/bihar/ula", biharUlaRoutes);
+  app.use("/api/bihar/ula", biharUlaPublicRoutes);
+  app.use("/api/bihar/ula", ...fieldModuleAuth, biharUlaRoutes);
 
   // JSON 404 for unknown API calls (avoids HTML "Cannot POST ..." in browser)
   app.use("/api", (req, res) => {

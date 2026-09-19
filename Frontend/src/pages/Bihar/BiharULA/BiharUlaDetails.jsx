@@ -9,6 +9,7 @@ import {
   FiMaximize2,
   FiPhone,
   FiCalendar,
+  FiPaperclip,
 } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { pages } from '../../../api/routes'
@@ -297,6 +298,22 @@ const BiharUlaDetails = () => {
               <DetailItem label="2nd visit survey by" value={record.secondVisitByName} />
             </div>
           </div>
+
+          {(record.visit1Remarks || record.visit2Remarks) && (
+            <div className="ula-detail-section">
+              <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">
+                <FiPaperclip size={16} className="text-primary" /> Survey remarks
+              </h6>
+              <div className="row g-3">
+                {record.visit1Remarks ? (
+                  <DetailItem label="1st visit remarks" value={record.visit1Remarks} />
+                ) : null}
+                {record.visit2Remarks ? (
+                  <DetailItem label="2nd visit remarks" value={record.visit2Remarks} />
+                ) : null}
+              </div>
+            </div>
+          )}
 
           <div className="ula-detail-section">
             <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">

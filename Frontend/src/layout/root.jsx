@@ -3,6 +3,7 @@ import NavigationManu from '@/components/shared/navigationMenu/NavigationMenu'
 import Header from '@/components/shared/header/Header'
 import useBootstrapUtils from '@/hooks/useBootstrapUtils'
 import Footer from '../components/shared/Footer'
+import PunchInFirstModalHost from '../components/shared/PunchInFirstModal'
 
 
 const RootLayout = () => {
@@ -11,6 +12,7 @@ const RootLayout = () => {
 
     return (
         <>
+            <PunchInFirstModalHost />
             <Header />
             <NavigationManu />
             <main

@@ -8,6 +8,7 @@ import {
   formatCoords,
 } from '../../utils/attendanceFormat'
 import { captureCurrentLocation, captureLocationOptional } from '../../utils/geolocation'
+import { notifyAttendanceChanged } from '../../hooks/usePunchInStatus'
 import '../../styles/DLE/dle-dashboard.css'
 
 const AttendanceWidget = ({ showReportLink = false, onRefreshCalendar }) => {
@@ -56,6 +57,7 @@ const AttendanceWidget = ({ showReportLink = false, onRefreshCalendar }) => {
       setToday(res.data.record)
       setIsPunchedIn(true)
       setAutoNotice('')
+      notifyAttendanceChanged()
       onRefreshCalendar?.()
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Punch in failed')
@@ -74,6 +76,7 @@ const AttendanceWidget = ({ showReportLink = false, onRefreshCalendar }) => {
 
       setToday(res.data.record)
       setIsPunchedIn(false)
+      notifyAttendanceChanged()
       onRefreshCalendar?.()
 
       if (!coords.latitude && !coords.longitude) {

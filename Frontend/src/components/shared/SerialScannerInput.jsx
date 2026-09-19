@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FiAlertCircle, FiCamera, FiLoader } from 'react-icons/fi'
-import { scanQrOrBarcode } from '../../pages/Bihar/BiharULA/ulaHelpers'
+import { loadJsQr, scanQrOrBarcode } from '../../utils/equipmentQrScan'
 
 /**
  * Text field + live QR/barcode scanner (camera). User can type manually or tap Scan.
@@ -96,9 +96,13 @@ const SerialScannerInput = ({
     if (!isOpen) return undefined
     const timer = setInterval(() => {
       tryScanFrame()
-    }, 420)
+    }, 280)
     return () => clearInterval(timer)
   }, [isOpen, tryScanFrame])
+
+  useEffect(() => {
+    loadJsQr()
+  }, [])
 
   useEffect(() => () => stopStream(), [stopStream])
 
