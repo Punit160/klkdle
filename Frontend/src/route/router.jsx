@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom"
 import RootLayout from "../layout/root"
 import ProtectedRoute from "../routes/ProtectedRoute"
-import StateRoute from "../routes/StateRoute"
+import PortalModuleRoute from "../routes/PortalModuleRoute"
 
 import Dashboard from "../pages/Bihar/BiharSSL/AMC/Dashboard"
 import UploadForm from "../pages/Bihar/BiharSSL/AMC/UploadForm"
@@ -15,7 +15,6 @@ import DLECertificate from "../components/DLE/dle-Emp-certi-Sec"
 
 import Login from "../components/DLE/dle-login-section"
 import DLEDashboard from "../components/DLE/dle-dashboard"
-import SslAmcDashboardRoute from "../routes/SslAmcDashboardRoute"
 
 import UPUploadForm from "../pages/UP/UPSSL/AMC/UploadForm"
 import UPDashboard from "../pages/UP/UPSSL/AMC/Dashboard"
@@ -43,6 +42,15 @@ const legacyRedirects = Object.entries(legacyPages).map(([from, to]) => ({
   element: <Navigate to={to} replace />,
 }))
 
+const moduleRoute = (stateKey, pagePath, element) => ({
+  path: pagePath.slice(1),
+  element: (
+    <PortalModuleRoute stateKey={stateKey} pagePath={pagePath}>
+      {element}
+    </PortalModuleRoute>
+  ),
+})
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -62,28 +70,27 @@ export const router = createBrowserRouter([
       { path: pages.idCard.slice(1), element: <DLECard /> },
       { path: pages.certificate.slice(1), element: <DLECertificate /> },
 
-      { path: pages.bihar.amcDashboard.slice(1), element: <SslAmcDashboardRoute region="bihar"><Dashboard /></SslAmcDashboardRoute> },
-      { path: pages.bihar.assignAmc.slice(1), element: <StateRoute stateKey="bihar"><AssignAmc /></StateRoute> },
-      { path: pages.bihar.amcUpload.slice(1), element: <StateRoute stateKey="bihar"><UploadForm /></StateRoute> },
-      { path: pages.bihar.amcList.slice(1), element: <StateRoute stateKey="bihar"><DocumentList /></StateRoute> },
-      { path: pages.bihar.amcDetails.slice(1), element: <StateRoute stateKey="bihar"><DocumentDetails /></StateRoute> },
-      { path: pages.bihar.complaint.slice(1), element: <StateRoute stateKey="bihar"><Complaint /></StateRoute> },
-      { path: pages.bihar.complaints.slice(1), element: <StateRoute stateKey="bihar"><ViewComplaint /></StateRoute> },
-      { path: pages.bihar.lightAmc.slice(1), element: <StateRoute stateKey="bihar"><LightAmcForm region="bihar" /></StateRoute> },
-      { path: pages.bihar.lightAmcList.slice(1), element: <StateRoute stateKey="bihar"><LightAmcList region="bihar" /></StateRoute> },
-      { path: pages.bihar.lightAmcDetails.slice(1), element: <StateRoute stateKey="bihar"><LightAmcDetails region="bihar" /></StateRoute> },
-      
-            { path: (pages.bihar?.ulaForm || '/bihar/ula/form').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaForm /></StateRoute> },
-      { path: (pages.bihar?.ulaList || '/bihar/ula/list').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaList /></StateRoute> },
-      { path: (pages.bihar?.ulaDetails || '/bihar/ula/details').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaDetails /></StateRoute> },
+      moduleRoute("bihar", pages.bihar.amcDashboard, <Dashboard />),
+      moduleRoute("bihar", pages.bihar.assignAmc, <AssignAmc />),
+      moduleRoute("bihar", pages.bihar.amcUpload, <UploadForm />),
+      moduleRoute("bihar", pages.bihar.amcList, <DocumentList />),
+      moduleRoute("bihar", pages.bihar.amcDetails, <DocumentDetails />),
+      moduleRoute("bihar", pages.bihar.complaint, <Complaint />),
+      moduleRoute("bihar", pages.bihar.complaints, <ViewComplaint />),
+      moduleRoute("bihar", pages.bihar.lightAmc, <LightAmcForm region="bihar" />),
+      moduleRoute("bihar", pages.bihar.lightAmcList, <LightAmcList region="bihar" />),
+      moduleRoute("bihar", pages.bihar.lightAmcDetails, <LightAmcDetails region="bihar" />),
+      moduleRoute("bihar", pages.bihar.ulaForm, <BiharUlaForm />),
+      moduleRoute("bihar", pages.bihar.ulaList, <BiharUlaList />),
+      moduleRoute("bihar", pages.bihar.ulaDetails, <BiharUlaDetails />),
 
-      { path: pages.up.amcDashboard.slice(1), element: <SslAmcDashboardRoute region="up"><UPDashboard /></SslAmcDashboardRoute> },
-      { path: pages.up.amcUpload.slice(1), element: <StateRoute stateKey="up"><UPUploadForm /></StateRoute> },
-      { path: pages.up.amcList.slice(1), element: <StateRoute stateKey="up"><UPDocumentList /></StateRoute> },
-      { path: pages.up.amcDetails.slice(1), element: <StateRoute stateKey="up"><UPDocumentDetails /></StateRoute> },
-      { path: pages.up.lightAmc.slice(1), element: <StateRoute stateKey="up"><LightAmcForm region="up" /></StateRoute> },
-      { path: pages.up.lightAmcList.slice(1), element: <StateRoute stateKey="up"><LightAmcList region="up" /></StateRoute> },
-      { path: pages.up.lightAmcDetails.slice(1), element: <StateRoute stateKey="up"><LightAmcDetails region="up" /></StateRoute> },
+      moduleRoute("up", pages.up.amcDashboard, <UPDashboard />),
+      moduleRoute("up", pages.up.amcUpload, <UPUploadForm />),
+      moduleRoute("up", pages.up.amcList, <UPDocumentList />),
+      moduleRoute("up", pages.up.amcDetails, <UPDocumentDetails />),
+      moduleRoute("up", pages.up.lightAmc, <LightAmcForm region="up" />),
+      moduleRoute("up", pages.up.lightAmcList, <LightAmcList region="up" />),
+      moduleRoute("up", pages.up.lightAmcDetails, <LightAmcDetails region="up" />),
     ],
   },
 

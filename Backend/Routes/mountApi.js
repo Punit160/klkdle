@@ -14,10 +14,11 @@ import portalRbacRoutes from "./DLE-Router/portal-rbac-route.js";
 import portalIntegrationRoutes from "./DLE-Router/portal-integration-router.js";
 import userMasterRoutes from "./DLE-Router/user-master-route.js";
 import { protect } from "../Middleware/authmiddleware.js";
+import { loadPortalPermissions } from "../Middleware/requirePortalPermission.js";
 import { requireActivePunchIn } from "../Middleware/requireActivePunchIn.js";
 import { getObjectStorageDiagnostics } from "../Utils/objectStorage.js";
 
-const fieldModuleAuth = [protect, requireActivePunchIn];
+const fieldModuleAuth = [protect, loadPortalPermissions, requireActivePunchIn];
 
 const mountAmcWithPublicApproval = (app, basePath, region, mainRouter) => {
   app.use(basePath, createAmcApprovalRouter(region));

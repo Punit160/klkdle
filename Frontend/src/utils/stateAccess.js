@@ -1,11 +1,6 @@
 import { pages } from '../api/routes'
-import {
-  PORTAL_BIHAR_SSL_AMC_DASHBOARD,
-  PORTAL_BIHAR_SSL_AMC_READ,
-  PORTAL_UP_SSL_AMC_DASHBOARD,
-  PORTAL_UP_SSL_AMC_READ,
-} from '../constants/portalPermissions'
-import { getUserPortalPermissions, userCanManagePortalAccess, userHasPortalPermission } from './portalAccess'
+import { userCanManagePortalAccess } from './portalAccess'
+import { userCanAccessPagePath } from './portalModuleAccess'
 import { userIsAdmin } from './userRoles'
 
 const STATE_GROUPS = {
@@ -54,42 +49,41 @@ export const userHasStateAccess = (user, stateKey) => {
   return resolveUserStateKeys(getUserStateValue(user)).includes(stateKey)
 }
 
-/** SSL AMC district dashboard — tied to SSL AMC view when portal roles are in use. */
-export const userCanAccessSslAmcDashboard = (user, region) => {
-  if (userIsAdmin(user)) return true
-  const keys = getUserPortalPermissions(user)
-  const stateKey = region === 'up' ? 'up' : 'bihar'
-  if (!keys.length) return userHasStateAccess(user, stateKey)
+const filterMenuItemByPortal = (user, item) => {
+  if (Array.isArray(item.dropdownMenu) && item.dropdownMenu.length) {
+    const dropdownMenu = item.dropdownMenu.filter((sub) =>
+      userCanAccessPagePath(user, sub.path)
+    )
+    if (!dropdownMenu.length) return null
+    return { ...item, dropdownMenu }
+  }
 
-  const readKey =
-    region === 'up' ? PORTAL_UP_SSL_AMC_READ : PORTAL_BIHAR_SSL_AMC_READ
-  const dashKey =
-    region === 'up' ? PORTAL_UP_SSL_AMC_DASHBOARD : PORTAL_BIHAR_SSL_AMC_DASHBOARD
+  if (item.path && item.path !== '#') {
+    return userCanAccessPagePath(user, item.path) ? item : null
+  }
 
-  return (
-    userHasPortalPermission(user, readKey) || userHasPortalPermission(user, dashKey)
-  )
+  return item
 }
 
 export const filterMenuByUserState = (menuList, user) => {
   const allowed = new Set(resolveUserStateKeys(getUserStateValue(user)))
 
-  return menuList.filter((group) => {
-    if (group.id === 'account') return true
-    if (group.id === 'portal') return userCanManagePortalAccess(user) || userIsAdmin(user)
-    if (group.id === 'admin') return userIsAdmin(user)
-    const stateKey = MENU_GROUP_STATE_KEY[group.id] ?? group.id
-    return allowed.has(stateKey)
-  }).map((group) => {
-    if (group.id !== 'bihar' && group.id !== 'up') return group
-    const region = group.id === 'up' ? 'up' : 'bihar'
-    const dashPath = region === 'up' ? pages.up.amcDashboard : pages.bihar.amcDashboard
-    const items = (group.items || []).filter((item) => {
-      if (item.path === dashPath) return userCanAccessSslAmcDashboard(user, region)
-      return true
+  return menuList
+    .filter((group) => {
+      if (group.id === 'account') return true
+      if (group.id === 'portal') return userCanManagePortalAccess(user) || userIsAdmin(user)
+      if (group.id === 'admin') return userIsAdmin(user)
+      const stateKey = MENU_GROUP_STATE_KEY[group.id] ?? group.id
+      return allowed.has(stateKey)
     })
-    return { ...group, items }
-  })
+    .map((group) => {
+      if (group.id !== 'bihar' && group.id !== 'up') return group
+      const items = (group.items || [])
+        .map((item) => filterMenuItemByPortal(user, item))
+        .filter(Boolean)
+      return items.length ? { ...group, items } : null
+    })
+    .filter(Boolean)
 }
 
 /** Hide Bihar / UP menu until user has an active punch-in session. */
@@ -125,11 +119,7 @@ export const getStateHubSections = (user) => {
     .map((key) => {
       const section = stateHubConfig[key]
       if (!section) return null
-      const dashPath = key === 'up' ? pages.up.amcDashboard : pages.bihar.amcDashboard
-      const items = section.items.filter((item) => {
-        if (item.path === dashPath) return userCanAccessSslAmcDashboard(user, key)
-        return true
-      })
+      const items = section.items.filter((item) => userCanAccessPagePath(user, item.path))
       return items.length ? { ...section, items } : null
     })
     .filter(Boolean)

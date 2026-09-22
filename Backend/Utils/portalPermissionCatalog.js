@@ -252,4 +252,7 @@ export const lightAmcReadPermission = (region) =>
 
   region === "up" ? "portal.up.light_amc.read" : "portal.bihar.light_amc.read";
 
+export const lightAmcAddPermission = (region) =>
+  region === "up" ? "portal.up.light_amc.add" : "portal.bihar.light_amc.add";
+
 

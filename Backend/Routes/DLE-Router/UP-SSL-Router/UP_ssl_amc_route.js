@@ -7,30 +7,22 @@ import {
     updateAmcDocument,
 } from '../../../Controller/DLE-Controller/UP-SSL/UP_amc_controller.js'
 import { upAmcUpload } from '../../../Middleware/upAmcUploadMiddleware.js'
-import { protect } from '../../../Middleware/authmiddleware.js'
+import {
+  requireSslAmcAdd,
+  requireSslAmcRead,
+} from '../../../Middleware/portalModulePermission.js'
 
 const router = express.Router()
 
-router.post('/create', ...upAmcUpload, createAmcDocument)
-router.post('/store', ...upAmcUpload, createAmcDocument)
-router.post('/update', ...upAmcUpload, updateAmcDocument)
+const upRead = requireSslAmcRead('up')
+const upAdd = requireSslAmcAdd('up')
 
-router.get(
-    '/get',
-    protect,
-    getAmcDocuments
-)
+router.post('/create', upAdd, ...upAmcUpload, createAmcDocument)
+router.post('/store', upAdd, ...upAmcUpload, createAmcDocument)
+router.post('/update', upAdd, ...upAmcUpload, updateAmcDocument)
 
-router.get(
-    '/view',
-    protect,
-    getAmcDocuments
-)
-
-router.get(
-    '/dashboard/district',
-    protect,
-    getAllDistricts
-)
+router.get('/get', upRead, getAmcDocuments)
+router.get('/view', upRead, getAmcDocuments)
+router.get('/dashboard/district', upRead, getAllDistricts)
 
 export default router

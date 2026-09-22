@@ -1,7 +1,15 @@
 export const PORTAL_BIHAR_SSL_AMC_READ = 'portal.bihar.ssl_amc.read'
+export const PORTAL_BIHAR_SSL_AMC_ADD = 'portal.bihar.ssl_amc.add'
 export const PORTAL_BIHAR_SSL_AMC_DASHBOARD = 'portal.bihar.ssl_amc.dashboard'
+export const PORTAL_BIHAR_LIGHT_AMC_READ = 'portal.bihar.light_amc.read'
+export const PORTAL_BIHAR_LIGHT_AMC_ADD = 'portal.bihar.light_amc.add'
+export const PORTAL_BIHAR_ULA_READ = 'portal.bihar.ula.read'
+export const PORTAL_BIHAR_ULA_ADD = 'portal.bihar.ula.add'
 export const PORTAL_UP_SSL_AMC_READ = 'portal.up.ssl_amc.read'
+export const PORTAL_UP_SSL_AMC_ADD = 'portal.up.ssl_amc.add'
 export const PORTAL_UP_SSL_AMC_DASHBOARD = 'portal.up.ssl_amc.dashboard'
+export const PORTAL_UP_LIGHT_AMC_READ = 'portal.up.light_amc.read'
+export const PORTAL_UP_LIGHT_AMC_ADD = 'portal.up.light_amc.add'
 
 /** When SSL AMC view is toggled, keep dashboard permission in sync (matches backend). */
 export const SSL_AMC_READ_DASHBOARD_PAIRS = [

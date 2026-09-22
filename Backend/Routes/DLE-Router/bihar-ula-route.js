@@ -1,9 +1,12 @@
 import express from "express";
-import { protect } from "../../Middleware/authmiddleware.js";
 import {
   biharUlaFirstVisitUpload,
   biharUlaSecondVisitUpload,
 } from "../../Middleware/biharUlaUploadMiddleware.js";
+import {
+  requireBiharUlaAdd,
+  requireBiharUlaRead,
+} from "../../Middleware/portalModulePermission.js";
 import {
   checkBiharUlaUniqueController,
   createBiharUlaFirstVisit,
@@ -15,14 +18,17 @@ import {
 
 const router = express.Router();
 
-router.get("/list", protect, listBiharUlaSurveys);
-router.get("/check-unique", protect, checkBiharUlaUniqueController);
-router.get("/:id/download-images", protect, downloadBiharUlaImagesZip);
-router.get("/:id", protect, getBiharUlaSurvey);
-router.post("/store", protect, biharUlaFirstVisitUpload, createBiharUlaFirstVisit);
+const ulaRead = requireBiharUlaRead();
+const ulaAdd = requireBiharUlaAdd();
+
+router.get("/list", ulaRead, listBiharUlaSurveys);
+router.get("/check-unique", ulaAdd, checkBiharUlaUniqueController);
+router.get("/:id/download-images", ulaRead, downloadBiharUlaImagesZip);
+router.get("/:id", ulaRead, getBiharUlaSurvey);
+router.post("/store", ulaAdd, biharUlaFirstVisitUpload, createBiharUlaFirstVisit);
 router.patch(
   "/:id/second-visit",
-  protect,
+  ulaAdd,
   biharUlaSecondVisitUpload,
   updateBiharUlaSecondVisit
 );
