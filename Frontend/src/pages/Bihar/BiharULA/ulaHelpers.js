@@ -614,6 +614,16 @@ export const downloadUlaImagesZip = async (id, caNumber) => {
   URL.revokeObjectURL(url)
 }
 
+export const checkUlaRegistrationUnique = async ({ caNumber, beneficiaryContact }) => {
+  const res = await localApi.get(api.biharUla.checkUnique, {
+    params: {
+      ca_no: sanitizeCaNumberInput(caNumber),
+      beneficiary_contact: sanitizeMobileInput(beneficiaryContact),
+    },
+  })
+  return res?.data
+}
+
 export const submitUlaFirstVisit = async ({
   form,
   images,

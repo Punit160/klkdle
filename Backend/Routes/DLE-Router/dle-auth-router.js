@@ -8,6 +8,7 @@ import {
   downloadDocument,
   changePassword,
   logoutUser,
+  refreshAuthSession,
   uploadProfileImage,
 } from "../../Controller/DLE-Controller/dle-auth-contr.js";
 
@@ -18,6 +19,8 @@ const router = express.Router();
 router.post("/register", userRegistrationDocumentUpload, registerUser);
 
 router.post("/login", loginUser);
+
+router.post("/refresh", refreshAuthSession);
 
 router.get("/profile", getProfile);
 

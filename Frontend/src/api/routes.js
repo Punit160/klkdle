@@ -106,6 +106,7 @@ export const api = {
     login: '/api/auth/login',
     register: '/api/auth/register',
     logout: '/api/auth/logout',
+    refresh: '/api/auth/refresh',
     profile: '/api/auth/profile',
     changePassword: '/api/auth/change-password',
     profileImage: '/api/auth/profile-image',
@@ -168,6 +169,7 @@ export const api = {
   },
   biharUla: {
     list: '/api/bihar/ula/list',
+    checkUnique: '/api/bihar/ula/check-unique',
     store: '/api/bihar/ula/store',
     view: (id) => `/api/bihar/ula/${id}`,
     downloadImagesZip: (id) => `/api/bihar/ula/${id}/download-images`,

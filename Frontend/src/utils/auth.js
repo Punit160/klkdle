@@ -1,6 +1,12 @@
 // utils/auth.js
 
 const TOKEN_KEY = "token";
+
+/** Match backend JWT_REFRESH_GRACE_DAYS default (30). */
+const REFRESH_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Refresh when less than this remains before expiry (sliding 30-day session). */
+const PROACTIVE_REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const COMPANY_ID_KEY = "companyId";
 const USER_KEY = "dleUser";
 
@@ -64,17 +70,39 @@ const decodeJwtPayload = (token) => {
   }
 };
 
+export const getTokenExpiryMs = (token = getToken()) => {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return null;
+  return payload.exp * 1000;
+};
+
 export const isTokenValid = (token = getToken()) => {
+  if (!token || typeof token !== "string") return false;
+
+  const expMs = getTokenExpiryMs(token);
+  if (expMs == null) return true;
+  return expMs > Date.now();
+};
+
+/** Still signed in: valid token or expired within server refresh grace. */
+export const isTokenWithinRefreshGrace = (token = getToken()) => {
   if (!token || typeof token !== "string") return false;
 
   const payload = decodeJwtPayload(token);
   if (!payload) return false;
 
-  if (payload.exp) {
-    return payload.exp * 1000 > Date.now();
-  }
+  const expMs = getTokenExpiryMs(token);
+  if (expMs == null) return true;
+  if (expMs > Date.now()) return true;
+  return Date.now() - expMs <= REFRESH_GRACE_MS;
+};
 
-  return true;
+export const shouldProactivelyRefreshToken = (token = getToken()) => {
+  if (!token) return false;
+  const expMs = getTokenExpiryMs(token);
+  if (expMs == null) return false;
+  const msLeft = expMs - Date.now();
+  return msLeft < PROACTIVE_REFRESH_WINDOW_MS;
 };
 
 export const saveAuthData = (token, user) => {
@@ -96,7 +124,7 @@ export const saveAuthData = (token, user) => {
 };
 
 
-export const isAuthenticated = () => isTokenValid();
+export const isAuthenticated = () => isTokenWithinRefreshGrace();
 
 export const clearAuthData = () => {
   localStorage.removeItem(TOKEN_KEY);

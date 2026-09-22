@@ -31,6 +31,7 @@ import {
   ULA_QR_SERIAL_SLOT_KEYS,
   ULA_SERIAL_API_FIELD,
   fetchUlaSurveyById,
+  checkUlaRegistrationUnique,
   submitUlaFirstVisit,
   submitUlaSecondVisit,
   parseUlaSurveyVisitNotes,
@@ -421,6 +422,34 @@ const BiharUlaForm = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
+
+      try {
+        const uniqueCheck = await checkUlaRegistrationUnique({
+          caNumber,
+          beneficiaryContact,
+        })
+        const validationMsg =
+          uniqueCheck?.validation?.ca_no || uniqueCheck?.validation?.beneficiary_contact
+        if (validationMsg) {
+          setSubmitError(validationMsg)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+        if (!uniqueCheck?.available) {
+          const msg =
+            uniqueCheck?.conflicts?.map((c) => c.message).join(' ') ||
+            'This CA number or beneficiary contact is already registered.'
+          setSubmitError(msg)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+      } catch (checkErr) {
+        setSubmitError(
+          checkErr?.response?.data?.message || 'Could not verify CA / contact uniqueness.'
+        )
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
     }
 
     const missingSlots = visibleSlots.filter(
@@ -779,7 +808,7 @@ const BiharUlaForm = () => {
               maxLength={10}
               required={!isSecondVisitMode}
             />
-            <div className="fs-11 text-muted mt-1">10-digit mobile (6–9)</div>
+            <div className="fs-11 text-muted mt-1">10-digit mobile (6–9) — unique per survey</div>
           </div>
 
           {/* Date & Time */}

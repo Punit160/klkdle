@@ -329,6 +329,71 @@ const parseBeneficiaryMobile = (raw) => {
 };
 
 /** Safe folder segment: klkdle/biharula/{ca_no}/panel_one_img.jpg (flat — no subfolders per photo). */
+const findUlaRegistrationConflicts = async ({ caNo, beneficiaryContact }) => {
+  const conflicts = [];
+
+  if (caNo) {
+    const byCa = await prisma.biharUlaSurvey.findUnique({
+      where: { ca_no: String(caNo) },
+      select: { id: true, ca_no: true },
+    });
+    if (byCa) {
+      conflicts.push({
+        field: "ca_no",
+        message:
+          "This CA number is already registered. Open the existing record for 2nd visit.",
+        existing_id: byCa.id?.toString?.() ?? String(byCa.id),
+        existing_ca_no: byCa.ca_no,
+      });
+    }
+  }
+
+  if (beneficiaryContact) {
+    const byContact = await prisma.biharUlaSurvey.findFirst({
+      where: { beneficiary_contact: String(beneficiaryContact) },
+      select: { id: true, ca_no: true, beneficiary_contact: true },
+    });
+    if (byContact) {
+      conflicts.push({
+        field: "beneficiary_contact",
+        message: `This beneficiary contact is already registered for CA ${byContact.ca_no}.`,
+        existing_id: byContact.id?.toString?.() ?? String(byContact.id),
+        existing_ca_no: byContact.ca_no,
+      });
+    }
+  }
+
+  return conflicts;
+};
+
+export const checkBiharUlaUniqueController = async (req, res) => {
+  try {
+    const caParsed = parseCaNo(req.query.ca_no);
+    const mobileParsed = parseBeneficiaryMobile(req.query.beneficiary_contact);
+
+    const conflicts = await findUlaRegistrationConflicts({
+      caNo: caParsed.ok ? caParsed.value : null,
+      beneficiaryContact: mobileParsed.ok ? mobileParsed.value : null,
+    });
+
+    return res.json({
+      success: true,
+      available: conflicts.length === 0,
+      conflicts,
+      validation: {
+        ca_no: caParsed.ok ? null : caParsed.message,
+        beneficiary_contact: mobileParsed.ok ? null : mobileParsed.message,
+      },
+    });
+  } catch (error) {
+    console.error("BIHAR ULA UNIQUE CHECK ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Could not verify CA / contact uniqueness.",
+    });
+  }
+};
+
 export const sanitizeUlaCaFolder = (caNo) => {
   const cleaned = String(caNo || "")
     .trim()
@@ -422,15 +487,18 @@ export const createBiharUlaFirstVisit = async (req, res) => {
 
     const caNoNormalized = caParsed.value;
 
-    const existing = await prisma.biharUlaSurvey.findUnique({
-      where: { ca_no: caNoNormalized },
+    const conflicts = await findUlaRegistrationConflicts({
+      caNo: caNoNormalized,
+      beneficiaryContact: mobileParsed.value,
     });
 
-    if (existing) {
+    if (conflicts.length) {
+      const primary = conflicts[0];
       return res.status(409).json({
         success: false,
-        message: "This CA number is already registered. Open the existing record for 2nd visit.",
-        data: { id: existing.id?.toString?.() ?? String(existing.id) },
+        message: primary.message,
+        conflicts,
+        data: primary.existing_id ? { id: primary.existing_id } : undefined,
       });
     }
 
@@ -547,7 +615,8 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     if (code === "P2002") {
       return res.status(409).json({
         success: false,
-        message: "This CA number is already registered.",
+        message:
+          "This CA number or beneficiary contact is already registered for another survey.",
       });
     }
     if (code === "P2000") {

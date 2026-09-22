@@ -5,6 +5,7 @@ import {
   biharUlaSecondVisitUpload,
 } from "../../Middleware/biharUlaUploadMiddleware.js";
 import {
+  checkBiharUlaUniqueController,
   createBiharUlaFirstVisit,
   downloadBiharUlaImagesZip,
   getBiharUlaSurvey,
@@ -15,6 +16,7 @@ import {
 const router = express.Router();
 
 router.get("/list", protect, listBiharUlaSurveys);
+router.get("/check-unique", protect, checkBiharUlaUniqueController);
 router.get("/:id/download-images", protect, downloadBiharUlaImagesZip);
 router.get("/:id", protect, getBiharUlaSurvey);
 router.post("/store", protect, biharUlaFirstVisitUpload, createBiharUlaFirstVisit);

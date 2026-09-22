@@ -12,7 +12,11 @@ import {
   userCanManagePortalApiCredentials,
 } from '../../utils/portalAccess'
 import ExternalApiIntegrationManual from '../../components/Portal/ExternalApiIntegrationManual'
-import { isSoftwareAssignablePortalRole } from '../../constants/portalPermissions'
+import {
+  isSoftwareAssignablePortalRole,
+  SSL_AMC_READ_DASHBOARD_PAIRS,
+  syncSslAmcDashboardPermissionKeys,
+} from '../../constants/portalPermissions'
 import { userIsAdmin } from '../../utils/userRoles'
 
 const MODULE_LABELS = {
@@ -253,7 +257,7 @@ const PortalAccessAdmin = () => {
     setSelectedRoleId(role.id)
     setRoleName(role.name)
     setRoleDescription(role.description || '')
-    setSelectedPermKeys(keys)
+    setSelectedPermKeys(syncSslAmcDashboardPermissionKeys(keys))
     setBulkRoleId(role.id)
     loadRoleMembers(role.id)
   }
@@ -335,9 +339,16 @@ const PortalAccessAdmin = () => {
   }
 
   const togglePerm = (key) => {
-    setSelectedPermKeys((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    )
+    setSelectedPermKeys((prev) => {
+      let next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      for (const [readKey, dashKey] of SSL_AMC_READ_DASHBOARD_PAIRS) {
+        if (key === readKey) {
+          if (next.includes(readKey)) next = [...new Set([...next, dashKey])]
+          else next = next.filter((k) => k !== dashKey)
+        }
+      }
+      return next
+    })
   }
 
   const saveRole = async (e) => {
@@ -348,7 +359,7 @@ const PortalAccessAdmin = () => {
       const payload = {
         name: roleName.trim(),
         description: roleDescription.trim(),
-        permission_keys: selectedPermKeys,
+        permission_keys: syncSslAmcDashboardPermissionKeys(selectedPermKeys),
       }
       let savedKeys = payload.permission_keys
       if (selectedRoleId) {

@@ -16,9 +16,10 @@ const isAuthRequest = (url = '') =>
     url.includes('/api/auth/register')
 
 localApi.interceptors.request.use(
-    (config) => {
+    async (config) => {
         const requestUrl = String(config.url || '')
         const skipAuthContext = isAuthRequest(requestUrl)
+        const skipRefresh = config.skipSessionRefresh === true
 
         config.params = {
             ...(config.params || {}),
@@ -26,6 +27,15 @@ localApi.interceptors.request.use(
 
         if (skipAuthContext) {
             return config
+        }
+
+        if (!skipRefresh) {
+            try {
+                const { refreshSessionToken } = await import('./authSession')
+                await refreshSessionToken()
+            } catch {
+                /* refresh failed; request may 401 and trigger retry below */
+            }
         }
 
         const token = getToken()
@@ -53,14 +63,30 @@ localApi.interceptors.request.use(
 
 localApi.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
         const status = error.response?.status
-        const url = String(error.config?.url || '')
+        const config = error.config || {}
+        const url = String(config.url || '')
         const isAuthAttempt =
             url.includes(app.auth.login) ||
-            url.includes(app.auth.register)
+            url.includes(app.auth.register) ||
+            url.includes(app.auth.refresh)
 
-        if (status === 401 && !isAuthAttempt) {
+        if (status === 401 && !isAuthAttempt && !config._sessionRetried) {
+            config._sessionRetried = true
+            try {
+                const { refreshSessionToken } = await import('./authSession')
+                const ok = await refreshSessionToken({ force: true })
+                if (ok) {
+                    const token = getToken()
+                    config.headers = config.headers || {}
+                    if (token) config.headers.Authorization = `Bearer ${token}`
+                    return localApi.request(config)
+                }
+            } catch {
+                /* fall through to logout */
+            }
+
             clearAuthData()
             if (!window.location.pathname.startsWith(pages.login)) {
                 window.location.href = pages.login

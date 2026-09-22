@@ -19,6 +19,7 @@ import {
 import {
   assertPortalPermissionKeysAssignableViaSoftware,
   filterAssignablePortalPermissionKeys,
+  syncSslAmcDashboardPermissionKeys,
   roleHasSoftwareRestrictedPermissions,
 } from "../../Utils/portalPermissionCatalog.js";
 import { isUserMasterAdmin } from "../../Utils/userRoles.js";
@@ -128,7 +129,8 @@ export const createRoleController = async (req, res) => {
     }
 
     assertPortalPermissionKeysAssignableViaSoftware(permissionKeys);
-    const assignableKeys = filterAssignablePortalPermissionKeys(permissionKeys);
+    let assignableKeys = filterAssignablePortalPermissionKeys(permissionKeys);
+    assignableKeys = syncSslAmcDashboardPermissionKeys(assignableKeys);
     if (!assignableKeys.length) {
       return res.status(422).json({
         success: false,
@@ -194,7 +196,8 @@ export const updateRoleController = async (req, res) => {
     const nextKeys =
       permissionKeys ?? existing.permissions.map((p) => p.permission.key);
     assertPortalPermissionKeysAssignableViaSoftware(nextKeys);
-    const assignableKeys = filterAssignablePortalPermissionKeys(nextKeys);
+    let assignableKeys = filterAssignablePortalPermissionKeys(nextKeys);
+    assignableKeys = syncSslAmcDashboardPermissionKeys(assignableKeys);
     if (!assignableKeys.length) {
       return res.status(422).json({
         success: false,

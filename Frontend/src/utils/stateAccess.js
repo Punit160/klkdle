@@ -1,5 +1,11 @@
 import { pages } from '../api/routes'
-import { userCanManagePortalAccess } from './portalAccess'
+import {
+  PORTAL_BIHAR_SSL_AMC_DASHBOARD,
+  PORTAL_BIHAR_SSL_AMC_READ,
+  PORTAL_UP_SSL_AMC_DASHBOARD,
+  PORTAL_UP_SSL_AMC_READ,
+} from '../constants/portalPermissions'
+import { getUserPortalPermissions, userCanManagePortalAccess, userHasPortalPermission } from './portalAccess'
 import { userIsAdmin } from './userRoles'
 
 const STATE_GROUPS = {
@@ -48,6 +54,23 @@ export const userHasStateAccess = (user, stateKey) => {
   return resolveUserStateKeys(getUserStateValue(user)).includes(stateKey)
 }
 
+/** SSL AMC district dashboard — tied to SSL AMC view when portal roles are in use. */
+export const userCanAccessSslAmcDashboard = (user, region) => {
+  if (userIsAdmin(user)) return true
+  const keys = getUserPortalPermissions(user)
+  const stateKey = region === 'up' ? 'up' : 'bihar'
+  if (!keys.length) return userHasStateAccess(user, stateKey)
+
+  const readKey =
+    region === 'up' ? PORTAL_UP_SSL_AMC_READ : PORTAL_BIHAR_SSL_AMC_READ
+  const dashKey =
+    region === 'up' ? PORTAL_UP_SSL_AMC_DASHBOARD : PORTAL_BIHAR_SSL_AMC_DASHBOARD
+
+  return (
+    userHasPortalPermission(user, readKey) || userHasPortalPermission(user, dashKey)
+  )
+}
+
 export const filterMenuByUserState = (menuList, user) => {
   const allowed = new Set(resolveUserStateKeys(getUserStateValue(user)))
 
@@ -57,6 +80,15 @@ export const filterMenuByUserState = (menuList, user) => {
     if (group.id === 'admin') return userIsAdmin(user)
     const stateKey = MENU_GROUP_STATE_KEY[group.id] ?? group.id
     return allowed.has(stateKey)
+  }).map((group) => {
+    if (group.id !== 'bihar' && group.id !== 'up') return group
+    const region = group.id === 'up' ? 'up' : 'bihar'
+    const dashPath = region === 'up' ? pages.up.amcDashboard : pages.bihar.amcDashboard
+    const items = (group.items || []).filter((item) => {
+      if (item.path === dashPath) return userCanAccessSslAmcDashboard(user, region)
+      return true
+    })
+    return { ...group, items }
   })
 }
 
@@ -90,7 +122,16 @@ const stateHubConfig = {
 
 export const getStateHubSections = (user) => {
   return resolveUserStateKeys(getUserStateValue(user))
-    .map((key) => stateHubConfig[key])
+    .map((key) => {
+      const section = stateHubConfig[key]
+      if (!section) return null
+      const dashPath = key === 'up' ? pages.up.amcDashboard : pages.bihar.amcDashboard
+      const items = section.items.filter((item) => {
+        if (item.path === dashPath) return userCanAccessSslAmcDashboard(user, key)
+        return true
+      })
+      return items.length ? { ...section, items } : null
+    })
     .filter(Boolean)
 }
 

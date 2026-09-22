@@ -46,6 +46,18 @@ export const PORTAL_PERMISSION_CATALOG = [
 
   {
 
+    key: "portal.bihar.ssl_amc.dashboard",
+
+    label: "Bihar SSL AMC — dashboard",
+
+    module: "bihar_amc",
+
+    description: "View Bihar SSL AMC dashboard (granted automatically with view access).",
+
+  },
+
+  {
+
     key: "portal.bihar.ssl_amc.add",
 
     label: "Bihar SSL AMC — add",
@@ -65,6 +77,18 @@ export const PORTAL_PERMISSION_CATALOG = [
     module: "up_amc",
 
     description: "View UP SSL AMC data in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.ssl_amc.dashboard",
+
+    label: "UP SSL AMC — dashboard",
+
+    module: "up_amc",
+
+    description: "View UP SSL AMC dashboard (granted automatically with view access).",
 
   },
 
@@ -196,11 +220,31 @@ export const assertPortalPermissionKeysAssignableViaSoftware = (keys) => {
 
 
 
+const SSL_AMC_READ_DASHBOARD_PAIRS = [
+  ["portal.bihar.ssl_amc.read", "portal.bihar.ssl_amc.dashboard"],
+  ["portal.up.ssl_amc.read", "portal.up.ssl_amc.dashboard"],
+];
+
+/** Grant module dashboard keys when SSL AMC view is selected; remove dashboard when view is off. */
+export const syncSslAmcDashboardPermissionKeys = (keys) => {
+  const set = new Set(keys || []);
+  for (const [readKey, dashKey] of SSL_AMC_READ_DASHBOARD_PAIRS) {
+    if (set.has(readKey)) set.add(dashKey);
+    else set.delete(dashKey);
+  }
+  return [...set];
+};
+
 /** Region module read permission (JWT users on hybrid routes — rarely used on public router). */
 
 export const sslAmcReadPermission = (region) =>
 
   region === "up" ? "portal.up.ssl_amc.read" : "portal.bihar.ssl_amc.read";
+
+export const sslAmcDashboardPermission = (region) =>
+  region === "up"
+    ? "portal.up.ssl_amc.dashboard"
+    : "portal.bihar.ssl_amc.dashboard";
 
 
 

@@ -7,7 +7,8 @@ import Footer from '../components/shared/Footer'
 import PunchInFirstModalHost from '../components/shared/PunchInFirstModal'
 import localApi from '../api/localApi'
 import { app } from '../api/routes'
-import { getToken, getUser, saveAuthData } from '../utils/auth'
+import { getToken, getUser, saveAuthData, isAuthenticated } from '../utils/auth'
+import { refreshSessionToken } from '../api/authSession'
 
 
 const RootLayout = () => {
@@ -17,8 +18,11 @@ const RootLayout = () => {
     useEffect(() => {
         const user = getUser()
         const token = getToken()
-        if (!user?.id || !token) return
+        if (!user?.id || !token || !isAuthenticated()) return
 
+        refreshSessionToken({ force: true })
+            .catch(() => {})
+            .finally(() => {
         localApi
             .get(app.auth.profile, { params: { userId: user.id } })
             .then((res) => {
@@ -31,10 +35,11 @@ const RootLayout = () => {
                     if (res.data.user.portal_permissions != null) {
                         next.portal_permissions = res.data.user.portal_permissions
                     }
-                    saveAuthData(token, next)
+                    saveAuthData(getToken(), next)
                 }
             })
             .catch(() => {})
+            })
     }, [])
 
     return (

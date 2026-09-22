@@ -265,7 +265,7 @@ model BiharUlaSurvey {
   village             String?   @db.VarChar(255)
   survey_date         DateTime  @db.Date
   beneficiary_name    String    @db.VarChar(255)
-  beneficiary_contact String    @db.VarChar(20)
+  beneficiary_contact String    @unique @db.VarChar(20)
   panel_one_img       String?   @db.VarChar(255)
   panel_one_no        String?   @db.VarChar(255)
   panel_two_img       String?   @db.VarChar(255)

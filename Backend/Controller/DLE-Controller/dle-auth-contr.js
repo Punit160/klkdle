@@ -1,5 +1,11 @@
-import jwt from "jsonwebtoken";
 import path from "node:path";
+
+import {
+  extractBearerToken,
+  signAccessToken,
+  verifyAccessToken,
+  verifyAccessTokenForRefresh,
+} from "../../Utils/jwtAuth.js";
 
 import {
   createUser,
@@ -21,19 +27,73 @@ import {
 import { resolveStoredUploadPath } from "../../Utils/uploadsPath.js";
 
 const resolveUserIdFromToken = (req) => {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-
+  const token = extractBearerToken(req);
   if (!token || !process.env.JWT_SECRET) {
     return null;
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = verifyAccessToken(token);
     return payload?.id?.toString?.() ?? String(payload.id);
   } catch {
     return null;
   }
+};
+
+const assertActiveUserForSession = (user) => {
+  const approvalStatus = Number(user.approval_status ?? 0);
+
+  if (approvalStatus === 2) {
+    const error = new Error(
+      user.approval_remarks
+        ? `Your application was rejected: ${user.approval_remarks}`
+        : "Your application was rejected by admin."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (user.status !== 1 || approvalStatus !== 1) {
+    const error = new Error("Your account is waiting for admin approval");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  if (!user.password) {
+    const error = new Error("Password has not been generated yet");
+    error.statusCode = 403;
+    throw error;
+  }
+};
+
+const buildAuthUserPayload = async (user) => {
+  const portal_permissions = await getPortalPermissionsForUser(user);
+
+  return {
+    id: user.id.toString(),
+    company_id: user.company_id,
+    state: user.state,
+    district: user.district,
+    block: user.block,
+    panchayat: user.panchayat,
+    name: user.name,
+    email: user.email,
+    email_verified_at: user.email_verified_at,
+    contact_no: user.contact_no,
+    emergency_contact_no: user.emergency_contact_no,
+    police_verification_validity: user.police_verification_validity,
+    address: user.address,
+    educational_document: user.educational_document,
+    aadhaar_voter_id: user.aadhaar_voter_id,
+    pan_card: user.pan_card,
+    driving_license: user.driving_license,
+    police_verification: user.police_verification,
+    cancelled_cheque: user.cancelled_cheque,
+    rent_agreement_electricity_bill: user.rent_agreement_electricity_bill,
+    status: user.status,
+    role: Number(user.role ?? 2),
+    portal_permissions,
+  };
 };
 
 export const registerUser = async (req, res) => {
@@ -134,28 +194,12 @@ export const loginUser = async (req, res) => {
 
     user = await syncLegacyApprovedUser(user);
 
-    const approvalStatus = Number(user.approval_status ?? 0);
-
-    if (approvalStatus === 2) {
-      return res.status(403).json({
+    try {
+      assertActiveUserForSession(user);
+    } catch (sessionErr) {
+      return res.status(sessionErr.statusCode || 403).json({
         success: false,
-        message: user.approval_remarks
-          ? `Your application was rejected: ${user.approval_remarks}`
-          : "Your application was rejected by admin.",
-      });
-    }
-
-    if (user.status !== 1 || approvalStatus !== 1) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account is waiting for admin approval",
-      });
-    }
-
-    if (!user.password) {
-      return res.status(403).json({
-        success: false,
-        message: "Password has not been generated yet",
+        message: sessionErr.message,
       });
     }
 
@@ -175,68 +219,14 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // BigInt -> String for JWT
-    const token = jwt.sign(
-      {
-        id: user.id.toString(),
-        email: user.email,
-        role: Number(user.role ?? 2),
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      }
-    );
-
-    const portal_permissions = await getPortalPermissionsForUser(user);
+    const token = signAccessToken(user);
+    const authUser = await buildAuthUserPayload(user);
 
     return res.status(200).json({
       success: true,
       message: "Login successful",
       token,
-
-      user: {
-        id: user.id.toString(),
-
-        company_id: user.company_id,
-        state: user.state,
-        district: user.district,
-        block: user.block,
-        panchayat: user.panchayat,
-        name: user.name,
-        email: user.email,
-        email_verified_at: user.email_verified_at,
-        contact_no: user.contact_no,
-        emergency_contact_no: user.emergency_contact_no,
-        police_verification_validity:
-          user.police_verification_validity,
-        address: user.address,
-
-        educational_document:
-          user.educational_document,
-
-        aadhaar_voter_id:
-          user.aadhaar_voter_id,
-
-        pan_card:
-          user.pan_card,
-
-        driving_license:
-          user.driving_license,
-
-        police_verification:
-          user.police_verification,
-
-        cancelled_cheque:
-          user.cancelled_cheque,
-
-        rent_agreement_electricity_bill:
-          user.rent_agreement_electricity_bill,
-
-        status: user.status,
-        role: Number(user.role ?? 2),
-        portal_permissions,
-      },
+      user: authUser,
     });
 
   } catch (error) {
@@ -615,6 +605,71 @@ export const changePassword = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to change password",
+    });
+  }
+};
+
+export const refreshAuthSession = async (req, res) => {
+  try {
+    const token = extractBearerToken(req);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization token required",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: "Server authentication is not configured",
+      });
+    }
+
+    let payload;
+    try {
+      ({ payload } = verifyAccessTokenForRefresh(token));
+    } catch (err) {
+      return res.status(err.statusCode || 401).json({
+        success: false,
+        message: err.message || "Invalid or expired token",
+      });
+    }
+
+    const userId = payload?.id?.toString?.() ?? String(payload.id);
+    let user = await findUserById(userId);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user = await syncLegacyApprovedUser(user);
+
+    try {
+      assertActiveUserForSession(user);
+    } catch (sessionErr) {
+      return res.status(sessionErr.statusCode || 403).json({
+        success: false,
+        message: sessionErr.message,
+      });
+    }
+
+    const nextToken = signAccessToken(user);
+    const authUser = await buildAuthUserPayload(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Session refreshed",
+      token: nextToken,
+      user: authUser,
+    });
+  } catch (error) {
+    console.error("REFRESH SESSION ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to refresh session",
     });
   }
 };

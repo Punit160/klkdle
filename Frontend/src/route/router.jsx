@@ -15,6 +15,7 @@ import DLECertificate from "../components/DLE/dle-Emp-certi-Sec"
 
 import Login from "../components/DLE/dle-login-section"
 import DLEDashboard from "../components/DLE/dle-dashboard"
+import SslAmcDashboardRoute from "../routes/SslAmcDashboardRoute"
 
 import UPUploadForm from "../pages/UP/UPSSL/AMC/UploadForm"
 import UPDashboard from "../pages/UP/UPSSL/AMC/Dashboard"
@@ -61,7 +62,7 @@ export const router = createBrowserRouter([
       { path: pages.idCard.slice(1), element: <DLECard /> },
       { path: pages.certificate.slice(1), element: <DLECertificate /> },
 
-      { path: pages.bihar.amcDashboard.slice(1), element: <StateRoute stateKey="bihar"><Dashboard /></StateRoute> },
+      { path: pages.bihar.amcDashboard.slice(1), element: <SslAmcDashboardRoute region="bihar"><Dashboard /></SslAmcDashboardRoute> },
       { path: pages.bihar.assignAmc.slice(1), element: <StateRoute stateKey="bihar"><AssignAmc /></StateRoute> },
       { path: pages.bihar.amcUpload.slice(1), element: <StateRoute stateKey="bihar"><UploadForm /></StateRoute> },
       { path: pages.bihar.amcList.slice(1), element: <StateRoute stateKey="bihar"><DocumentList /></StateRoute> },
@@ -76,7 +77,7 @@ export const router = createBrowserRouter([
       { path: (pages.bihar?.ulaList || '/bihar/ula/list').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaList /></StateRoute> },
       { path: (pages.bihar?.ulaDetails || '/bihar/ula/details').slice(1), element: <StateRoute stateKey="bihar"><BiharUlaDetails /></StateRoute> },
 
-      { path: pages.up.amcDashboard.slice(1), element: <StateRoute stateKey="up"><UPDashboard /></StateRoute> },
+      { path: pages.up.amcDashboard.slice(1), element: <SslAmcDashboardRoute region="up"><UPDashboard /></SslAmcDashboardRoute> },
       { path: pages.up.amcUpload.slice(1), element: <StateRoute stateKey="up"><UPUploadForm /></StateRoute> },
       { path: pages.up.amcList.slice(1), element: <StateRoute stateKey="up"><UPDocumentList /></StateRoute> },
       { path: pages.up.amcDetails.slice(1), element: <StateRoute stateKey="up"><UPDocumentDetails /></StateRoute> },
