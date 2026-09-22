@@ -1,4 +1,6 @@
 import { pages } from '../api/routes'
+import { userCanManagePortalAccess } from './portalAccess'
+import { userIsAdmin } from './userRoles'
 
 const STATE_GROUPS = {
   bihar: ['bihar', 'br', '2'],
@@ -51,6 +53,8 @@ export const filterMenuByUserState = (menuList, user) => {
 
   return menuList.filter((group) => {
     if (group.id === 'account') return true
+    if (group.id === 'portal') return userCanManagePortalAccess(user) || userIsAdmin(user)
+    if (group.id === 'admin') return userIsAdmin(user)
     const stateKey = MENU_GROUP_STATE_KEY[group.id] ?? group.id
     return allowed.has(stateKey)
   })

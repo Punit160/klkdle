@@ -34,6 +34,8 @@ import { legacyPages, pages } from "../api/routes"
 import BiharUlaForm from "../pages/Bihar/BiharULA/BiharUlaForm"
 import BiharUlaList from "../pages/Bihar/BiharULA/BiharUlaList"
 import BiharUlaDetails from "../pages/Bihar/BiharULA/BiharUlaDetails"
+import PortalAccessAdmin from "../pages/Portal/PortalAccessAdmin"
+import UserMaster from "../pages/Admin/UserMaster"
 
 const legacyRedirects = Object.entries(legacyPages).map(([from, to]) => ({
   path: from.replace(/^\/+/, "").replace(/\/+$/, ""),
@@ -54,6 +56,8 @@ export const router = createBrowserRouter([
       { path: pages.dashboard.slice(1), element: <DLEDashboard /> },
       { path: pages.profile.slice(1), element: <DLEProfile /> },
       { path: pages.attendance.slice(1), element: <AttendanceReport /> },
+      { path: pages.portalAccess.slice(1), element: <PortalAccessAdmin /> },
+      { path: pages.userMaster.slice(1), element: <UserMaster /> },
       { path: pages.idCard.slice(1), element: <DLECard /> },
       { path: pages.certificate.slice(1), element: <DLECertificate /> },
 

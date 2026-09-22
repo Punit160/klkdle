@@ -4,6 +4,7 @@ import {
   captureStampedCameraPhoto,
   captureStampedDataUrlFromVideo,
 } from '../../utils/cameraCapture'
+import { openRearCameraStream, waitForVideoReady } from '../../utils/cameraStream'
 
 const CameraCapture = ({
   label,
@@ -50,24 +51,21 @@ const CameraCapture = ({
       if (allowed === false) return
     }
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Camera is not supported on this device.')
-      return
-    }
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false,
-      })
+      const stream = await openRearCameraStream()
 
       streamRef.current = stream
       setIsOpen(true)
 
-      requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          videoRef.current.play().catch(() => {})
+          try {
+            await videoRef.current.play()
+            await waitForVideoReady(videoRef.current)
+          } catch {
+            /* capture will validate again */
+          }
         }
       })
     } catch {
@@ -82,6 +80,7 @@ const CameraCapture = ({
     setError('')
 
     try {
+      await waitForVideoReady(videoRef.current)
       if (onCaptureDataUrl) {
         const { dataUrl, coords } = await captureStampedDataUrlFromVideo(
           videoRef.current,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FiAlertCircle, FiCamera, FiLoader } from 'react-icons/fi'
+import { openRearCameraStream } from '../../utils/cameraStream'
 import { loadJsQr, scanQrOrBarcode } from '../../utils/equipmentQrScan'
 
 /**
@@ -42,17 +43,8 @@ const SerialScannerInput = ({
     setError('')
     setIsStarting(true)
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Camera is not supported on this device.')
-      setIsStarting(false)
-      return
-    }
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false,
-      })
+      const stream = await openRearCameraStream()
       streamRef.current = stream
       setIsOpen(true)
       requestAnimationFrame(() => {

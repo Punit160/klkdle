@@ -113,7 +113,11 @@ const AttendanceWidget = ({ showReportLink = false, onRefreshCalendar }) => {
 
             <div className="attendance-status-row">
               <div className={`attendance-status-badge ${isPunchedIn ? 'active' : 'idle'}`}>
-                {isPunchedIn ? 'Punched In' : today?.punch_out_at ? 'Completed' : 'Not Punched In'}
+                {isPunchedIn
+                  ? 'Punched In'
+                  : today?.punch_out_at
+                    ? 'Punched Out'
+                    : 'Not Punched In'}
               </div>
               {today?.punch_out_auto && (
                 <span className="attendance-auto-tag">Auto Punch Out</span>
@@ -145,10 +149,14 @@ const AttendanceWidget = ({ showReportLink = false, onRefreshCalendar }) => {
                 type="button"
                 className="btn btn-primary attendance-btn"
                 onClick={handlePunchIn}
-                disabled={isPunchedIn || !!actionLoading || !!today?.punch_out_at}
+                disabled={isPunchedIn || !!actionLoading}
               >
                 <FiLogIn />
-                {actionLoading === 'in' ? 'Punching In...' : 'Punch In'}
+                {actionLoading === 'in'
+                  ? 'Punching In...'
+                  : today?.punch_out_at
+                    ? 'Punch In Again'
+                    : 'Punch In'}
               </button>
 
               <button
@@ -164,7 +172,8 @@ const AttendanceWidget = ({ showReportLink = false, onRefreshCalendar }) => {
 
             <p className="attendance-note">
               <FiMapPin size={13} />
-              Forgot to punch out? System auto-closes 10 hours after punch in.
+              Punched out by mistake? Use <strong>Punch In Again</strong> to reopen today&apos;s
+              session. Auto punch out runs 10 hours after punch in if you forget.
             </p>
           </>
         )}

@@ -39,8 +39,8 @@ const PunchInFirstModalHost = () => {
         <div className="p-3 pt-2">
           <p className="text-muted fs-13 mb-4 mb-md-3">
             Punch in from the dashboard before using {stateLabel} modules (AMC, ULA, uploads, and
-            field work). After punch out, open a module again and you will see this message until
-            you punch in for the day.
+            field work). If you punched out early by mistake, use <strong>Punch In Again</strong> on
+            the dashboard to continue the same day.
           </p>
           <div className="d-flex flex-wrap gap-2 justify-content-end">
             <button type="button" className="btn btn-light" onClick={() => setOpen(false)}>

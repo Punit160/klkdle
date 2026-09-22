@@ -1,5 +1,5 @@
 import express from "express";
-import upload from "../../Middleware/UploadMiddleware.js";
+import { lightAmcUpload } from "../../Middleware/lightAmcUploadMiddleware.js";
 import { protect } from "../../Middleware/authmiddleware.js";
 import {
   getLastLightAmc,
@@ -12,14 +12,7 @@ import {
 
 const router = express.Router();
 
-router.post(
-  "/store",
-  upload.fields([
-    { name: "image_1", maxCount: 1 },
-    { name: "image_2", maxCount: 1 },
-  ]),
-  storeLightAmc
-);
+router.post("/store", lightAmcUpload, storeLightAmc);
 
 router.get("/get", protect, getLightAmcs);
 router.get("/recent-done", protect, getRecentLightAmcs);

@@ -7,7 +7,50 @@ import {
   findRecentLightAmcs,
   serializeLightAmc,
 } from "../../Model/DLE-Model/light-amc-model.js";
-import { resolveRequestUserId } from "../../Utils/requestUser.js";
+import { storedPathFromUploadedFile } from "../../Utils/amcStoredUploadPath.js";
+import { resolveJwtUserId, resolveRequestUserId } from "../../Utils/requestUser.js";
+
+const stateFilterForRegion = (region) => {
+  if (region === "up") return "Uttar Pradesh";
+  if (region === "bihar") return "Bihar";
+  return null;
+};
+
+const resolveLightAmcReadScope = (req) => {
+  const portalCompanyId = req.portalCompanyId
+    ? String(req.portalCompanyId).trim()
+    : "";
+  const jwtUserId = resolveJwtUserId(req);
+  const userId = resolveRequestUserId(req);
+
+  const stateFromQuery = req.query.state?.trim();
+  const stateFromRegion = stateFilterForRegion(req.lightAmcRegion);
+  const state = stateFromQuery || stateFromRegion || undefined;
+
+  if (portalCompanyId && !jwtUserId) {
+    return {
+      ok: true,
+      companyId: portalCompanyId,
+      state,
+      userId: null,
+    };
+  }
+
+  if (jwtUserId || userId) {
+    return {
+      ok: true,
+      companyId: req.query.company_id,
+      state,
+      userId,
+    };
+  }
+
+  return {
+    ok: false,
+    status: 401,
+    message: "User authentication required",
+  };
+};
 
 const addMonths = (value, months) => {
   const date = new Date(value);
@@ -84,21 +127,27 @@ export const getLastLightAmc = async (req, res) => {
 
 export const getLightAmcs = async (req, res) => {
   try {
-    const companyId = req.query.company_id;
-    const state = req.query.state;
-    const userId = resolveRequestUserId(req);
-
-    if (!userId) {
-      return res.status(401).json({
+    const scope = resolveLightAmcReadScope(req);
+    if (!scope.ok) {
+      return res.status(scope.status).json({
         success: false,
-        message: "User authentication required",
+        message: scope.message,
       });
     }
 
-    const rows = await findLightAmcs({ companyId, state, userId });
+    const rows = await findLightAmcs({
+      companyId: scope.companyId,
+      state: scope.state,
+      userId: scope.userId,
+    });
 
     return res.status(200).json({
       success: true,
+      meta: {
+        state: scope.state || "all",
+        company_id: scope.companyId ? String(scope.companyId) : null,
+        scope: scope.userId ? "user" : "company",
+      },
       data: rows.map(serializeLightAmc),
     });
   } catch (error) {
@@ -228,7 +277,6 @@ export const getLightAmcsInPeriod = async (req, res) => {
 export const getLightAmcById = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.query.company_id;
 
     if (!id) {
       return res.status(400).json({
@@ -237,17 +285,27 @@ export const getLightAmcById = async (req, res) => {
       });
     }
 
-    const userId = resolveRequestUserId(req);
-
-    if (!userId) {
-      return res.status(401).json({
+    const scope = resolveLightAmcReadScope(req);
+    if (!scope.ok) {
+      return res.status(scope.status).json({
         success: false,
-        message: "User authentication required",
+        message: scope.message,
       });
     }
 
-    const row = await findLightAmcById(id, companyId, userId);
+    const row = await findLightAmcById(id, scope.companyId, scope.userId);
     if (!row) {
+      return res.status(404).json({
+        success: false,
+        message: "AMC record not found",
+      });
+    }
+
+    const regionState = stateFilterForRegion(req.lightAmcRegion);
+    if (
+      regionState &&
+      String(row.state || "").trim() !== regionState
+    ) {
       return res.status(404).json({
         success: false,
         message: "AMC record not found",
@@ -371,8 +429,8 @@ export const storeLightAmc = async (req, res) => {
       light_working,
       complaint_raised: String(complaint_raised) === "1" || String(complaint_raised).toLowerCase() === "true" || String(complaint_raised).toLowerCase() === "yes",
       complaint_ref,
-      image_1: `/uploads/light-amc/${image1.filename}`,
-      image_2: `/uploads/light-amc/${image2.filename}`,
+      image_1: storedPathFromUploadedFile(image1, (name) => `/uploads/light-amc/${name}`),
+      image_2: storedPathFromUploadedFile(image2, (name) => `/uploads/light-amc/${name}`),
       latitude: latitude ? String(latitude) : null,
       longitude: longitude ? String(longitude) : null,
       remarks,

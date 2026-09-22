@@ -1,5 +1,55 @@
 import { captureCurrentLocation } from './geolocation'
 
+/** Higher quality — single encode (avoid double JPEG on ULA path). */
+export const JPEG_CAPTURE_QUALITY = 0.96
+
+const prepareCanvasContext = (ctx) => {
+  ctx.imageSmoothingEnabled = true
+  if ('imageSmoothingQuality' in ctx) {
+    ctx.imageSmoothingQuality = 'high'
+  }
+}
+
+/**
+ * Prefer ImageCapture.takePhoto() (full sensor) over low-res video frame grab.
+ */
+const drawVideoFrameToCanvas = async (video, canvas, ctx) => {
+  const stream = video?.srcObject
+  if (stream instanceof MediaStream && typeof ImageCapture !== 'undefined') {
+    const track = stream.getVideoTracks()[0]
+    if (track?.readyState === 'live') {
+      try {
+        const capture = new ImageCapture(track)
+        const opts = {}
+        const caps = track.getCapabilities?.()
+        if (caps?.width?.max) opts.imageWidth = caps.width.max
+        if (caps?.height?.max) opts.imageHeight = caps.height.max
+        const blob = await capture.takePhoto(
+          Object.keys(opts).length ? opts : undefined
+        )
+        const bitmap = await createImageBitmap(blob)
+        canvas.width = bitmap.width
+        canvas.height = bitmap.height
+        prepareCanvasContext(ctx)
+        ctx.drawImage(bitmap, 0, 0)
+        bitmap.close?.()
+        return
+      } catch {
+        /* fall through to video frame */
+      }
+    }
+  }
+
+  if (!video?.videoWidth || !video?.videoHeight) {
+    throw new Error('Camera is not ready. Please wait a moment and try again.')
+  }
+
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  prepareCanvasContext(ctx)
+  ctx.drawImage(video, 0, 0)
+}
+
 export const formatStampTime = (date = new Date()) =>
   new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',
@@ -155,34 +205,30 @@ export const drawLocationStamp = (ctx, width, height, latitude, longitude, captu
 const blobToFile = (blob, filename) =>
   new File([blob], filename, { type: blob.type || 'image/jpeg' })
 
-export const createStampedPhotoFromVideo = (video, coords, capturedAt = new Date()) =>
-  new Promise((resolve, reject) => {
-    if (!video?.videoWidth || !video?.videoHeight) {
-      reject(new Error('Camera is not ready. Please wait a moment and try again.'))
-      return
-    }
+export const createStampedPhotoFromVideo = async (video, coords, capturedAt = new Date()) => {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  await drawVideoFrameToCanvas(video, canvas, ctx)
 
-    const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+  drawLocationStamp(
+    ctx,
+    canvas.width,
+    canvas.height,
+    coords.latitude,
+    coords.longitude,
+    capturedAt
+  )
 
-    const ctx = canvas.getContext('2d')
-    ctx.drawImage(video, 0, 0)
-
-    drawLocationStamp(ctx, canvas.width, canvas.height, coords.latitude, coords.longitude, capturedAt)
-
+  const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error('Failed to create photo.'))
-          return
-        }
-        resolve(blobToFile(blob, `amc_${Date.now()}.jpg`))
-      },
+      (b) => (b ? resolve(b) : reject(new Error('Failed to create photo.'))),
       'image/jpeg',
-      0.92
+      JPEG_CAPTURE_QUALITY
     )
   })
+
+  return blobToFile(blob, `amc_${Date.now()}.jpg`)
+}
 
 export const captureStampedCameraPhoto = async (video) => {
   const coords = await captureCurrentLocation()
@@ -196,15 +242,10 @@ export const captureStampedDataUrlFromVideo = async (
   { caNumber, stampMetadata, onRawFrame } = {}
 ) => {
   const coords = await captureCurrentLocation()
-  if (!video?.videoWidth || !video?.videoHeight) {
-    throw new Error('Camera is not ready. Please wait a moment and try again.')
-  }
 
   const canvas = document.createElement('canvas')
-  canvas.width = video.videoWidth
-  canvas.height = video.videoHeight
   const ctx = canvas.getContext('2d')
-  ctx.drawImage(video, 0, 0)
+  await drawVideoFrameToCanvas(video, canvas, ctx)
 
   const frameHook = onRawFrame?.(canvas)
   if (frameHook && typeof frameHook.then === 'function') {
@@ -212,8 +253,7 @@ export const captureStampedDataUrlFromVideo = async (
   }
 
   const capturedAt = new Date()
-  const rawDataUrl = canvas.toDataURL('image/jpeg', 0.92)
-  const dataUrl = await stampImageDataUrl(rawDataUrl, {
+  drawSurveyPhotoStamp(ctx, canvas.width, canvas.height, {
     caNumber: stampMetadata?.caNumber ?? caNumber,
     caName: stampMetadata?.caName,
     district: stampMetadata?.district,
@@ -225,6 +265,8 @@ export const captureStampedDataUrlFromVideo = async (
     longitude: coords.longitude,
     capturedAt,
   })
+
+  const dataUrl = canvas.toDataURL('image/jpeg', JPEG_CAPTURE_QUALITY)
 
   return { dataUrl, coords, capturedAt }
 }
@@ -240,6 +282,7 @@ export const stampImageDataUrl = (imageSrc, metadata = {}) =>
         canvas.width = img.naturalWidth || img.width || 1280
         canvas.height = img.naturalHeight || img.height || 720
         const ctx = canvas.getContext('2d')
+        prepareCanvasContext(ctx)
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
 
         const capturedAt =
@@ -258,7 +301,7 @@ export const stampImageDataUrl = (imageSrc, metadata = {}) =>
           fullSiteStamp: metadata.fullSiteStamp,
         })
 
-        resolve(canvas.toDataURL('image/jpeg', 0.92))
+        resolve(canvas.toDataURL('image/jpeg', JPEG_CAPTURE_QUALITY))
       } catch (err) {
         reject(err)
       }

@@ -10,6 +10,14 @@ import {
   updateUserProfileImage,
   updateUserPassword,
 } from "../../Model/DLE-Model/dle-user-model.js";
+import { getPortalPermissionsForUser } from "./portal-rbac-controller.js";
+import { mapUserUploadFilesToPaths } from "../../Utils/userUploadPaths.js";
+import { storedPathFromUploadedFile } from "../../Utils/amcStoredUploadPath.js";
+import {
+  getR2PublicUrl,
+  parseR2StoredValue,
+  readStoredFileBuffer,
+} from "../../Utils/objectStorage.js";
 import { resolveStoredUploadPath } from "../../Utils/uploadsPath.js";
 
 const resolveUserIdFromToken = (req) => {
@@ -60,11 +68,7 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    const files = req.files || {};
-
-    // ==========================================
-    // FILE PATHS
-    // ==========================================
+    const filePaths = mapUserUploadFilesToPaths(req.files || {});
 
     const userData = {
       company_id,
@@ -78,41 +82,13 @@ export const registerUser = async (req, res) => {
       emergency_contact_no,
       police_verification_validity,
       address,
-
-      educational_document:
-        files.educational_document?.[0]
-          ? `/uploads/user/documents/${files.educational_document[0].filename}`
-          : null,
-
-      aadhaar_voter_id:
-        files.aadhaar_voter_id?.[0]
-          ? `/uploads/user/aadhaar/${files.aadhaar_voter_id[0].filename}`
-          : null,
-
-      pan_card:
-        files.pan_card?.[0]
-          ? `/uploads/user/pan/${files.pan_card[0].filename}`
-          : null,
-
-      driving_license:
-        files.driving_license?.[0]
-          ? `/uploads/user/driving-license/${files.driving_license[0].filename}`
-          : null,
-
-      police_verification:
-        files.police_verification?.[0]
-          ? `/uploads/user/police-verification/${files.police_verification[0].filename}`
-          : null,
-
-      cancelled_cheque:
-        files.cancelled_cheque?.[0]
-          ? `/uploads/user/cancelled-cheque/${files.cancelled_cheque[0].filename}`
-          : null,
-
-      rent_agreement_electricity_bill:
-        files.rent_agreement_electricity_bill?.[0]
-          ? `/uploads/user/rent-agreement/${files.rent_agreement_electricity_bill[0].filename}`
-          : null
+      educational_document: filePaths.educational_document ?? null,
+      aadhaar_voter_id: filePaths.aadhaar_voter_id ?? null,
+      pan_card: filePaths.pan_card ?? null,
+      driving_license: filePaths.driving_license ?? null,
+      police_verification: filePaths.police_verification ?? null,
+      cancelled_cheque: filePaths.cancelled_cheque ?? null,
+      rent_agreement_electricity_bill: filePaths.rent_agreement_electricity_bill ?? null,
     };
 
     const result = await createUser(userData);
@@ -204,12 +180,15 @@ export const loginUser = async (req, res) => {
       {
         id: user.id.toString(),
         email: user.email,
+        role: Number(user.role ?? 2),
       },
       process.env.JWT_SECRET,
       {
         expiresIn: "1d",
       }
     );
+
+    const portal_permissions = await getPortalPermissionsForUser(user);
 
     return res.status(200).json({
       success: true,
@@ -255,6 +234,8 @@ export const loginUser = async (req, res) => {
           user.rent_agreement_electricity_bill,
 
         status: user.status,
+        role: Number(user.role ?? 2),
+        portal_permissions,
       },
     });
 
@@ -305,9 +286,15 @@ export const getProfile = async (req, res) => {
       safeUser.id = safeUser.id.toString();
     }
 
+    const portal_permissions = await getPortalPermissionsForUser(safeUser);
+
     return res.status(200).json({
       success: true,
-      user: safeUser,
+      user: {
+        ...safeUser,
+        role: Number(safeUser.role ?? 2),
+        portal_permissions,
+      },
     });
 
   } catch (error) {
@@ -415,8 +402,31 @@ export const downloadDocument = async (req, res) => {
       });
     }
 
-    const filePath = resolveStoredUploadPath(user[field]);
+    const stored = user[field];
+    const r2Key = parseR2StoredValue(stored);
+    if (r2Key) {
+      const publicUrl = getR2PublicUrl(r2Key);
+      if (publicUrl) {
+        return res.redirect(302, publicUrl);
+      }
+    }
 
+    if (/^https?:\/\//i.test(String(stored || ""))) {
+      return res.redirect(302, stored);
+    }
+
+    const buffer = await readStoredFileBuffer(stored);
+    if (buffer) {
+      const fileName = path.basename(String(stored).replace(/^r2:[^/]+\//, ""));
+      const ext = path.extname(fileName).toLowerCase();
+      const contentType =
+        ext === ".pdf" ? "application/pdf" : ext === ".png" ? "image/png" : "image/jpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      return res.send(buffer);
+    }
+
+    const filePath = resolveStoredUploadPath(stored);
     if (!filePath) {
       return res.status(404).json({
         success: false,
@@ -424,10 +434,7 @@ export const downloadDocument = async (req, res) => {
       });
     }
 
-    return res.download(
-      filePath,
-      path.basename(filePath)
-    );
+    return res.download(filePath, path.basename(filePath));
 
   } catch (error) {
     console.error("DOWNLOAD ERROR:", error);
@@ -469,7 +476,16 @@ export const uploadProfileImage = async (req, res) => {
       });
     }
 
-    const profileImage = `/uploads/user/profile/${file.filename}`;
+    const profileImage = storedPathFromUploadedFile(file, (name) =>
+      `/uploads/user/profile/${name}`
+    );
+
+    if (!profileImage) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to store profile photo",
+      });
+    }
 
     await updateUserProfileImage(userId, profileImage);
 

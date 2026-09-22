@@ -5,7 +5,7 @@ import {
   serializeAmcApprovalFields,
 } from "../../Utils/amcApproval.js";
 import { toPublicFileUrl } from "../../Utils/publicUrl.js";
-import { resolveCompanyId } from "../../Utils/portalCompany.js";
+import { resolvePortalCompanyId } from "../../Utils/portalCompany.js";
 
 const REGION_CONFIG = {
   bihar: {
@@ -87,7 +87,7 @@ export const getAmcDocumentsForApproval =
 
       const approvalStatusParam = req.query.approval_status;
       const scope = String(req.query.scope || "all").toLowerCase();
-      const companyId = resolveCompanyId(req);
+      const companyId = resolvePortalCompanyId(req);
       const district = req.query.district?.trim();
       const block = req.query.block?.trim();
       const panchayat = req.query.panchayat?.trim();
@@ -95,7 +95,7 @@ export const getAmcDocumentsForApproval =
       if (!companyId) {
         return res.status(422).json({
           success: false,
-          message: "company_id is required.",
+          message: "company_id is required (or use portal API key authentication).",
         });
       }
 
@@ -183,12 +183,12 @@ export const updateAmcApprovalStatus =
   async (req, res) => {
     try {
       const { id, approval_status, approval_remarks, approval_by } = req.body;
-      const companyId = resolveCompanyId(req);
+      const companyId = resolvePortalCompanyId(req);
 
       if (!companyId) {
         return res.status(422).json({
           success: false,
-          message: "company_id is required.",
+          message: "company_id is required (or use portal API key authentication).",
         });
       }
 

@@ -101,12 +101,6 @@ export const persistObjectUploads = async (req, res, next) => {
       }
     }
 
-    if (isR2UploadsEnabled() && !isR2Configured()) {
-      console.warn(
-        "[objectUpload] R2_UPLOADS_ENABLED=1 but R2 credentials missing — saved to local UPLOADS_DIR instead."
-      );
-    }
-
     return next();
   } catch (error) {
     console.error("OBJECT UPLOAD PERSIST ERROR:", error);

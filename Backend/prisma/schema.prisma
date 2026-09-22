@@ -29,6 +29,7 @@ model User {
   cancelled_cheque                String?   @db.VarChar(255)
   rent_agreement_electricity_bill String?   @db.VarChar(255)
   profile_image                   String?   @db.VarChar(255)
+  role                            Int       @default(2) @db.TinyInt
   status                          Int       @default(0)
   approval_status                 Int       @default(0)
   approval_remarks                String?   @db.Text
@@ -37,6 +38,66 @@ model User {
   updated_at                      DateTime? @default(now()) @db.Timestamp(0)
 
   @@map("users")
+}
+
+model PortalPermission {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(100)
+  label       String   @db.VarChar(255)
+  module      String   @db.VarChar(100)
+  description String?  @db.Text
+  roles       PortalRolePermission[]
+
+  @@map("portal_permissions")
+}
+
+model PortalRole {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id  String    @db.VarChar(100)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(255)
+  created_at  DateTime? @default(now()) @db.Timestamp(0)
+  updated_at  DateTime? @default(now()) @db.Timestamp(0)
+  permissions PortalRolePermission[]
+  users       UserPortalRole[]
+
+  @@unique([company_id, name])
+  @@map("portal_roles")
+}
+
+model PortalRolePermission {
+  role_id       BigInt           @db.UnsignedBigInt
+  permission_id Int
+  role          PortalRole       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission    PortalPermission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+  @@map("portal_role_permissions")
+}
+
+model UserPortalRole {
+  user_id    BigInt     @db.UnsignedBigInt
+  role_id    BigInt     @db.UnsignedBigInt
+  company_id String     @db.VarChar(100)
+  role       PortalRole @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, role_id])
+  @@map("user_portal_roles")
+}
+
+model PortalApiCredential {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id  String    @db.VarChar(100)
+  label       String?   @db.VarChar(255)
+  api_key     String    @unique @db.VarChar(64)
+  secret_hash String    @db.VarChar(255)
+  scopes      Json
+  is_active   Boolean   @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamp(0)
+  updated_at  DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([company_id])
+  @@map("portal_api_credentials")
 }
 
 model BiharSslAmcDocument {
@@ -157,6 +218,10 @@ model BiharLightAmc {
   latitude            String?   @db.VarChar(50)
   longitude           String?   @db.VarChar(50)
   remarks             String?   @db.Text
+  approval_status     Int       @default(0) @db.TinyInt
+  approval_date       DateTime? @db.Timestamp(0)
+  approval_remarks    String?   @db.Text
+  approval_by         String?   @db.VarChar(255)
   created_at          DateTime? @default(now()) @db.Timestamp(0)
   updated_at          DateTime? @default(now()) @db.Timestamp(0)
 

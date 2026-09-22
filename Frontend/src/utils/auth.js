@@ -18,13 +18,35 @@ export const setCompanyId = (companyId) => {
   }
 };
 
-export const getUser = () => {
+const parseStoredUser = () => {
   try {
     const raw = localStorage.getItem(USER_KEY) || localStorage.getItem("user");
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
+};
+
+/** Role from stored user, else JWT payload (after SQL admin / old sessions). */
+export const getEffectiveUserRole = (userArg = null) => {
+  const user = userArg ?? parseStoredUser();
+  if (user?.role != null && user.role !== "") {
+    return Number(user.role);
+  }
+  const payload = decodeJwtPayload(getToken());
+  if (payload?.role != null && payload.role !== "") {
+    return Number(payload.role);
+  }
+  return 2;
+};
+
+export const getUser = () => {
+  const user = parseStoredUser();
+  if (!user) return null;
+  return {
+    ...user,
+    role: getEffectiveUserRole(user),
+  };
 };
 
 const decodeJwtPayload = (token) => {
@@ -58,13 +80,18 @@ export const isTokenValid = (token = getToken()) => {
 export const saveAuthData = (token, user) => {
   setToken(token);
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    localStorage.setItem("user", JSON.stringify(user));
+    const normalized = {
+      ...user,
+      role: getEffectiveUserRole(user),
+    };
+    localStorage.setItem(USER_KEY, JSON.stringify(normalized));
+    localStorage.setItem("user", JSON.stringify(normalized));
     const companyId =
-      user.company_id ?? user.companyId ?? user.company?.id ?? null;
+      normalized.company_id ?? normalized.companyId ?? normalized.company?.id ?? null;
     if (companyId !== undefined && companyId !== null) {
       setCompanyId(companyId);
     }
+    window.dispatchEvent(new CustomEvent("dle-auth-updated"));
   }
 };
 

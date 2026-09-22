@@ -14,10 +14,17 @@ const FIELD_MODULE_GROUPS = new Set(["bihar", "up"]);
 const normalize = (p = "") => p.replace(/^\/+/, "").toLowerCase();
 
 const Menus = () => {
-    // Tracks which work-type dropdown is open. Key = `${groupId}-${itemId}`
     const [openDropdown, setOpenDropdown] = useState(null);
+    const [, setMenuTick] = useState(0);
     const pathName = useLocation().pathname;
     const currentPath = normalize(pathName);
+
+    useEffect(() => {
+        const refresh = () => setMenuTick((n) => n + 1);
+        window.addEventListener("dle-auth-updated", refresh);
+        return () => window.removeEventListener("dle-auth-updated", refresh);
+    }, []);
+
     const user = getUser();
     const { isPunchedIn, loading: punchLoading } = usePunchInStatus();
     const visibleMenu = filterMenuByUserState(menuList, user);

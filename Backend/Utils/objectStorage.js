@@ -257,7 +257,14 @@ export const persistUploadFile = async (file, folderPrefix) => {
   const buffer = file.buffer ?? (await fs.promises.readFile(file.path));
   const objectKey = buildObjectKey(folderPrefix, file.originalname);
 
-  if (isR2UploadsEnabled() && isR2Configured()) {
+  if (isR2UploadsEnabled()) {
+    if (!isR2Configured()) {
+      const error = new Error(
+        "Uploads use Cloudflare R2 (R2_UPLOADS_ENABLED=1) but credentials are missing. Set R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in Backend/.env."
+      );
+      error.statusCode = 503;
+      throw error;
+    }
     return uploadBufferToR2({
       buffer,
       objectKey,

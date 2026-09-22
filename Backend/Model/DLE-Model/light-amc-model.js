@@ -1,4 +1,5 @@
 import prisma from "../../Config/Prisma.js";
+import { serializeAmcApprovalFields } from "../../Utils/amcApproval.js";
 
 const toDate = (value) => {
   if (!value) return null;
@@ -25,6 +26,7 @@ export const serializeLightAmc = (row) => {
     period_end: iso(row.period_end),
     created_at: row.created_at,
     updated_at: row.updated_at,
+    ...serializeAmcApprovalFields(row),
   };
 };
 

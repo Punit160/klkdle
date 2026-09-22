@@ -29,7 +29,9 @@
     "prisma:ula-second-visit-at": "node scripts/ensure-bihar-ula-second-visit-at.js",
     "prisma:ula-backfill": "node scripts/ensure-bihar-ula-second-visit-at.js && node scripts/backfill-bihar-ula-surveyor-names.js",
     "prisma:ula-surveyor-names": "node scripts/backfill-bihar-ula-surveyor-names.js",
-    "test:r2": "node scripts/test-r2-upload.js"
+    "test:r2": "node scripts/test-r2-upload.js",
+    "migrate:uploads-to-r2": "node scripts/migrate-uploads-to-r2.js --dry-run",
+    "migrate:uploads-to-r2:apply": "node scripts/migrate-uploads-to-r2.js --apply"
   },
   "keywords": [],
   "author": "",

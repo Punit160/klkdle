@@ -11,44 +11,11 @@ import {
   uploadProfileImage,
 } from "../../Controller/DLE-Controller/dle-auth-contr.js";
 
-import upload from "../../Middleware/UploadMiddleware.js";
+import { userProfileImageUpload, userRegistrationDocumentUpload } from "../../Middleware/userUploadMiddleware.js";
 
 const router = express.Router();
 
-router.post(
-  "/register",
-  upload.fields([
-    {
-      name: "educational_document",
-      maxCount: 1
-    },
-    {
-      name: "aadhaar_voter_id",
-      maxCount: 1
-    },
-    {
-      name: "pan_card",
-      maxCount: 1
-    },
-    {
-      name: "driving_license",
-      maxCount: 1
-    },
-    {
-      name: "police_verification",
-      maxCount: 1
-    },
-    {
-      name: "cancelled_cheque",
-      maxCount: 1
-    },
-    {
-      name: "rent_agreement_electricity_bill",
-      maxCount: 1
-    }
-  ]),
-  registerUser
-);
+router.post("/register", userRegistrationDocumentUpload, registerUser);
 
 router.post("/login", loginUser);
 
@@ -60,11 +27,7 @@ router.put("/profile", updateProfile);
 
 router.patch("/change-password", changePassword);
 
-router.patch(
-  "/profile-image",
-  upload.single("profile_image"),
-  uploadProfileImage
-);
+router.patch("/profile-image", userProfileImageUpload, uploadProfileImage);
 
 router.get(
   "/document/:field",

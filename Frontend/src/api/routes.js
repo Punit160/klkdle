@@ -21,6 +21,8 @@ export const pages = {
   attendance: '/attendance',
   idCard: '/id-card',
   certificate: '/certificate',
+  portalAccess: '/portal/access',
+  userMaster: '/admin/users',
 
   bihar: {
     amcDashboard: '/bihar/amc',
@@ -128,12 +130,41 @@ export const api = {
     periodStatus: '/api/light-amc/period-status',
     recentDone: '/api/light-amc/recent-done',
     view: (id) => `/api/light-amc/view/${id}`,
+    /** External portal — no JWT; requires company_id query */
+    portalList: (state) => `${apiSsl(state)}/light/list`,
+    portalGet: (state) => `${apiSsl(state)}/light/get`,
+    portalView: (state, id) => `${apiSsl(state)}/light/view/${id}`,
+    portalApprovalList: (state) => `${apiSsl(state)}/light/approval/list`,
+    portalApprovalPending: (state) => `${apiSsl(state)}/light/approval/pending`,
+    portalApprovalStatus: (state) => `${apiSsl(state)}/light/approval/status`,
   },
   attendance: {
     today: '/api/attendance/today',
     month: '/api/attendance/month',
     punchIn: '/api/attendance/punch-in',
     punchOut: '/api/attendance/punch-out',
+  },
+  userMaster: {
+    users: '/api/user-master/users',
+    user: (id) => `/api/user-master/users/${id}`,
+  },
+  portal: {
+    permissions: '/api/portal/access/permissions',
+    roles: '/api/portal/access/roles',
+    role: (id) => `/api/portal/access/roles/${id}`,
+    roleMembers: (id) => `/api/portal/access/roles/${id}/users`,
+    users: '/api/portal/access/users',
+    userRoles: (userId) => `/api/portal/access/users/${userId}/roles`,
+    me: '/api/portal/access/me',
+    bootstrap: '/api/portal/access/bootstrap',
+    apiCredentials: '/api/portal/access/api-credentials',
+    apiCredential: (id) => `/api/portal/access/api-credentials/${id}`,
+    apiCredentialRotateSecret: (id) =>
+      `/api/portal/access/api-credentials/${id}/rotate-secret`,
+    integrationCatalog: '/api/portal/access/integration-catalog',
+  },
+  portalIntegration: {
+    me: '/api/portal/integration/me',
   },
   biharUla: {
     list: '/api/bihar/ula/list',

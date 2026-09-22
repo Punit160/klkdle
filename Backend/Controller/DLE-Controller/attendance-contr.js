@@ -4,6 +4,7 @@ import {
   createAttendancePunchIn,
   findAttendanceByUserAndDate,
   findAttendanceForMonth,
+  reopenAttendancePunchIn,
   updateAttendancePunchOut,
 } from "../../Model/DLE-Model/attendance-model.js";
 import {
@@ -80,6 +81,12 @@ export const punchIn = async (req, res) => {
     const todayStr = getISTDateString(new Date());
     const existing = await findAttendanceByUserAndDate(userId, todayStr);
 
+    const user = await findUserById(userId);
+    const { latitude, longitude } = req.body || {};
+    const lat = latitude ? String(latitude) : null;
+    const lng = longitude ? String(longitude) : null;
+    const now = new Date();
+
     if (existing) {
       if (!existing.punch_out_at) {
         return res.status(409).json({
@@ -88,28 +95,35 @@ export const punchIn = async (req, res) => {
         });
       }
 
-      return res.status(409).json({
-        success: false,
-        message: "Today's attendance is already completed",
+      const record = await reopenAttendancePunchIn({
+        id: existing.id,
+        punchInAt: now,
+        latitude: lat,
+        longitude: lng,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Punched in again for today",
+        record: serializeAttendance(record),
+        reopened: true,
       });
     }
-
-    const user = await findUserById(userId);
-    const { latitude, longitude } = req.body || {};
 
     const record = await createAttendancePunchIn({
       userId,
       companyId: user?.company_id,
       dateStr: todayStr,
-      punchInAt: new Date(),
-      latitude: latitude ? String(latitude) : null,
-      longitude: longitude ? String(longitude) : null,
+      punchInAt: now,
+      latitude: lat,
+      longitude: lng,
     });
 
     return res.status(201).json({
       success: true,
       message: "Punch in successful",
       record: serializeAttendance(record),
+      reopened: false,
     });
   } catch (error) {
     console.error("PUNCH IN ERROR:", error);

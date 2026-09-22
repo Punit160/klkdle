@@ -7,7 +7,7 @@ import Menus from './Menus';
 import { NavigationContext } from '../../../contentApi/navigationProvider';
 import { joinUrl, APP_API_BASE } from '../../../api/config'
 import { app, pages } from '../../../api/routes'
-import { clearAuthData } from '../../../utils/auth'
+import { clearAuthData, getUser } from '../../../utils/auth'
 import '../../../styles/sidebar-theme.css'
 
 
@@ -30,14 +30,10 @@ const NavigationManu = () => {
     }, [pathName])
 
     useEffect(() => {
-        try {
-            const storedUser = localStorage.getItem("user")
-            if (storedUser) {
-                setUser(JSON.parse(storedUser))
-            }
-        } catch (error) {
-            console.error("Failed to parse user from localStorage:", error)
-        }
+        const syncUser = () => setUser(getUser())
+        syncUser()
+        window.addEventListener('dle-auth-updated', syncUser)
+        return () => window.removeEventListener('dle-auth-updated', syncUser)
     }, [])
 
     const initials = useMemo(() => getInitials(user?.name), [user])

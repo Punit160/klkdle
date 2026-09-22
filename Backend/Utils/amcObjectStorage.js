@@ -25,13 +25,13 @@ export const persistModuleUpload = async ({
     throw new Error("Upload file buffer or path is required.");
   }
 
-  const useR2 = isR2UploadsEnabled() && isR2Configured();
-
   if (isR2UploadsEnabled() && !isR2Configured()) {
-    console.warn(
-      `[${moduleLabel}] R2_UPLOADS_ENABLED=1 but R2 credentials missing — saving to local UPLOADS_DIR.`
-    );
+    const error = new Error(r2UploadsRequiredError(moduleLabel));
+    error.statusCode = 503;
+    throw error;
   }
+
+  const useR2 = isR2UploadsEnabled() && isR2Configured();
 
   const buffer = file.buffer ?? (await fs.promises.readFile(file.path));
   const folder = useR2 ? r2Prefix : localRelativeFolder;

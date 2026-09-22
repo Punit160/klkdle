@@ -83,6 +83,28 @@ export const updateAttendancePunchOut = async ({
   });
 };
 
+/** Same calendar day — user punched out early by mistake and needs field access again. */
+export const reopenAttendancePunchIn = async ({
+  id,
+  punchInAt,
+  latitude,
+  longitude,
+}) => {
+  return prisma.attendance.update({
+    where: { id: BigInt(id) },
+    data: {
+      punch_in_at: punchInAt,
+      punch_in_latitude: latitude ?? null,
+      punch_in_longitude: longitude ?? null,
+      punch_out_at: null,
+      punch_out_latitude: null,
+      punch_out_longitude: null,
+      punch_out_auto: 0,
+      updated_at: new Date(),
+    },
+  });
+};
+
 export const autoPunchOutOpenRecords = async (userId) => {
   const openRecords = await findOpenAttendanceRecords(userId);
   const now = new Date();

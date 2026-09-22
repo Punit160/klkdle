@@ -29,6 +29,32 @@ export const menuList = [
         ],
     },
     {
+        id: "admin",
+        state: "Administration",
+        items: [
+            {
+                id: 1,
+                name: "User Master",
+                path: pages.userMaster,
+                icon: "feather-users",
+                dropdownMenu: false,
+            },
+        ],
+    },
+    {
+        id: "portal",
+        state: "Portal",
+        items: [
+            {
+                id: 1,
+                name: "Roles & Access",
+                path: pages.portalAccess,
+                icon: "feather-shield",
+                dropdownMenu: false,
+            },
+        ],
+    },
+    {
         id: "bihar",
         state: "Bihar",
         items: [
