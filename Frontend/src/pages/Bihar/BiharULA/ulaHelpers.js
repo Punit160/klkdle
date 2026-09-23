@@ -87,9 +87,10 @@ export const isValidCaNumber = (value) => {
   return ca.length >= 4 && /^\d+$/.test(ca)
 }
 
+/** Exactly 10 digits, Indian mobile (starts with 6–9). */
 export const isValidIndianMobile = (value) => {
   const mobile = sanitizeMobileInput(value)
-  if (!mobile) return true
+  if (mobile.length !== 10) return false
   return /^[6-9]\d{9}$/.test(mobile)
 }
 
@@ -622,6 +623,18 @@ export const checkUlaRegistrationUnique = async ({ caNumber, beneficiaryContact 
     },
   })
   return res?.data
+}
+
+export const formatUlaUniqueConflictMessage = (checkResult) => {
+  if (!checkResult?.conflicts?.length) return ''
+  return checkResult.conflicts.map((c) => c.message).join(' ')
+}
+
+export const fieldMessageFromUlaUniqueCheck = (checkResult, field) => {
+  const validation = checkResult?.validation?.[field]
+  if (validation) return validation
+  const conflict = checkResult?.conflicts?.find((c) => c.field === field)
+  return conflict?.message || ''
 }
 
 export const submitUlaFirstVisit = async ({

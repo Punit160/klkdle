@@ -20,20 +20,29 @@ export const captureCurrentLocation = (options = {}) =>
         reject(new Error("Could not read current location. Turn on GPS and try again."));
       },
       {
-        enableHighAccuracy: true,
+        enableHighAccuracy: options.enableHighAccuracy ?? true,
         timeout: options.timeout ?? 20000,
-        maximumAge: 0,
+        maximumAge: options.maximumAge ?? 0,
       }
     );
   });
 
-export const captureLocationOptional = async () => {
+/** For photo stamp — prefer cached fix; short timeout so shutter is not blocked. */
+export const captureLocationOptional = async (options = {}) => {
   try {
-    return await captureCurrentLocation();
+    return await captureCurrentLocation({
+      timeout: options.timeout ?? 4500,
+      maximumAge: options.maximumAge ?? 120000,
+      enableHighAccuracy: options.enableHighAccuracy ?? true,
+    });
   } catch {
     return { latitude: null, longitude: null };
   }
 };
+
+/** Start while camera preview is open; reuse on Capture click. */
+export const prefetchLocationForCapture = () =>
+  captureLocationOptional({ timeout: 8000, maximumAge: 120000 });
 
 const toRadians = (value) => (value * Math.PI) / 180;
 

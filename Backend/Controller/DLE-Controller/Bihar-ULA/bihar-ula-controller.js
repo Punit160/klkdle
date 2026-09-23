@@ -309,23 +309,71 @@ const parseCaNo = (raw) => {
   return { ok: true, value: ca };
 };
 
+/** Unique check API — skip CA when field is empty or still being typed. */
+const parseCaNoForUniqueQuery = (raw) => {
+  const ca = digitsOnly(raw, 20);
+  if (!ca) {
+    return { ok: true, value: null, validationMessage: null };
+  }
+  if (ca.length < 4) {
+    return {
+      ok: true,
+      value: null,
+      validationMessage: null,
+      partial: true,
+    };
+  }
+  return { ok: true, value: ca, validationMessage: null };
+};
+
 /** Indian mobile — 10 digits, starts with 6–9. Empty → "-". */
 const parseBeneficiaryMobile = (raw) => {
   const mobile = digitsOnly(raw, 10);
   if (!mobile) {
     return {
       ok: false,
-      message: "Beneficiary contact is required (10-digit mobile).",
+      message: "Beneficiary contact is required (minimum 10 digits).",
+    };
+  }
+  if (mobile.length < 10) {
+    return {
+      ok: false,
+      message: `Beneficiary contact must be at least 10 digits (entered ${mobile.length}).`,
     };
   }
   if (!/^[6-9]\d{9}$/.test(mobile)) {
     return {
       ok: false,
       message:
-        "Beneficiary contact must be a valid 10-digit mobile number (digits only, starts with 6–9).",
+        "Beneficiary contact must be exactly 10 digits (mobile starting with 6–9).",
     };
   }
   return { ok: true, value: mobile };
+};
+
+/** Unique check API — validate contact only when 10 digits are present. */
+const parseBeneficiaryMobileForUniqueQuery = (raw) => {
+  const mobile = digitsOnly(raw, 10);
+  if (!mobile) {
+    return { ok: true, value: null, validationMessage: null };
+  }
+  if (mobile.length < 10) {
+    return {
+      ok: true,
+      value: null,
+      validationMessage: null,
+      partial: true,
+    };
+  }
+  if (!/^[6-9]\d{9}$/.test(mobile)) {
+    return {
+      ok: false,
+      value: null,
+      validationMessage:
+        "Beneficiary contact must be exactly 10 digits (mobile starting with 6–9).",
+    };
+  }
+  return { ok: true, value: mobile, validationMessage: null };
 };
 
 /** Safe folder segment: klkdle/biharula/{ca_no}/panel_one_img.jpg (flat — no subfolders per photo). */
@@ -368,12 +416,26 @@ const findUlaRegistrationConflicts = async ({ caNo, beneficiaryContact }) => {
 
 export const checkBiharUlaUniqueController = async (req, res) => {
   try {
-    const caParsed = parseCaNo(req.query.ca_no);
-    const mobileParsed = parseBeneficiaryMobile(req.query.beneficiary_contact);
+    const caParsed = parseCaNoForUniqueQuery(req.query.ca_no);
+    const mobileParsed = parseBeneficiaryMobileForUniqueQuery(
+      req.query.beneficiary_contact
+    );
+
+    if (!mobileParsed.ok) {
+      return res.json({
+        success: true,
+        available: false,
+        conflicts: [],
+        validation: {
+          ca_no: null,
+          beneficiary_contact: mobileParsed.validationMessage,
+        },
+      });
+    }
 
     const conflicts = await findUlaRegistrationConflicts({
-      caNo: caParsed.ok ? caParsed.value : null,
-      beneficiaryContact: mobileParsed.ok ? mobileParsed.value : null,
+      caNo: caParsed.value,
+      beneficiaryContact: mobileParsed.value,
     });
 
     return res.json({
@@ -381,8 +443,8 @@ export const checkBiharUlaUniqueController = async (req, res) => {
       available: conflicts.length === 0,
       conflicts,
       validation: {
-        ca_no: caParsed.ok ? null : caParsed.message,
-        beneficiary_contact: mobileParsed.ok ? null : mobileParsed.message,
+        ca_no: caParsed.validationMessage || null,
+        beneficiary_contact: mobileParsed.validationMessage || null,
       },
     });
   } catch (error) {

@@ -32,6 +32,7 @@ import {
   ULA_SERIAL_API_FIELD,
   fetchUlaSurveyById,
   checkUlaRegistrationUnique,
+  fieldMessageFromUlaUniqueCheck,
   submitUlaFirstVisit,
   submitUlaSecondVisit,
   parseUlaSurveyVisitNotes,
@@ -113,6 +114,51 @@ const BiharUlaForm = () => {
   const [submitError, setSubmitError] = useState('')
   const [scanNotice, setScanNotice] = useState('')
   const [lightboxPhoto, setLightboxPhoto] = useState(null)
+  const [uniqueFieldErrors, setUniqueFieldErrors] = useState({
+    ca_no: '',
+    beneficiary_contact: '',
+  })
+  const [isCheckingUnique, setIsCheckingUnique] = useState(false)
+
+  const applyUlaUniqueCheckToFields = (checkResult) => {
+    setUniqueFieldErrors({
+      ca_no: fieldMessageFromUlaUniqueCheck(checkResult, 'ca_no'),
+      beneficiary_contact: fieldMessageFromUlaUniqueCheck(checkResult, 'beneficiary_contact'),
+    })
+    return Boolean(
+      checkResult?.validation?.ca_no ||
+        checkResult?.validation?.beneficiary_contact ||
+        (checkResult?.conflicts?.length && !checkResult?.available)
+    )
+  }
+
+  const runUlaUniqueFieldCheck = async ({ ca, contact } = {}) => {
+    if (isSecondVisitMode) return true
+
+    const caVal = ca ?? caNumber
+    const contactVal = contact ?? beneficiaryContact
+
+    const canCheckCa = isValidCaNumber(caVal)
+    const canCheckContact = isValidIndianMobile(contactVal)
+    if (!canCheckCa && !canCheckContact) {
+      setUniqueFieldErrors({ ca_no: '', beneficiary_contact: '' })
+      return true
+    }
+
+    setIsCheckingUnique(true)
+    try {
+      const uniqueCheck = await checkUlaRegistrationUnique({
+        caNumber: canCheckCa ? caVal : '',
+        beneficiaryContact: canCheckContact ? contactVal : '',
+      })
+      const hasIssue = applyUlaUniqueCheckToFields(uniqueCheck)
+      return !hasIssue
+    } catch {
+      return true
+    } finally {
+      setIsCheckingUnique(false)
+    }
+  }
 
   const visibleSlots = useMemo(
     () => getUlaSlotsForVisit(visitType, solarMeterOnFirstVisit),
@@ -417,7 +463,7 @@ const BiharUlaForm = () => {
       }
       if (!isValidIndianMobile(beneficiaryContact)) {
         setSubmitError(
-          'Beneficiary contact must be a 10-digit mobile number (digits only, starting with 6–9).'
+          'Beneficiary contact must be exactly 10 digits (mobile number starting with 6–9).'
         )
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
@@ -428,16 +474,11 @@ const BiharUlaForm = () => {
           caNumber,
           beneficiaryContact,
         })
-        const validationMsg =
-          uniqueCheck?.validation?.ca_no || uniqueCheck?.validation?.beneficiary_contact
-        if (validationMsg) {
-          setSubmitError(validationMsg)
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-          return
-        }
-        if (!uniqueCheck?.available) {
+        if (applyUlaUniqueCheckToFields(uniqueCheck)) {
           const msg =
             uniqueCheck?.conflicts?.map((c) => c.message).join(' ') ||
+            uniqueCheck?.validation?.ca_no ||
+            uniqueCheck?.validation?.beneficiary_contact ||
             'This CA number or beneficiary contact is already registered.'
           setSubmitError(msg)
           window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -516,6 +557,10 @@ const BiharUlaForm = () => {
         navigate(pages.bihar.ulaList || '/bihar/ula/list')
       }, 1200)
     } catch (err) {
+      const conflicts = err?.response?.data?.conflicts
+      if (Array.isArray(conflicts) && conflicts.length) {
+        applyUlaUniqueCheckToFields({ available: false, conflicts, validation: {} })
+      }
       setSubmitError(
         err?.response?.data?.message || err?.message || 'Failed to submit ULA form.'
       )
@@ -762,16 +807,30 @@ const BiharUlaForm = () => {
                 type="text"
                 inputMode="numeric"
                 autoComplete="off"
-                className="form-control"
+                className={`form-control${uniqueFieldErrors.ca_no ? ' is-invalid' : ''}`}
                 placeholder="e.g. 1029384756"
                 value={caNumber}
-                onChange={(e) => setCaNumber(sanitizeCaNumberInput(e.target.value))}
+                onChange={(e) => {
+                  setCaNumber(sanitizeCaNumberInput(e.target.value))
+                  if (uniqueFieldErrors.ca_no) {
+                    setUniqueFieldErrors((prev) => ({ ...prev, ca_no: '' }))
+                  }
+                }}
+                onBlur={() => {
+                  if (!isSecondVisitMode && isValidCaNumber(caNumber)) {
+                    runUlaUniqueFieldCheck({ ca: caNumber, contact: '' })
+                  }
+                }}
                 required
                 readOnly={isSecondVisitMode}
                 pattern="\d*"
               />
             </div>
-            <div className="fs-11 text-muted mt-1">Digits only — unique CA number</div>
+            {uniqueFieldErrors.ca_no ? (
+              <div className="invalid-feedback d-block">{uniqueFieldErrors.ca_no}</div>
+            ) : (
+              <div className="fs-11 text-muted mt-1">Digits only — must be unique</div>
+            )}
           </div>
 
           {/* CA Name */}
@@ -800,15 +859,35 @@ const BiharUlaForm = () => {
               type="tel"
               inputMode="numeric"
               autoComplete="tel"
-              className="form-control"
-              placeholder="10-digit mobile"
+              className={`form-control${uniqueFieldErrors.beneficiary_contact ? ' is-invalid' : ''}`}
+              placeholder="e.g. 9876543210"
               value={beneficiaryContact}
-              onChange={(e) => setBeneficiaryContact(sanitizeMobileInput(e.target.value))}
+              onChange={(e) => {
+                setBeneficiaryContact(sanitizeMobileInput(e.target.value))
+                if (uniqueFieldErrors.beneficiary_contact) {
+                  setUniqueFieldErrors((prev) => ({ ...prev, beneficiary_contact: '' }))
+                }
+              }}
+              onBlur={() => {
+                if (!isSecondVisitMode && isValidIndianMobile(beneficiaryContact)) {
+                  runUlaUniqueFieldCheck({ ca: '', contact: beneficiaryContact })
+                }
+              }}
               readOnly={isSecondVisitMode}
+              minLength={10}
               maxLength={10}
+              pattern="[6-9][0-9]{9}"
+              title="Enter exactly 10 digits; mobile must start with 6, 7, 8, or 9."
               required={!isSecondVisitMode}
             />
-            <div className="fs-11 text-muted mt-1">10-digit mobile (6–9) — unique per survey</div>
+            {uniqueFieldErrors.beneficiary_contact ? (
+              <div className="invalid-feedback d-block">{uniqueFieldErrors.beneficiary_contact}</div>
+            ) : (
+              <div className="fs-11 text-muted mt-1">
+                Exactly 10 digits (6–9) — must be unique
+                {isCheckingUnique ? ' · checking…' : ''}
+              </div>
+            )}
           </div>
 
           {/* Date & Time */}
@@ -1140,11 +1219,17 @@ const BiharUlaForm = () => {
                           refreshDateTime()
                           return true
                         }}
-                        onRawFrame={(canvas) => attemptQrAutoDetect(canvas, slot)}
+                        onRawFrame={(canvas) => {
+                          void attemptQrAutoDetect(canvas, slot)
+                        }}
                         onCaptureDataUrl={async (dataUrl, coords) => {
                           setImages((prev) => ({ ...prev, [slot.key]: dataUrl }))
-                          setLatitude(Number(coords.latitude).toFixed(6))
-                          setLongitude(Number(coords.longitude).toFixed(6))
+                          if (coords?.latitude != null && coords?.latitude !== '') {
+                            setLatitude(Number(coords.latitude).toFixed(6))
+                          }
+                          if (coords?.longitude != null && coords?.longitude !== '') {
+                            setLongitude(Number(coords.longitude).toFixed(6))
+                          }
                           refreshDateTime()
                           setSubmitError('')
                           await attemptQrFromCapturedPhoto(dataUrl, slot)

@@ -1,4 +1,4 @@
-import { captureCurrentLocation } from './geolocation'
+import { captureCurrentLocation, captureLocationOptional } from './geolocation'
 
 /** Higher quality — single encode (avoid double JPEG on ULA path). */
 export const JPEG_CAPTURE_QUALITY = 0.96
@@ -13,20 +13,42 @@ const prepareCanvasContext = (ctx) => {
 /**
  * Prefer ImageCapture.takePhoto() (full sensor) over low-res video frame grab.
  */
-const drawVideoFrameToCanvas = async (video, canvas, ctx) => {
+const takePhotoFromTrack = async (track) => {
+  const capture = new ImageCapture(track)
+  try {
+    return await capture.takePhoto()
+  } catch {
+    const caps = track.getCapabilities?.()
+    const opts = {}
+    if (caps?.width?.max) opts.imageWidth = Math.min(caps.width.max, 4096)
+    if (caps?.height?.max) opts.imageHeight = Math.min(caps.height.max, 4096)
+    if (Object.keys(opts).length) {
+      return await capture.takePhoto(opts)
+    }
+    throw new Error('takePhoto failed')
+  }
+}
+
+const drawVideoFrameToCanvas = async (video, canvas, ctx, { preferFastFrame = true } = {}) => {
   const stream = video?.srcObject
-  if (stream instanceof MediaStream && typeof ImageCapture !== 'undefined') {
-    const track = stream.getVideoTracks()[0]
-    if (track?.readyState === 'live') {
-      try {
-        const capture = new ImageCapture(track)
-        const opts = {}
-        const caps = track.getCapabilities?.()
-        if (caps?.width?.max) opts.imageWidth = caps.width.max
-        if (caps?.height?.max) opts.imageHeight = caps.height.max
-        const blob = await capture.takePhoto(
-          Object.keys(opts).length ? opts : undefined
-        )
+  const track =
+    stream instanceof MediaStream ? stream.getVideoTracks()[0] : null
+
+  const hasVideoFrame =
+    video?.videoWidth > 0 && video?.videoHeight > 0
+
+  if (preferFastFrame && hasVideoFrame && video.videoWidth >= 640) {
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    prepareCanvasContext(ctx)
+    ctx.drawImage(video, 0, 0)
+    return
+  }
+
+  if (track?.readyState === 'live' && typeof ImageCapture !== 'undefined') {
+    try {
+      const blob = await takePhotoFromTrack(track)
+      if (blob?.size > 0) {
         const bitmap = await createImageBitmap(blob)
         canvas.width = bitmap.width
         canvas.height = bitmap.height
@@ -34,13 +56,13 @@ const drawVideoFrameToCanvas = async (video, canvas, ctx) => {
         ctx.drawImage(bitmap, 0, 0)
         bitmap.close?.()
         return
-      } catch {
-        /* fall through to video frame */
       }
+    } catch {
+      /* fall through to video frame */
     }
   }
 
-  if (!video?.videoWidth || !video?.videoHeight) {
+  if (!hasVideoFrame) {
     throw new Error('Camera is not ready. Please wait a moment and try again.')
   }
 
@@ -230,26 +252,70 @@ export const createStampedPhotoFromVideo = async (video, coords, capturedAt = ne
   return blobToFile(blob, `amc_${Date.now()}.jpg`)
 }
 
-export const captureStampedCameraPhoto = async (video) => {
-  const coords = await captureCurrentLocation()
-  const file = await createStampedPhotoFromVideo(video, coords)
-  return { file, coords }
+export const captureStampedCameraPhoto = async (
+  video,
+  { requireGps = false, coordsPromise = null } = {}
+) => {
+  const coordsTask =
+    coordsPromise ??
+    (requireGps ? captureCurrentLocation() : captureLocationOptional())
+
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+
+  const [, coords] = await Promise.all([
+    drawVideoFrameToCanvas(video, canvas, ctx),
+    coordsTask,
+  ])
+
+  const capturedAt = new Date()
+  drawLocationStamp(
+    ctx,
+    canvas.width,
+    canvas.height,
+    coords.latitude,
+    coords.longitude,
+    capturedAt
+  )
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Failed to create photo.'))),
+      'image/jpeg',
+      JPEG_CAPTURE_QUALITY
+    )
+  })
+
+  return { file: blobToFile(blob, `amc_${Date.now()}.jpg`), coords }
 }
 
 /** Same capture + stamp pipeline as Light AMC, returns data URL (Bihar ULA + optional CA line). */
 export const captureStampedDataUrlFromVideo = async (
   video,
-  { caNumber, stampMetadata, onRawFrame } = {}
+  {
+    caNumber,
+    stampMetadata,
+    onRawFrame,
+    requireGps = false,
+    coordsPromise = null,
+  } = {}
 ) => {
-  const coords = await captureCurrentLocation()
-
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
-  await drawVideoFrameToCanvas(video, canvas, ctx)
 
-  const frameHook = onRawFrame?.(canvas)
-  if (frameHook && typeof frameHook.then === 'function') {
-    await frameHook
+  const coordsTask =
+    coordsPromise ??
+    (requireGps ? captureCurrentLocation() : captureLocationOptional())
+
+  const [, coords] = await Promise.all([
+    drawVideoFrameToCanvas(video, canvas, ctx),
+    coordsTask,
+  ])
+
+  try {
+    onRawFrame?.(canvas)
+  } catch {
+    /* QR detect runs in background — do not block shutter */
   }
 
   const capturedAt = new Date()
