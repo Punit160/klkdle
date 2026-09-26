@@ -33,6 +33,8 @@ import {
   fetchUlaSurveyById,
   checkUlaRegistrationUnique,
   fieldMessageFromUlaUniqueCheck,
+  ULA_FORM_LABELS_HI,
+  ULA_UNIQUE_SERIAL_QUERY_FIELD,
   submitUlaFirstVisit,
   submitUlaSecondVisit,
   parseUlaSurveyVisitNotes,
@@ -45,6 +47,14 @@ import { resolveUploadUrl } from '../../../utils/uploadUrl'
 import '../../../styles/camera-capture.css'
 import '../../../styles/bihar-ula.css'
 import UlaPhotoLightbox from './UlaPhotoLightbox'
+
+const FormLabelHi = ({ en, hi, required = false }) => (
+  <label className="form-label">
+    {en}
+    {required ? <span className="text-danger">*</span> : null}
+    {hi ? <span className="d-block fs-11 text-muted fw-normal">{hi}</span> : null}
+  </label>
+)
 
 const SectionHeading = ({ icon, title, subtitle }) => (
   <div className="d-flex align-items-center gap-3 mb-4">
@@ -117,6 +127,9 @@ const BiharUlaForm = () => {
   const [uniqueFieldErrors, setUniqueFieldErrors] = useState({
     ca_no: '',
     beneficiary_contact: '',
+    panel_one_no: '',
+    panel_two_no: '',
+    inverter_no: '',
   })
   const [isCheckingUnique, setIsCheckingUnique] = useState(false)
 
@@ -124,10 +137,16 @@ const BiharUlaForm = () => {
     setUniqueFieldErrors({
       ca_no: fieldMessageFromUlaUniqueCheck(checkResult, 'ca_no'),
       beneficiary_contact: fieldMessageFromUlaUniqueCheck(checkResult, 'beneficiary_contact'),
+      panel_one_no: fieldMessageFromUlaUniqueCheck(checkResult, 'panel_one_no'),
+      panel_two_no: fieldMessageFromUlaUniqueCheck(checkResult, 'panel_two_no'),
+      inverter_no: fieldMessageFromUlaUniqueCheck(checkResult, 'inverter_no'),
     })
     return Boolean(
       checkResult?.validation?.ca_no ||
         checkResult?.validation?.beneficiary_contact ||
+        checkResult?.validation?.panel_one_no ||
+        checkResult?.validation?.panel_two_no ||
+        checkResult?.validation?.inverter_no ||
         (checkResult?.conflicts?.length && !checkResult?.available)
     )
   }
@@ -473,6 +492,9 @@ const BiharUlaForm = () => {
         const uniqueCheck = await checkUlaRegistrationUnique({
           caNumber,
           beneficiaryContact,
+          panelOneNo: serialNumbers.panel1_qr,
+          panelTwoNo: serialNumbers.panel2_qr,
+          inverterNo: serialNumbers.inverter_qr,
         })
         if (applyUlaUniqueCheckToFields(uniqueCheck)) {
           const msg =
@@ -671,9 +693,7 @@ const BiharUlaForm = () => {
         <div className="row g-3">
           {/* District */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              District <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi en="District" hi={ULA_FORM_LABELS_HI.district} required />
             <SelectDropdown
               options={districtOptions}
               defaultSelect={isDistrictLoading ? 'Loading districts…' : 'Select District'}
@@ -684,9 +704,7 @@ const BiharUlaForm = () => {
 
           {/* Block */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              Block <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi en="Block" hi={ULA_FORM_LABELS_HI.block} required />
             <SelectDropdown
               options={blockOptions}
               defaultSelect={
@@ -703,9 +721,7 @@ const BiharUlaForm = () => {
 
           {/* Panchayat */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              Panchayat <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi en="Panchayat" hi={ULA_FORM_LABELS_HI.panchayat} required />
             <SelectDropdown
               options={panchayatOptions}
               defaultSelect={
@@ -724,9 +740,7 @@ const BiharUlaForm = () => {
 
           {/* Village */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              Village <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi en="Village" hi={ULA_FORM_LABELS_HI.village} required />
             <input
               type="text"
               className="form-control"
@@ -741,7 +755,7 @@ const BiharUlaForm = () => {
           {/* Latitude & Longitude */}
           <div className="col-lg-8 col-md-6">
             <div className="d-flex justify-content-between align-items-center mb-1">
-              <label className="form-label mb-0">GPS Coordinates (Lat & Long)</label>
+              <FormLabelHi en="GPS Coordinates (Lat & Long)" hi={ULA_FORM_LABELS_HI.gps} />
               <button
                 type="button"
                 className="btn btn-link btn-sm p-0 fs-11 text-decoration-none"
@@ -796,9 +810,7 @@ const BiharUlaForm = () => {
         <div className="row g-3">
           {/* CA Number */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              CA Number <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi en="CA Number" hi={ULA_FORM_LABELS_HI.caNumber} required />
             <div className="input-group">
               <span className="input-group-text bg-light text-muted">
                 <FiHash size={14} />
@@ -835,9 +847,7 @@ const BiharUlaForm = () => {
 
           {/* CA Name */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              CA Name <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi en="CA Name" hi={ULA_FORM_LABELS_HI.caName} required />
             <input
               type="text"
               className="form-control"
@@ -852,9 +862,11 @@ const BiharUlaForm = () => {
 
           {/* Beneficiary contact */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">
-              Beneficiary Contact <span className="text-danger">*</span>
-            </label>
+            <FormLabelHi
+              en="Beneficiary Contact"
+              hi={ULA_FORM_LABELS_HI.beneficiaryContact}
+              required
+            />
             <input
               type="tel"
               inputMode="numeric"
@@ -913,7 +925,7 @@ const BiharUlaForm = () => {
 
           {/* Visit Stage */}
           <div className="col-lg-4 col-md-6">
-            <label className="form-label">Visit Stage</label>
+            <FormLabelHi en="Visit Stage" hi={ULA_FORM_LABELS_HI.visitStage} />
             {isSecondVisitMode ? (
               <div className="alert alert-secondary py-2 mb-0 fs-13">
                 2nd visit — 1st visit data is read-only. Add solar meter + system photo only.
@@ -943,9 +955,10 @@ const BiharUlaForm = () => {
           )}
 
           <div className="col-12">
-            <label className="form-label" htmlFor="ula-visit1-remarks">
-              1st visit remarks <span className="text-muted fw-normal">(optional)</span>
-            </label>
+            <FormLabelHi
+              en="1st visit remarks (optional)"
+              hi={ULA_FORM_LABELS_HI.visit1Remarks}
+            />
             <textarea
               id="ula-visit1-remarks"
               className="form-control"
@@ -1161,13 +1174,20 @@ const BiharUlaForm = () => {
             if (readOnlyVisit1OnSecond) return null
             const currentSerial = serialNumbers[slot.key] || ''
             const isScanningThis = scanningSlot === slot.key
+            const serialApiField = ULA_UNIQUE_SERIAL_QUERY_FIELD[slot.key]
+            const serialUniqueError = serialApiField
+              ? uniqueFieldErrors[serialApiField]
+              : ''
 
             return (
               <div key={slot.id} className="col-lg-4 col-md-6">
                 <div className="card border h-100 mb-0 shadow-none">
                   <div className="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center">
-                    <span className="fs-12 fw-bold text-dark text-truncate" title={slot.title}>
+                    <span className="fs-12 fw-bold text-dark" title={slot.title}>
                       {index + 1}. {slot.title}
+                      {slot.titleHi ? (
+                        <span className="d-block fs-10 text-muted fw-normal">{slot.titleHi}</span>
+                      ) : null}
                     </span>
                     <span className={`badge ${slot.badgeClass} fs-11`}>{slot.badge}</span>
                   </div>
@@ -1178,7 +1198,7 @@ const BiharUlaForm = () => {
                         label={
                           slot.isQr ? 'Open camera to scan / capture' : 'Open camera to capture'
                         }
-                        hint={`Camera only • ${slot.desc}`}
+                        hint={`Camera only • ${slot.desc}${slot.descHi ? ` • ${slot.descHi}` : ''}`}
                         previewDataUrl={currentImage || ''}
                         stampCaNumber={caNumber.trim() || undefined}
                         stampMetadata={
@@ -1243,7 +1263,13 @@ const BiharUlaForm = () => {
                     {slot.hasSerialInput && (
                       <div className="w-100 text-start mt-2 pt-2 border-top">
                         <label className="form-label fs-11 fw-semibold text-dark mb-1 d-flex justify-content-between align-items-center">
-                          <span>{slot.title} Serial No:</span>
+                          <span>
+                            {slot.title} Serial No:
+                            <span className="d-block fw-normal text-muted">
+                              {ULA_FORM_LABELS_HI.serialNo}
+                              {slot.titleHi ? ` (${slot.titleHi})` : ''} — unique
+                            </span>
+                          </span>
                           {isScanningThis ? (
                             <span className="text-primary fs-10">
                               <FiLoader className="spin" size={10} /> Auto-detecting...
@@ -1271,7 +1297,13 @@ const BiharUlaForm = () => {
                             'Type serial, or tap Scan to read QR'
                           }
                           required={Boolean(currentImage)}
-                          inputClassName={currentSerial ? 'border-success' : ''}
+                          inputClassName={
+                            serialUniqueError
+                              ? 'is-invalid'
+                              : currentSerial
+                                ? 'border-success'
+                                : ''
+                          }
                           onChange={(value) => {
                             setSerialNumbers((prev) => ({
                               ...prev,
@@ -1281,6 +1313,23 @@ const BiharUlaForm = () => {
                               ...prev,
                               [slot.key]: false,
                             }))
+                            if (serialApiField && uniqueFieldErrors[serialApiField]) {
+                              setUniqueFieldErrors((prev) => ({
+                                ...prev,
+                                [serialApiField]: '',
+                              }))
+                            }
+                          }}
+                          onBlur={() => {
+                            const v = String(serialNumbers[slot.key] || '').trim()
+                            if (!serialApiField || !v) return
+                            checkUlaRegistrationUnique({
+                              panelOneNo:
+                                serialApiField === 'panel_one_no' ? v : '',
+                              panelTwoNo:
+                                serialApiField === 'panel_two_no' ? v : '',
+                              inverterNo: serialApiField === 'inverter_no' ? v : '',
+                            }).then((result) => applyUlaUniqueCheckToFields(result))
                           }}
                           onScan={(serial) => {
                             applyScannedSerial(slot, serial, 'Serial scanned', {
@@ -1288,6 +1337,9 @@ const BiharUlaForm = () => {
                             })
                           }}
                         />
+                        {serialUniqueError ? (
+                          <div className="invalid-feedback d-block fs-10">{serialUniqueError}</div>
+                        ) : null}
                         {!currentSerial && currentImage && (
                           <div className="fs-10 text-warning mt-1">
                             Required: use Scan on this field or type the serial manually.

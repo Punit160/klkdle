@@ -7,6 +7,7 @@ import lightAmcPublicRoutes, {
   createRegionalLightAmcPortalRouter,
 } from "./DLE-Router/light-amc-public-router.js";
 import attendanceRoutes from "./DLE-Router/attendance-route.js";
+import attendancePublicRoutes from "./DLE-Router/attendance-public-router.js";
 import biharUlaRoutes from "./DLE-Router/bihar-ula-route.js";
 import { createAmcApprovalRouter } from "./DLE-Router/amc-approval-public-router.js";
 import biharUlaPublicRoutes from "./DLE-Router/bihar-ula-public-router.js";
@@ -51,7 +52,8 @@ export const mountApiRoutes = (app) => {
   app.use("/api/light-amc", lightAmcPublicRoutes);
   app.use("/api/light-amc", ...fieldModuleAuth, lightAmcRoutes);
 
-  // Attendance (punch in/out) — always available without punch-in gate
+  // Attendance — external portal read APIs + JWT punch in/out
+  app.use("/api/attendance/integration", attendancePublicRoutes);
   app.use("/api/attendance", attendanceRoutes);
   app.use("/api/bihar/ula", biharUlaPublicRoutes);
   app.use("/api/bihar/ula", ...fieldModuleAuth, biharUlaRoutes);

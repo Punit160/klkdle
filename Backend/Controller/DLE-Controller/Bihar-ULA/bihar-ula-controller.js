@@ -376,13 +376,58 @@ const parseBeneficiaryMobileForUniqueQuery = (raw) => {
   return { ok: true, value: mobile, validationMessage: null };
 };
 
+const normalizeUlaSerialNumber = (raw) => {
+  const value = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  return value || null;
+};
+
+const findUlaSerialConflict = async (
+  field,
+  column,
+  serial,
+  label,
+  excludeSurveyId = null
+) => {
+  if (!serial) return null;
+  const existing = await prisma.biharUlaSurvey.findFirst({
+    where: { [column]: serial, ...excludeSurveyIdFilter(excludeSurveyId) },
+    select: { id: true, ca_no: true, [column]: true },
+  });
+  if (!existing) return null;
+  return {
+    field,
+    message: `This ${label} is already registered for CA ${existing.ca_no}.`,
+    existing_id: existing.id?.toString?.() ?? String(existing.id),
+    existing_ca_no: existing.ca_no,
+  };
+};
+
 /** Safe folder segment: klkdle/biharula/{ca_no}/panel_one_img.jpg (flat — no subfolders per photo). */
-const findUlaRegistrationConflicts = async ({ caNo, beneficiaryContact }) => {
+const excludeSurveyIdFilter = (excludeSurveyId) => {
+  if (excludeSurveyId == null || excludeSurveyId === "") return {};
+  try {
+    return { id: { not: BigInt(excludeSurveyId) } };
+  } catch {
+    return {};
+  }
+};
+
+const findUlaRegistrationConflicts = async ({
+  caNo,
+  beneficiaryContact,
+  panelOneNo,
+  panelTwoNo,
+  inverterNo,
+  excludeSurveyId = null,
+}) => {
   const conflicts = [];
+  const notSelf = excludeSurveyIdFilter(excludeSurveyId);
 
   if (caNo) {
-    const byCa = await prisma.biharUlaSurvey.findUnique({
-      where: { ca_no: String(caNo) },
+    const byCa = await prisma.biharUlaSurvey.findFirst({
+      where: { ca_no: String(caNo), ...notSelf },
       select: { id: true, ca_no: true },
     });
     if (byCa) {
@@ -398,7 +443,7 @@ const findUlaRegistrationConflicts = async ({ caNo, beneficiaryContact }) => {
 
   if (beneficiaryContact) {
     const byContact = await prisma.biharUlaSurvey.findFirst({
-      where: { beneficiary_contact: String(beneficiaryContact) },
+      where: { beneficiary_contact: String(beneficiaryContact), ...notSelf },
       select: { id: true, ca_no: true, beneficiary_contact: true },
     });
     if (byContact) {
@@ -409,6 +454,32 @@ const findUlaRegistrationConflicts = async ({ caNo, beneficiaryContact }) => {
         existing_ca_no: byContact.ca_no,
       });
     }
+  }
+
+  const panelOne = normalizeUlaSerialNumber(panelOneNo);
+  const panelTwo = normalizeUlaSerialNumber(panelTwoNo);
+  const inverter = normalizeUlaSerialNumber(inverterNo);
+
+  if (panelOne && panelTwo && panelOne === panelTwo) {
+    conflicts.push({
+      field: "panel_two_no",
+      message: "Panel 1 and Panel 2 serial numbers must be different.",
+    });
+  }
+
+  for (const entry of [
+    ["panel_one_no", "panel_one_no", panelOne, "panel 1 serial number"],
+    ["panel_two_no", "panel_two_no", panelTwo, "panel 2 serial number"],
+    ["inverter_no", "inverter_no", inverter, "inverter serial number"],
+  ]) {
+    const conflict = await findUlaSerialConflict(
+      entry[0],
+      entry[1],
+      entry[2],
+      entry[3],
+      excludeSurveyId
+    );
+    if (conflict) conflicts.push(conflict);
   }
 
   return conflicts;
@@ -436,6 +507,9 @@ export const checkBiharUlaUniqueController = async (req, res) => {
     const conflicts = await findUlaRegistrationConflicts({
       caNo: caParsed.value,
       beneficiaryContact: mobileParsed.value,
+      panelOneNo: req.query.panel_one_no,
+      panelTwoNo: req.query.panel_two_no,
+      inverterNo: req.query.inverter_no,
     });
 
     return res.json({
@@ -445,6 +519,9 @@ export const checkBiharUlaUniqueController = async (req, res) => {
       validation: {
         ca_no: caParsed.validationMessage || null,
         beneficiary_contact: mobileParsed.validationMessage || null,
+        panel_one_no: null,
+        panel_two_no: null,
+        inverter_no: null,
       },
     });
   } catch (error) {
@@ -548,10 +625,24 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     }
 
     const caNoNormalized = caParsed.value;
+    const panelOneNormalized = normalizeUlaSerialNumber(panel_one_no);
+    const panelTwoNormalized = normalizeUlaSerialNumber(panel_two_no);
+    const inverterNormalized = normalizeUlaSerialNumber(inverter_no);
+
+    if (!panelOneNormalized || !panelTwoNormalized || !inverterNormalized) {
+      return res.status(422).json({
+        success: false,
+        message:
+          "Panel 1, Panel 2, and Inverter serial numbers are required on 1st visit.",
+      });
+    }
 
     const conflicts = await findUlaRegistrationConflicts({
       caNo: caNoNormalized,
       beneficiaryContact: mobileParsed.value,
+      panelOneNo: panelOneNormalized,
+      panelTwoNo: panelTwoNormalized,
+      inverterNo: inverterNormalized,
     });
 
     if (conflicts.length) {
@@ -643,11 +734,11 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         village: clip(String(village).trim(), 255),
         survey_date: parseSurveyDate(survey_date),
         panel_one_img: stored.panel_one_img,
-        panel_one_no: panel_one_no?.trim() || null,
+        panel_one_no: panelOneNormalized,
         panel_two_img: stored.panel_two_img,
-        panel_two_no: panel_two_no?.trim() || null,
+        panel_two_no: panelTwoNormalized,
         inverter_img: stored.inverter_img,
-        inverter_no: inverter_no?.trim() || null,
+        inverter_no: inverterNormalized,
         smart_meter_img: stored.smart_meter_img,
         acdb_img: stored.acdb_img,
         system_img: stored.system_img,
@@ -675,10 +766,13 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     console.error("BIHAR ULA CREATE ERROR:", error);
     const code = error?.code;
     if (code === "P2002") {
+      const target = error?.meta?.target;
+      const fields = Array.isArray(target) ? target.join(", ") : String(target || "");
       return res.status(409).json({
         success: false,
-        message:
-          "This CA number or beneficiary contact is already registered for another survey.",
+        message: fields
+          ? `Duplicate value for unique field(s): ${fields}.`
+          : "This CA, contact, or equipment serial is already registered for another survey.",
       });
     }
     if (code === "P2000") {
@@ -834,11 +928,24 @@ export const listBiharUlaSurveys = async (req, res) => {
       });
     }
 
-    const rows = await prisma.biharUlaSurvey.findMany({
+    const findArgs = {
       where,
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
-      take: Math.min(Number(req.query.limit) || 200, 500),
-    });
+    };
+    if (!portalCompanyId) {
+      const limitRaw = req.query.limit;
+      if (
+        limitRaw != null &&
+        limitRaw !== "" &&
+        String(limitRaw).toLowerCase() !== "all"
+      ) {
+        findArgs.take = Math.max(1, Number(limitRaw) || 200);
+      } else {
+        findArgs.take = 500;
+      }
+    }
+
+    const rows = await prisma.biharUlaSurvey.findMany(findArgs);
 
     const data = await enrichSurveysWithUserNames(req, rows);
 
@@ -933,6 +1040,210 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
         message: error.message || "Failed to download images ZIP.",
       });
     }
+  }
+};
+
+const PORTAL_ULA_EDIT_FILE_MAP = [
+  ...VISIT1_FILE_MAP,
+  ["structure_img", "structure_img"],
+  ["solar_meter_img2", "solar_meter_img2"],
+  ["system_img2", "system_img2"],
+];
+
+const bodyFieldProvided = (body, key) =>
+  Object.prototype.hasOwnProperty.call(body || {}, key);
+
+/** External portal — correct survey text fields and optionally replace photos (API key + write scope). */
+export const updateBiharUlaSurveyPortal = async (req, res) => {
+  try {
+    const portalCompanyId = req.portalCompanyId
+      ? String(req.portalCompanyId).trim()
+      : "";
+    if (!portalCompanyId || req.portalAuthMode === "jwt") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "ULA edit is only available via external portal API key with write or all scope.",
+      });
+    }
+
+    const id = req.params.id;
+    if (!id || !/^\d+$/.test(String(id))) {
+      return res.status(422).json({
+        success: false,
+        message: "Valid ULA record id is required.",
+      });
+    }
+
+    const existing = await prisma.biharUlaSurvey.findUnique({
+      where: { id: BigInt(id) },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "ULA record not found." });
+    }
+
+    if (!surveyMatchesPortalCompany(existing, portalCompanyId)) {
+      return res.status(403).json({
+        success: false,
+        message: "ULA record does not belong to this company.",
+      });
+    }
+
+    const body = req.body || {};
+    const data = {};
+    let remarksMetaPatch = {};
+
+    if (bodyFieldProvided(body, "ca_no")) {
+      const caParsed = parseCaNo(body.ca_no);
+      if (!caParsed.ok) {
+        return res.status(422).json({ success: false, message: caParsed.message });
+      }
+      data.ca_no = clip(caParsed.value, 100);
+    }
+
+    if (bodyFieldProvided(body, "ca_name")) {
+      data.ca_name = clip(body.ca_name, 100);
+    }
+    if (bodyFieldProvided(body, "beneficiary_name")) {
+      data.beneficiary_name = clip(body.beneficiary_name, 255);
+    }
+    if (bodyFieldProvided(body, "beneficiary_contact")) {
+      const mobileParsed = parseBeneficiaryMobile(body.beneficiary_contact);
+      if (!mobileParsed.ok) {
+        return res.status(422).json({ success: false, message: mobileParsed.message });
+      }
+      data.beneficiary_contact = clip(mobileParsed.value, 20);
+    }
+    if (bodyFieldProvided(body, "district")) {
+      data.district = String(body.district || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "block")) {
+      data.block = String(body.block || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "panchayat")) {
+      data.panchayat = String(body.panchayat || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "village")) {
+      data.village = clip(String(body.village || "").trim(), 255);
+    }
+    if (bodyFieldProvided(body, "survey_date")) {
+      data.survey_date = parseSurveyDate(body.survey_date);
+    }
+    if (bodyFieldProvided(body, "latitude")) {
+      data.latitude = String(body.latitude || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "longitude")) {
+      data.longitude = String(body.longitude || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "latitude2")) {
+      data.latitude2 = String(body.latitude2 || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "longitude2")) {
+      data.longitude2 = String(body.longitude2 || "").trim() || null;
+    }
+    if (bodyFieldProvided(body, "modification")) {
+      data.modification = clip(body.modification, 50) || null;
+    }
+    if (bodyFieldProvided(body, "panel_one_no")) {
+      data.panel_one_no = normalizeUlaSerialNumber(body.panel_one_no);
+    }
+    if (bodyFieldProvided(body, "panel_two_no")) {
+      data.panel_two_no = normalizeUlaSerialNumber(body.panel_two_no);
+    }
+    if (bodyFieldProvided(body, "inverter_no")) {
+      data.inverter_no = normalizeUlaSerialNumber(body.inverter_no);
+    }
+    if (bodyFieldProvided(body, "visit1_note")) {
+      remarksMetaPatch.visit1_note = clip(body.visit1_note, 500) || null;
+    }
+    if (bodyFieldProvided(body, "visit2_note")) {
+      remarksMetaPatch.visit2_note = clip(body.visit2_note, 500) || null;
+    }
+
+    const caFolderKey = sanitizeUlaCaFolder(data.ca_no ?? existing.ca_no);
+    const files = req.files || {};
+
+    for (const [fieldName, objectBasename] of PORTAL_ULA_EDIT_FILE_MAP) {
+      const file = files[fieldName]?.[0];
+      if (!file) continue;
+      data[fieldName] = await persistFileField(file, caFolderKey, objectBasename);
+      if (fieldName === "structure_img") {
+        remarksMetaPatch.structure_img = data[fieldName];
+      }
+    }
+
+    const nextCa = data.ca_no ?? existing.ca_no;
+    const nextContact = data.beneficiary_contact ?? existing.beneficiary_contact;
+    const nextPanelOne = Object.prototype.hasOwnProperty.call(data, "panel_one_no")
+      ? data.panel_one_no
+      : existing.panel_one_no;
+    const nextPanelTwo = Object.prototype.hasOwnProperty.call(data, "panel_two_no")
+      ? data.panel_two_no
+      : existing.panel_two_no;
+    const nextInverter = Object.prototype.hasOwnProperty.call(data, "inverter_no")
+      ? data.inverter_no
+      : existing.inverter_no;
+
+    const conflicts = await findUlaRegistrationConflicts({
+      caNo: nextCa,
+      beneficiaryContact: nextContact,
+      panelOneNo: nextPanelOne,
+      panelTwoNo: nextPanelTwo,
+      inverterNo: nextInverter,
+      excludeSurveyId: id,
+    });
+
+    if (conflicts.length) {
+      const primary = conflicts[0];
+      return res.status(409).json({
+        success: false,
+        message: primary.message,
+        conflicts,
+      });
+    }
+
+    if (Object.keys(remarksMetaPatch).length) {
+      data.remarks = mergeSurveyRemarksMeta(existing.remarks, remarksMetaPatch);
+    }
+
+    if (!Object.keys(data).length) {
+      return res.status(422).json({
+        success: false,
+        message:
+          "No fields to update. Send JSON and/or multipart files (panel_one_img, inverter_img, etc.).",
+      });
+    }
+
+    data.updated_at = new Date();
+
+    const updated = await prisma.biharUlaSurvey.update({
+      where: { id: BigInt(id) },
+      data,
+    });
+
+    return res.json({
+      success: true,
+      message: "Bihar ULA record updated successfully.",
+      data: await serializeSurveyResponse(req, updated),
+    });
+  } catch (error) {
+    console.error("BIHAR ULA PORTAL UPDATE ERROR:", error);
+    const code = error?.code;
+    if (code === "P2002") {
+      const target = error?.meta?.target;
+      const fields = Array.isArray(target) ? target.join(", ") : String(target || "");
+      return res.status(409).json({
+        success: false,
+        message: fields
+          ? `Duplicate value for unique field(s): ${fields}.`
+          : "This CA, contact, or equipment serial is already registered for another survey.",
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update ULA record.",
+    });
   }
 };
 

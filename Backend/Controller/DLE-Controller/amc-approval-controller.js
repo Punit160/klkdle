@@ -6,6 +6,11 @@ import {
 } from "../../Utils/amcApproval.js";
 import { toPublicFileUrl } from "../../Utils/publicUrl.js";
 import { resolvePortalCompanyId } from "../../Utils/portalCompany.js";
+import {
+  applyListPaginationToFindMany,
+  buildListResponseMeta,
+  resolveListPagination,
+} from "../../Utils/portalListQuery.js";
 
 const REGION_CONFIG = {
   bihar: {
@@ -99,9 +104,7 @@ export const getAmcDocumentsForApproval =
         });
       }
 
-      const page = Math.max(1, Number(req.query.page) || 1);
-      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-      const skip = (page - 1) * limit;
+      const pagination = resolveListPagination(req);
 
       const where = { company_id: companyId };
 
@@ -137,13 +140,16 @@ export const getAmcDocumentsForApproval =
 
       const [total, uploads] = await Promise.all([
         model.count({ where }),
-        model.findMany({
-          where,
-          include,
-          orderBy: [{ created_at: "desc" }, { id: "desc" }],
-          skip,
-          take: limit,
-        }),
+        model.findMany(
+          applyListPaginationToFindMany(
+            {
+              where,
+              include,
+              orderBy: [{ created_at: "desc" }, { id: "desc" }],
+            },
+            pagination
+          )
+        ),
       ]);
 
       const data = uploads.map((upload) => {
@@ -154,18 +160,14 @@ export const getAmcDocumentsForApproval =
       return res.status(200).json({
         success: true,
         message: "AMC documents for approval fetched successfully.",
-        meta: {
+        meta: buildListResponseMeta(req, pagination, total, {
           region,
-          page,
-          limit,
-          total,
-          total_pages: Math.ceil(total / limit) || 0,
           approval_status_filter:
             approvalStatusParam == null || approvalStatusParam === ""
               ? "all"
               : approvalStatusParam,
           scope,
-        },
+        }),
         data,
       });
     } catch (error) {

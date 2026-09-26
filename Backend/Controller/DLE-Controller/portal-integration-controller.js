@@ -10,7 +10,7 @@ export const PORTAL_API_SCOPE_DESCRIPTIONS = {
   [PORTAL_API_SCOPE_ALL]: "Full access — every endpoint in the catalog (read + approve).",
   read: "GET only — lists, views, downloads, pending approval queues.",
   approve: "POST — approve or reject uploads (use together with read).",
-  write: "Reserved for future create/update APIs.",
+  write: "PATCH — correct Bihar ULA surveys (and future create/update APIs).",
 };
 
 export const buildPortalApiAuthManual = (baseUrl = "") => {
@@ -45,6 +45,18 @@ export const buildPortalApiAuthManual = (baseUrl = "") => {
         ? `curl -sS -X GET "${base}/api/bihar/amc/approval/pending" \\
   -H "X-Portal-Api-Key: YOUR_API_KEY" \\
   -H "X-Portal-Api-Secret: YOUR_SECRET"`
+        : null,
+      attendance_list_curl: base
+        ? `curl -sS -X GET "${base}/api/attendance/integration/list" \\
+  -H "X-Portal-Api-Key: YOUR_API_KEY" \\
+  -H "X-Portal-Api-Secret: YOUR_SECRET"`
+        : null,
+      ula_edit_curl: base
+        ? `curl -sS -X PATCH "${base}/api/bihar/ula/RECORD_ID" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Portal-Api-Key: YOUR_API_KEY" \\
+  -H "X-Portal-Api-Secret: YOUR_SECRET" \\
+  -d '{"ca_name":"Corrected name","beneficiary_contact":"9876543210","panel_one_no":"KLK3M0300526128613"}'`
         : null,
       approve_curl: base
         ? `curl -sS -X POST "${base}/api/bihar/amc/approval/status" \\

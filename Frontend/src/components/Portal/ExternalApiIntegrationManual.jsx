@@ -9,6 +9,7 @@ const MODULE_LABELS = {
   up_light_amc: 'UP field AMC',
   light_amc: 'Field AMC (shared routes)',
   bihar_ula: 'Bihar ULA',
+  attendance: 'Attendance (all company users)',
   integration: 'Integration',
 }
 
@@ -110,6 +111,8 @@ const ExternalApiIntegrationManual = ({
       : '')
 
   const readCurl = auth?.examples?.read_curl
+  const attendanceListCurl = auth?.examples?.attendance_list_curl
+  const ulaEditCurl = auth?.examples?.ula_edit_curl
   const approveCurl = auth?.examples?.approve_curl
 
   if (!catalog) {
@@ -165,6 +168,33 @@ const ExternalApiIntegrationManual = ({
         <>
           <p className="fs-12 text-muted mb-1">Read — pending Bihar SSL AMC approvals:</p>
           <CopyBlock text={fillCurl(readCurl, { apiKey: previewKey, secret: previewSec, base })} />
+        </>
+      )}
+
+      {attendanceListCurl && (
+        <>
+          <p className="fs-12 text-muted mb-1">
+            Read — attendance for <strong>all users</strong> in the API key&apos;s company (punch
+            in/out, GPS). Optional:{' '}
+            <span className="font-monospace">?user_id=</span>,{' '}
+            <span className="font-monospace">?date_from=</span> &amp;{' '}
+            <span className="font-monospace">?date_to=</span>, or{' '}
+            <span className="font-monospace">?year=</span> &amp;{' '}
+            <span className="font-monospace">?month=</span>.
+          </p>
+          <CopyBlock
+            text={fillCurl(attendanceListCurl, { apiKey: previewKey, secret: previewSec, base })}
+          />
+        </>
+      )}
+
+      {ulaEditCurl && (
+        <>
+          <p className="fs-12 text-muted mb-1">
+            Write — fix a Bihar ULA record (needs <strong>write</strong> or <strong>all</strong>{' '}
+            scope). Replace RECORD_ID; send only fields to change. Optional multipart for photos.
+          </p>
+          <CopyBlock text={fillCurl(ulaEditCurl, { apiKey: previewKey, secret: previewSec, base })} />
         </>
       )}
 

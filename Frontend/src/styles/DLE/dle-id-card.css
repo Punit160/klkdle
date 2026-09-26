@@ -342,23 +342,23 @@
   position: absolute;
 
   left: 50%;
-  top: 82px;
+  top: 72px;
 
   transform: translateX(-50%);
 
   z-index: 30;
 
-  width: 116px;
-  height: 116px;
+  width: 148px;
+  height: 148px;
 
-  padding: 6px;
+  padding: 7px;
 
   background: #ffffff;
 
   border-radius: 50%;
 
   box-shadow:
-    0 12px 28px rgba(40, 20, 24, 0.22);
+    0 14px 32px rgba(40, 20, 24, 0.24);
 
   overflow: hidden;
 }
@@ -394,7 +394,7 @@
   align-items: center;
   justify-content: center;
 
-  font-size: 42px;
+  font-size: 50px;
   font-weight: 800;
 
   letter-spacing: 0;
@@ -409,7 +409,9 @@
 
   z-index: 10;
 
-  padding-top: 8px;
+  /* Pull details up into gap below photo (no extra card height). */
+  margin-top: -26px;
+  padding-top: 10px;
 
   text-align: center;
 
@@ -462,7 +464,7 @@
       transparent
     );
 
-  margin: 20px 25px 0;
+  margin: 14px 25px 0;
 }
 
 /* =========================================================
@@ -470,12 +472,12 @@
 ========================================================= */
 
 .id-detail-list {
-  margin: 17px 26px 0;
+  margin: 12px 26px 0;
 
   display: flex;
   flex-direction: column;
 
-  gap: 13px;
+  gap: 11px;
 }
 
 .id-detail-row {
@@ -528,7 +530,7 @@
 ========================================================= */
 
 .id-address {
-  margin: 18px 26px 0;
+  margin: 14px 26px 0;
 
   padding: 10px 14px;
 
@@ -577,9 +579,9 @@
 ========================================================= */
 
 .id-footer {
-  margin: 14px 20px 0;
+  margin: 10px 20px 0;
 
-  padding: 12px 6px 15px;
+  padding: 10px 6px 14px;
 
   border-top: 1px solid #eee5e7;
 

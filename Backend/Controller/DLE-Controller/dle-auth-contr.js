@@ -24,6 +24,7 @@ import {
   parseR2StoredValue,
   readStoredFileBuffer,
 } from "../../Utils/objectStorage.js";
+import { resolveStoredFileUrl } from "../../Utils/publicUrl.js";
 import { resolveStoredUploadPath } from "../../Utils/uploadsPath.js";
 
 const resolveUserIdFromToken = (req) => {
@@ -284,6 +285,7 @@ export const getProfile = async (req, res) => {
         ...safeUser,
         role: Number(safeUser.role ?? 2),
         portal_permissions,
+        profile_image_url: resolveStoredFileUrl(req, safeUser.profile_image),
       },
     });
 
@@ -457,23 +459,18 @@ export const uploadProfileImage = async (req, res) => {
       });
     }
 
-    const file = req.file;
+    const filePaths = mapUserUploadFilesToPaths(req.files || {});
+    const profileImage =
+      filePaths.profile_image ||
+      storedPathFromUploadedFile(
+        req.files?.profile_image?.[0] || req.file,
+        (name) => `/uploads/user/profile/${name}`
+      );
 
-    if (!file) {
+    if (!profileImage) {
       return res.status(400).json({
         success: false,
         message: "Profile image is required",
-      });
-    }
-
-    const profileImage = storedPathFromUploadedFile(file, (name) =>
-      `/uploads/user/profile/${name}`
-    );
-
-    if (!profileImage) {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to store profile photo",
       });
     }
 
@@ -489,7 +486,10 @@ export const uploadProfileImage = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Profile photo updated successfully",
-      user: safeUser,
+      user: {
+        ...safeUser,
+        profile_image_url: resolveStoredFileUrl(req, safeUser.profile_image),
+      },
     });
   } catch (error) {
     console.error("UPLOAD PROFILE IMAGE ERROR:", error);

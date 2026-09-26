@@ -1,17 +1,28 @@
 import React, {
   forwardRef,
+  useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { FiDownload, FiShield } from "react-icons/fi";
+import PageHeader from "@/components/shared/pageHeader/PageHeader";
+import localApi from "../../api/localApi";
+import { app } from "../../api/routes";
+import { getUser } from "../../utils/auth";
 import { resolveUploadUrl } from "../../utils/uploadUrl";
 import "../../styles/DLE/dle-id-card.css";
 
-const EmployeeIdCard = forwardRef(
+export const EmployeeIdCard = forwardRef(
   ({ employeeData }, ref) => {
     const cardRef = useRef(null);
+    const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
+
+    useEffect(() => {
+      setPhotoLoadFailed(false);
+    }, [employeeData?.profile_image, employeeData?.profile_image_url]);
 
     const data = {
       employeeName:
@@ -52,7 +63,7 @@ const EmployeeIdCard = forwardRef(
           : "Pending",
 
       profilePhotoUrl: resolveUploadUrl(
-        employeeData?.profile_image
+        employeeData?.profile_image_url || employeeData?.profile_image
       ),
     };
 
@@ -92,15 +103,13 @@ const EmployeeIdCard = forwardRef(
       }
 
       try {
-        const canvas = await html2canvas(
-          cardRef.current,
-          {
-            scale: 3,
-            useCORS: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-          }
-        );
+        const canvas = await html2canvas(cardRef.current, {
+          scale: 3,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+        });
 
         const imageData =
           canvas.toDataURL("image/png");
@@ -224,12 +233,13 @@ const EmployeeIdCard = forwardRef(
             </div>
 
             <div className="photo-ring">
-              {data.profilePhotoUrl ? (
+              {data.profilePhotoUrl && !photoLoadFailed ? (
                 <img
                   className="id-card-profile-photo"
                   src={data.profilePhotoUrl}
                   alt={`${data.employeeName} profile`}
-                  crossOrigin="anonymous"
+                  referrerPolicy="no-referrer"
+                  onError={() => setPhotoLoadFailed(true)}
                 />
               ) : (
                 <div className="profile-avatar-placeholder">
@@ -320,4 +330,79 @@ const EmployeeIdCard = forwardRef(
   }
 );
 
-export default EmployeeIdCard;
+EmployeeIdCard.displayName = "EmployeeIdCard";
+
+const DLEIdCardPage = () => {
+  const [employeeData, setEmployeeData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfile = () => {
+      const user = getUser();
+
+      if (!user?.id) {
+        setError("Please login again to view your ID card.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      localApi
+        .get(app.auth.profile, { params: { userId: user.id } })
+        .then(({ data }) => {
+          if (cancelled) return;
+          if (data?.success && data.user) {
+            setEmployeeData(data.user);
+          } else {
+            setError(data?.message || "Unable to load ID card details.");
+          }
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          console.error("ID Card profile API Error:", err);
+          setError("Unable to load ID card details.");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    };
+
+    loadProfile();
+
+    const onAuthUpdated = () => loadProfile();
+    window.addEventListener("dle-auth-updated", onAuthUpdated);
+    window.addEventListener("focus", onAuthUpdated);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("dle-auth-updated", onAuthUpdated);
+      window.removeEventListener("focus", onAuthUpdated);
+    };
+  }, []);
+
+  if (loading) {
+    return <p className="dle-loading-text">Loading ID card…</p>;
+  }
+
+  if (error) {
+    return <p className="dle-error-text">{error}</p>;
+  }
+
+  if (!employeeData) {
+    return null;
+  }
+
+  return (
+    <>
+      <PageHeader />
+      <EmployeeIdCard employeeData={employeeData} />
+    </>
+  );
+};
+
+export default DLEIdCardPage;

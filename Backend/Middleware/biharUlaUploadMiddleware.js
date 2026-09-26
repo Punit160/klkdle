@@ -28,3 +28,11 @@ export const biharUlaSecondVisitUpload = objectUploadFields(
   visit2Fields.map((f) => ({ ...f, prefix: "biharula" })),
   { maxFileSize: ULA_MAX_FILE_BYTES }
 );
+
+/** External portal correction — any subset of visit 1 / 2 photos (all optional). */
+const portalEditFields = [...visit1Fields, ...visit2Fields];
+
+export const biharUlaPortalEditUpload = objectUploadFields(
+  portalEditFields.map((f) => ({ ...f, prefix: "biharula" })),
+  { maxFileSize: ULA_MAX_FILE_BYTES }
+);

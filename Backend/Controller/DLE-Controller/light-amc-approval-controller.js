@@ -7,6 +7,11 @@ import {
 import { resolvePortalCompanyId } from "../../Utils/portalCompany.js";
 import { toPublicFileUrl } from "../../Utils/publicUrl.js";
 import { serializeLightAmc } from "../../Model/DLE-Model/light-amc-model.js";
+import {
+  applyListPaginationToFindMany,
+  buildListResponseMeta,
+  resolveListPagination,
+} from "../../Utils/portalListQuery.js";
 
 const stateForRegion = (region) => {
   if (region === "up") return "Uttar Pradesh";
@@ -62,9 +67,7 @@ export const getLightAmcsForApproval = async (req, res) => {
     const block = req.query.block?.trim();
     const panchayat = req.query.panchayat?.trim();
 
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-    const skip = (page - 1) * limit;
+    const pagination = resolveListPagination(req);
 
     const where = {
       company_id: companyId,
@@ -96,29 +99,28 @@ export const getLightAmcsForApproval = async (req, res) => {
 
     const [total, rows] = await Promise.all([
       prisma.biharLightAmc.count({ where }),
-      prisma.biharLightAmc.findMany({
-        where,
-        orderBy: [{ created_at: "desc" }, { id: "desc" }],
-        skip,
-        take: limit,
-      }),
+      prisma.biharLightAmc.findMany(
+        applyListPaginationToFindMany(
+          {
+            where,
+            orderBy: [{ created_at: "desc" }, { id: "desc" }],
+          },
+          pagination
+        )
+      ),
     ]);
 
     return res.status(200).json({
       success: true,
       message: "Light AMC records for approval fetched successfully.",
-      meta: {
+      meta: buildListResponseMeta(req, pagination, total, {
         region,
-        page,
-        limit,
-        total,
-        total_pages: Math.ceil(total / limit) || 0,
         approval_status_filter:
           approvalStatusParam == null || approvalStatusParam === ""
             ? "all"
             : approvalStatusParam,
         scope,
-      },
+      }),
       data: rows.map((row) => serializeLightAmcForApproval(req, region, row)),
     });
   } catch (error) {

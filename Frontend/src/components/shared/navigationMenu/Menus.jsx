@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { menuList } from "@/components/shared/navigationMenu/menuList";
 import getIcon from "@/utils/getIcon";
 import { getUser } from "@/utils/auth";
-import { filterMenuByUserState, getStateLabel } from "@/utils/stateAccess";
+import { filterMenuByUserState, getFieldModulesPunchInLabel } from "@/utils/stateAccess";
 import { usePunchInStatus } from "@/hooks/usePunchInStatus";
 import { openPunchInFirstModal } from "../../../utils/punchInModal";
 
@@ -35,7 +35,7 @@ const Menus = () => {
         }
         event.preventDefault();
         event.stopPropagation();
-        openPunchInFirstModal(getStateLabel(user));
+        openPunchInFirstModal(getFieldModulesPunchInLabel(user));
         return true;
     };
 

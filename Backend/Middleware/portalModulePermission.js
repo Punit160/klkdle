@@ -1,5 +1,3 @@
-import { findUserById } from "../Model/DLE-Model/dle-user-model.js";
-import { resolveJwtUserId } from "../Utils/requestUser.js";
 import {
   lightAmcAddPermission,
   lightAmcReadPermission,
@@ -20,17 +18,20 @@ const resolveLightAmcRegion = async (req) => {
   const fromQuery = normalizeRegion(req.query?.state);
   if (fromQuery) return fromQuery;
 
+  const fromQueryRegion = normalizeRegion(req.query?.region);
+  if (fromQueryRegion) return fromQueryRegion;
+
   const fromBody = normalizeRegion(req.body?.state);
   if (fromBody) return fromBody;
+
+  const fromBodyRegion = normalizeRegion(req.body?.region);
+  if (fromBodyRegion) return fromBodyRegion;
 
   if (req.lightAmcRegion === "up" || req.lightAmcRegion === "bihar") {
     return req.lightAmcRegion;
   }
 
-  const userId = resolveJwtUserId(req);
-  if (!userId) return null;
-  const user = await findUserById(userId);
-  return normalizeRegion(user?.state);
+  return null;
 };
 
 export const requireSslAmcRead = (region) =>

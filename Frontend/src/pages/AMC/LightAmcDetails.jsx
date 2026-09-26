@@ -76,6 +76,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
     const location = useLocation()
     const [searchParams] = useSearchParams()
     const amcConfig = getSslAmcConfig(region)
+    const stateName = amcConfig.stateName
     const listPath = amcConfig.pages.lightAmcList
     const recordId = searchParams.get('id')
 
@@ -95,7 +96,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
             setError('')
             try {
                 const res = await localApi.get(app.lightAmc.view(recordId), {
-                    params: { company_id: getCompanyId() },
+                    params: { company_id: getCompanyId(), state: stateName },
                 })
                 const data = res?.data?.data
                 if (!data) {
@@ -112,7 +113,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
         }
 
         fetchRow()
-    }, [recordId])
+    }, [recordId, stateName])
 
     return (
         <>

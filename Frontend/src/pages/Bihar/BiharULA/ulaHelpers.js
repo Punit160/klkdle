@@ -131,11 +131,34 @@ export {
   scanQrOrBarcode,
 } from '../../../utils/equipmentQrScan'
 
+/** Bilingual labels for ULA form (English + Hindi). */
+export const ULA_FORM_LABELS_HI = {
+  caNumber: 'सी.ए. नंबर (उपभोक्ता खाता संख्या)',
+  caName: 'उपभोक्ता / लाभार्थी का नाम',
+  beneficiaryContact: 'लाभार्थी मोबाइल नंबर',
+  district: 'जिला',
+  block: 'प्रखंड',
+  panchayat: 'पंचायत',
+  village: 'गाँव',
+  gps: 'जीपीएस स्थान (अक्षांश व देशांतर)',
+  visitStage: 'भेंट का चरण',
+  visit1Remarks: 'पहली भेंट की टिप्पणी',
+  visit2Remarks: 'दूसरी भेंट की टिप्पणी',
+  serialNo: 'सीरियल नंबर',
+}
+
+export const ULA_UNIQUE_SERIAL_QUERY_FIELD = {
+  panel1_qr: 'panel_one_no',
+  panel2_qr: 'panel_two_no',
+  inverter_qr: 'inverter_no',
+}
+
 export const ULA_IMAGE_SLOTS = [
   {
     id: 'panel1_qr',
     key: 'panel1_qr',
     title: 'Panel 1 (QR Code)',
+    titleHi: 'पैनल 1 (क्यूआर कोड)',
     badge: '1st Visit',
     badgeClass: 'bg-soft-warning text-warning',
     isQr: true,
@@ -144,11 +167,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Clear photo of Solar Panel 1 QR / Barcode',
+    descHi: 'सोलर पैनल 1 का स्पष्ट फोटो (क्यूआर / बारकोड)',
   },
   {
     id: 'panel2_qr',
     key: 'panel2_qr',
     title: 'Panel 2 (QR Code)',
+    titleHi: 'पैनल 2 (क्यूआर कोड)',
     badge: '1st Visit',
     badgeClass: 'bg-soft-warning text-warning',
     isQr: true,
@@ -157,11 +182,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Clear photo of Solar Panel 2 QR / Barcode',
+    descHi: 'सोलर पैनल 2 का स्पष्ट फोटो (क्यूआर / बारकोड)',
   },
   {
     id: 'inverter_qr',
     key: 'inverter_qr',
     title: 'Inverter (QR Code)',
+    titleHi: 'इनवर्टर (क्यूआर कोड)',
     badge: '1st Visit',
     badgeClass: 'bg-soft-warning text-warning',
     isQr: true,
@@ -170,11 +197,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Clear photo of Inverter serial & QR code',
+    descHi: 'इनवर्टर सीरियल और क्यूआर कोड का स्पष्ट फोटो',
   },
   {
     id: 'smart_meter',
     key: 'smart_meter',
     title: 'Smart Meter',
+    titleHi: 'स्मार्ट मीटर',
     badge: '1st Visit',
     badgeClass: 'bg-soft-info text-info',
     isQr: false,
@@ -182,11 +211,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Photo showing Smart Meter display & number',
+    descHi: 'स्मार्ट मीटर डिस्प्ले और नंबर का फोटो',
   },
   {
     id: 'acdb',
     key: 'acdb',
     title: 'ACDB Box',
+    titleHi: 'एसीडीबी बॉक्स',
     badge: '1st Visit',
     badgeClass: 'bg-soft-primary text-primary',
     isQr: false,
@@ -194,11 +225,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Photo of AC Distribution Box interior & connections',
+    descHi: 'एसी वितरण बॉक्स (अंदरूनी) और कनेक्शन का फोटो',
   },
   {
     id: 'system_wiring',
     key: 'system_wiring',
     title: 'System (ACDB + Inverter + Wiring)',
+    titleHi: 'सिस्टम (एसीडीबी + इनवर्टर + वायरिंग)',
     badge: '1st Visit',
     badgeClass: 'bg-soft-dark text-dark',
     isQr: false,
@@ -206,11 +239,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Full view of ACDB + Inverter connected with proper wiring',
+    descHi: 'एसीडीबी, इनवर्टर और वायरिंग का पूरा दृश्य',
   },
   {
     id: 'structure_earthing',
     key: 'structure_earthing',
     title: 'Structure & Earthing',
+    titleHi: 'संरचना और अर्थिंग',
     badge: '1st Visit',
     badgeClass: 'bg-soft-secondary text-secondary',
     isQr: false,
@@ -218,11 +253,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: true,
     desc: 'Mounting structure, lightning arrester & earthing pit',
+    descHi: 'माउंटिंग, लाइटनिंग अरेस्टर और अर्थ पिट का फोटो',
   },
   {
     id: 'solar_meter_v1',
     key: 'solar_meter_v1',
     title: 'Solar Meter (if already on site)',
+    titleHi: 'सोलर मीटर (यदि साइट पर पहले से है)',
     badge: '1st Visit / Optional',
     badgeClass: 'bg-soft-dark text-dark',
     isQr: false,
@@ -231,11 +268,13 @@ export const ULA_IMAGE_SLOTS = [
     required: false,
     optionalWhenSolarAvailable: true,
     desc: 'Optional 8th photo — only if solar meter is already installed on 1st visit',
+    descHi: 'वैकल्पिक 8वाँ फोटो — केवल यदि पहली भेंट पर सोलर मीटर पहले से लगा हो',
   },
   {
     id: 'solar_meter_v2',
     key: 'solar_meter_v2',
     title: 'Solar Meter',
+    titleHi: 'सोलर मीटर',
     badge: '2nd Visit',
     badgeClass: 'bg-soft-dark text-dark',
     isQr: false,
@@ -243,11 +282,13 @@ export const ULA_IMAGE_SLOTS = [
     visit: 2,
     required: true,
     desc: 'Dedicated bidirectional Solar Meter photo',
+    descHi: 'द्विदिशात्मक सोलर मीटर का फोटो',
   },
   {
     id: 'system_complete',
     key: 'system_complete',
     title: 'System (with Solar Meter)',
+    titleHi: 'पूर्ण सिस्टम (सोलर मीटर सहित)',
     badge: '2nd Visit',
     badgeClass: 'bg-soft-success text-success',
     isQr: false,
@@ -255,6 +296,7 @@ export const ULA_IMAGE_SLOTS = [
     visit: 2,
     required: true,
     desc: 'Complete system photo (ACDB + Inverter + wiring + solar meter)',
+    descHi: 'पूरा सिस्टम — एसीडीबी, इनवर्टर, वायरिंग और सोलर मीटर',
   },
 ]
 
@@ -615,11 +657,20 @@ export const downloadUlaImagesZip = async (id, caNumber) => {
   URL.revokeObjectURL(url)
 }
 
-export const checkUlaRegistrationUnique = async ({ caNumber, beneficiaryContact }) => {
+export const checkUlaRegistrationUnique = async ({
+  caNumber,
+  beneficiaryContact,
+  panelOneNo,
+  panelTwoNo,
+  inverterNo,
+}) => {
   const res = await localApi.get(api.biharUla.checkUnique, {
     params: {
       ca_no: sanitizeCaNumberInput(caNumber),
       beneficiary_contact: sanitizeMobileInput(beneficiaryContact),
+      panel_one_no: String(panelOneNo || '').trim(),
+      panel_two_no: String(panelTwoNo || '').trim(),
+      inverter_no: String(inverterNo || '').trim(),
     },
   })
   return res?.data

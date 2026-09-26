@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import localApi from "../../api/localApi";
 import { resolveUploadUrl } from "../../utils/uploadUrl";
 import { app } from "../../api/routes";
-import { getUser } from "../../utils/auth";
+import { getToken, getUser, saveAuthData } from "../../utils/auth";
 import HorizontalProgress from "@/components/shared/HorizontalProgress";
 
-import EmployeeIdCard from "./dle-id-card";
+import { EmployeeIdCard } from "./dle-id-card";
 import EmployeeCertificate from "./dle-cerficate";
 import "../../styles/DLE/dle-profile.css";
 
@@ -340,7 +340,9 @@ export default function EmployeeRegistration() {
 
 
 
-  const profilePhotoUrl = resolveUploadUrl(employeeData?.profile_image);
+  const profilePhotoUrl = resolveUploadUrl(
+    employeeData?.profile_image_url || employeeData?.profile_image
+  );
 
   const profileInitials = employeeData?.name
     ? employeeData.name
@@ -382,25 +384,15 @@ export default function EmployeeRegistration() {
       const payload = new FormData();
       payload.append("profile_image", profilePhotoFile);
 
-      const response = await localApi.patch(
-        app.auth.profileImage,
-        payload,
-        {
-          params: { userId: employeeData.id },
-        }
-      );
+      const response = await localApi.patch(app.auth.profileImage, payload, {
+        params: { userId: employeeData.id },
+        headers: { "Content-Type": undefined },
+      });
 
       if (response.data.success) {
         setEmployeeData(response.data.user);
         setFormData(response.data.user);
-        localStorage.setItem(
-          "dleUser",
-          JSON.stringify(response.data.user)
-        );
-        localStorage.setItem(
-          "user",
-          JSON.stringify(response.data.user)
-        );
+        saveAuthData(getToken(), response.data.user);
 
         setProfilePhotoFile(null);
         setProfilePhotoPreview("");
@@ -1308,50 +1300,61 @@ export default function EmployeeRegistration() {
               </div>
             </div>
 
-            <div className="profile-photo-upload-wrapper">
-              <div className="profile-photo-preview-box">
-                {profilePhotoPreview || profilePhotoUrl ? (
-                  <img
-                    src={profilePhotoPreview || profilePhotoUrl}
-                    alt="Profile preview"
-                    className="profile-photo-preview-img"
-                  />
-                ) : (
-                  <div className="profile-photo-preview-placeholder">
-                    {profileInitials}
-                  </div>
-                )}
+            <div className="profile-photo-upload-panel">
+              <div className="profile-photo-preview-col">
+                <div className="profile-photo-preview-box">
+                  {profilePhotoPreview || profilePhotoUrl ? (
+                    <img
+                      src={profilePhotoPreview || profilePhotoUrl}
+                      alt="Profile preview"
+                      className="profile-photo-preview-img"
+                    />
+                  ) : (
+                    <div className="profile-photo-preview-placeholder">
+                      {profileInitials}
+                    </div>
+                  )}
+                </div>
+                <span className="profile-photo-preview-caption">
+                  Same photo as on your DLE ID card
+                </span>
               </div>
 
-              <div className="profile-photo-actions">
-                <input
-                  ref={profilePhotoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png"
-                  className="profile-photo-input"
-                  onChange={handleProfilePhotoSelect}
-                />
+              <div className="profile-photo-actions-col">
+                <ul className="profile-photo-hints">
+                  <li>Clear face, plain background, JPG or PNG</li>
+                  <li>Max 5 MB — passport-style crop works best</li>
+                </ul>
+                <div className="profile-photo-actions">
+                  <input
+                    ref={profilePhotoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png"
+                    className="profile-photo-input"
+                    onChange={handleProfilePhotoSelect}
+                  />
 
-                <button
-                  type="button"
-                  className="secondary-profile-btn"
-                  onClick={() => profilePhotoInputRef.current?.click()}
-                  disabled={uploadingProfilePhoto}
-                >
-                  <FiCamera />
-                  Choose Photo
-                </button>
+                  <button
+                    type="button"
+                    className="secondary-profile-btn"
+                    onClick={() => profilePhotoInputRef.current?.click()}
+                    disabled={uploadingProfilePhoto}
+                  >
+                    <FiCamera />
+                    Choose Photo
+                  </button>
 
-                <button
-                  type="button"
-                  className="primary-profile-btn"
-                  onClick={handleUploadProfilePhoto}
-                  disabled={uploadingProfilePhoto || !profilePhotoFile}
-                >
-                  {uploadingProfilePhoto
-                    ? "Uploading..."
-                    : "Save Profile Photo"}
-                </button>
+                  <button
+                    type="button"
+                    className="primary-profile-btn"
+                    onClick={handleUploadProfilePhoto}
+                    disabled={uploadingProfilePhoto || !profilePhotoFile}
+                  >
+                    {uploadingProfilePhoto
+                      ? "Uploading..."
+                      : "Save Profile Photo"}
+                  </button>
+                </div>
               </div>
             </div>
           </section>

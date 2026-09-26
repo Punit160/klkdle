@@ -425,6 +425,7 @@ useEffect(() => {
                 const statusRes = await localApi.get(app.lightAmc.periodStatus, {
                     params: {
                         company_id: getCompanyId(),
+                        state: 'Bihar',
                         district: selectedDistrict.value,
                         block: selectedBlock.value,
                         panchayat: selectedPanchayat.value,

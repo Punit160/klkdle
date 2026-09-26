@@ -543,7 +543,11 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
                 try {
                     const lastRes = await localApi.get(app.lightAmc.last, {
-                        params: { ssl_id: selectedLight.value, company_id: getCompanyId() },
+                        params: {
+                            ssl_id: selectedLight.value,
+                            company_id: getCompanyId(),
+                            state: stateName,
+                        },
                     })
                     const last = lastRes?.data?.data
                     const install = details.date_of_installation || details.installation_date || details.install_date

@@ -39,16 +39,21 @@
   box-shadow: 0 2px 8px rgba(30, 45, 70, 0.035);
 }
 
-.profile-avatar-wrapper {
+.dle-profile-page .profile-avatar-wrapper {
   position: relative;
-  width: 112px;
-  height: 112px;
+  width: 128px;
+  height: 128px;
   margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.profile-avatar {
-  width: 112px;
-  height: 112px;
+.dle-profile-page .profile-avatar {
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
 
   display: flex;
   align-items: center;
@@ -58,54 +63,72 @@
 
   border-radius: 50%;
 
-  background: linear-gradient(
-    145deg,
-    #eef3ff,
-    #dce5ff
-  );
+  background: linear-gradient(145deg, #f5f8ff, #e8edfc);
 
-  border: 5px solid #ffffff;
+  border: 4px solid #ffffff;
   box-shadow:
-    0 0 0 1px #dce3ef,
-    0 8px 25px rgba(38, 74, 160, 0.1);
+    0 0 0 2px #3d58d6,
+    0 10px 28px rgba(52, 84, 209, 0.18);
 
-  color: #3155d8;
-  font-size: 30px;
+  color: #3454d1;
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: 1px;
 }
 
-.profile-avatar-photo {
+.dle-profile-page .profile-avatar-photo {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
+  display: block;
   border-radius: 50%;
 }
 
-.profile-photo-upload-wrapper {
-  display: flex;
-  flex-wrap: wrap;
+.profile-photo-upload-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 28px 32px;
   align-items: center;
-  gap: 28px;
-  padding: 8px 0 4px;
+  padding: 24px;
+  border-radius: 14px;
+  border: 1px solid #dce3f5;
+  background: linear-gradient(180deg, #f8faff 0%, #ffffff 55%);
+}
+
+.profile-photo-preview-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .profile-photo-preview-box {
-  width: 140px;
-  height: 140px;
+  width: 168px;
+  height: 168px;
   border-radius: 50%;
   overflow: hidden;
-  border: 4px solid #ffffff;
+  border: 5px solid #ffffff;
   box-shadow:
-    0 0 0 1px #dce3ef,
-    0 8px 24px rgba(38, 74, 160, 0.12);
-  background: linear-gradient(145deg, #eef3ff, #dce5ff);
+    0 0 0 2px #3d58d6,
+    0 12px 32px rgba(52, 84, 209, 0.16);
+  background: linear-gradient(145deg, #f5f8ff, #e8edfc);
+  flex-shrink: 0;
+}
+
+.profile-photo-preview-caption {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7b8799;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .profile-photo-preview-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .profile-photo-preview-placeholder {
@@ -114,23 +137,66 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 44px;
   font-weight: 700;
-  color: #3155d8;
+  color: #3454d1;
+}
+
+.profile-photo-actions-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.profile-photo-hints {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: #5c4f52;
+  line-height: 1.55;
+}
+
+.profile-photo-hints li + li {
+  margin-top: 6px;
 }
 
 .profile-photo-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .profile-photo-upload-panel {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    padding: 20px 16px;
+  }
+
+  .profile-photo-actions-col {
+    align-items: center;
+  }
+
+  .profile-photo-hints {
+    text-align: left;
+    width: 100%;
+  }
+
+  .profile-photo-actions {
+    justify-content: center;
+  }
 }
 
 .profile-photo-input {
   display: none;
 }
 
-.profile-online-dot {
+.dle-profile-page .profile-online-dot {
   position: absolute;
   right: 3px;
   bottom: 8px;

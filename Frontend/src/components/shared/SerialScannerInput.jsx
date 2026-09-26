@@ -15,6 +15,7 @@ const SerialScannerInput = ({
   disabled,
   scanTitle = 'Serial number',
   inputClassName = '',
+  onBlur,
 }) => {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -107,6 +108,7 @@ const SerialScannerInput = ({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
+          onBlur={onBlur}
           required={required}
           disabled={disabled}
           aria-required={required}

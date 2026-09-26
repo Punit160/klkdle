@@ -10,12 +10,6 @@ const STATE_GROUPS = {
 
 const normalize = (value = '') => String(value).trim().toLowerCase()
 
-const MENU_GROUP_STATE_KEY = {
-  bihar: 'bihar',
-  up: 'up',
-  'uttar-pradesh': 'up',
-}
-
 export const getUserStateValue = (user) =>
   user?.state ??
   user?.state_name ??
@@ -45,9 +39,8 @@ export const resolveUserStateKeys = (stateValue) => {
   return ['bihar', 'up']
 }
 
-export const userHasStateAccess = (user, stateKey) => {
-  return resolveUserStateKeys(getUserStateValue(user)).includes(stateKey)
-}
+/** @deprecated Access is role-based; kept for callers that still pass stateKey. */
+export const userHasStateAccess = (_user, _stateKey) => true
 
 const filterMenuItemByPortal = (user, item) => {
   if (Array.isArray(item.dropdownMenu) && item.dropdownMenu.length) {
@@ -65,16 +58,14 @@ const filterMenuItemByPortal = (user, item) => {
   return item
 }
 
+/** Sidebar menu: portal permissions only (not user profile state). */
 export const filterMenuByUserState = (menuList, user) => {
-  const allowed = new Set(resolveUserStateKeys(getUserStateValue(user)))
-
   return menuList
     .filter((group) => {
       if (group.id === 'account') return true
       if (group.id === 'portal') return userCanManagePortalAccess(user) || userIsAdmin(user)
       if (group.id === 'admin') return userIsAdmin(user)
-      const stateKey = MENU_GROUP_STATE_KEY[group.id] ?? group.id
-      return allowed.has(stateKey)
+      return group.id === 'bihar' || group.id === 'up'
     })
     .map((group) => {
       if (group.id !== 'bihar' && group.id !== 'up') return group
@@ -115,7 +106,7 @@ const stateHubConfig = {
 }
 
 export const getStateHubSections = (user) => {
-  return resolveUserStateKeys(getUserStateValue(user))
+  return Object.keys(stateHubConfig)
     .map((key) => {
       const section = stateHubConfig[key]
       if (!section) return null
@@ -131,4 +122,14 @@ export const getStateLabel = (user) => {
   if (keys.includes('bihar')) return 'Bihar'
   if (keys.includes('up')) return 'Uttar Pradesh'
   return user?.state || '—'
+}
+
+/** Punch-in / nav hint from portal permissions (not profile state). */
+export const getFieldModulesPunchInLabel = (user) => {
+  const titles = getStateHubSections(user).map((s) =>
+    String(s.title || '').replace(/ Operations$/, '')
+  )
+  if (titles.length >= 2) return titles.join(' / ')
+  if (titles.length === 1) return titles[0]
+  return 'Field'
 }
