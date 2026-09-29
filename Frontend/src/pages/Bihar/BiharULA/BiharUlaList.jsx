@@ -25,6 +25,7 @@ import {
   countUlaSurveyPhotos,
   expectedFirstVisitPhotoCount,
   resolveUlaSurveyorDisplayName,
+  resolveUlaSecondSurveyorDisplayName,
   resolveUlaSecondVisitAt,
 } from './ulaHelpers'
 import '../../../styles/bihar-ula.css'
@@ -52,10 +53,8 @@ const BiharUlaList = () => {
         if (!cancelled) {
           setRecords(
             rows.map((row) => {
-              const secondBy = resolveUlaSurveyorDisplayName(row, {
-                userIdField: 'user_id2',
-                nameField: 'user_name2',
-              })
+              const secondBy = resolveUlaSecondSurveyorDisplayName(row)
+              const secondDisplay = secondBy === '—' ? '' : secondBy
               return {
               id: row.id,
               caNumber: row.ca_no,
@@ -66,8 +65,13 @@ const BiharUlaList = () => {
               village: row.village,
               dateTime: row.survey_date,
               createdAt: row.created_at,
+              firstVisitByName: resolveUlaSurveyorDisplayName(row),
               createdByName: resolveUlaSurveyorDisplayName(row),
-              secondVisitByName: secondBy === '—' ? null : secondBy,
+              secondVisitByName: secondDisplay || null,
+              secondVisitSurveyor: secondDisplay,
+              secondVisitById: row.user_id2,
+              apiUserName2: row.user_name2,
+              apiSecondVisitSurveyor: row.second_visit_surveyor,
               secondVisitAt: resolveUlaSecondVisitAt(row),
               latitude: row.latitude,
               longitude: row.longitude,
@@ -181,7 +185,8 @@ const BiharUlaList = () => {
       'Panchayat',
       'Village',
       'Survey Date',
-      'Survey by',
+      '1st visit by',
+      '2nd visit by',
       'Latitude',
       'Longitude',
       'Status',
@@ -197,7 +202,8 @@ const BiharUlaList = () => {
       `"${r.panchayat || ''}"`,
       `"${r.village || ''}"`,
       `"${formatSurveyDateDisplay(r.dateTime)}"`,
-      `"${(r.createdByName || '').replace(/"/g, '""')}"`,
+      `"${formatFirstSurveyorCell(r).replace(/"/g, '""')}"`,
+      `"${formatSecondSurveyorCell(r).replace(/"/g, '""')}"`,
       r.latitude || '',
       r.longitude || '',
       r.secondVisitComplete ? '2nd complete' : r.firstVisitComplete ? '1st complete' : 'Draft',
@@ -227,6 +233,23 @@ const BiharUlaList = () => {
     if (row.secondVisitPending) return '2nd visit pending'
     if (row.firstVisitComplete) return '1st visit done'
     return 'Draft'
+  }
+
+  const formatFirstSurveyorCell = (row) => row.firstVisitByName || row.createdByName || '—'
+
+  const formatSecondSurveyorCell = (row) => {
+    const named =
+      row.secondVisitSurveyor ||
+      row.secondVisitByName ||
+      String(row.apiSecondVisitSurveyor ?? row.apiUserName2 ?? '').trim()
+    if (named) return named
+
+    const secondUserId = String(row.secondVisitById ?? '').trim()
+    if (secondUserId) return `User #${secondUserId}`
+
+    if (row.secondVisitAt || row.secondVisitComplete) return '—'
+    if (row.secondVisitPending) return 'Pending'
+    return '—'
   }
 
   if (isRemoved) return null
@@ -316,7 +339,7 @@ const BiharUlaList = () => {
                         <th>Consumer (CA)</th>
                         <th>Location</th>
                         <th>Status</th>
-                        <th>Survey by</th>
+                        <th>Survey by (1st / 2nd)</th>
                         <th>Visit date & time</th>
                         <th>GPS</th>
                         <th>Photos</th>
@@ -371,13 +394,16 @@ const BiharUlaList = () => {
                                 <span className={visitPillClass(row)}>{visitPillLabel(row)}</span>
                               </td>
                               <td className="ula-surveyor-cell">
-                                <div className="ula-surveyor-name">{row.createdByName || '—'}</div>
-                                {row.secondVisitByName &&
-                                  row.secondVisitByName !== row.createdByName && (
-                                    <div className="ula-surveyor-second fs-11 text-muted">
-                                      2nd: {row.secondVisitByName}
-                                    </div>
-                                  )}
+                                <div className="ula-visit-datetime-line">
+                                  <span className="ula-visit-datetime-label">1st:</span>{' '}
+                                  <span className="ula-surveyor-name">
+                                    {formatFirstSurveyorCell(row)}
+                                  </span>
+                                </div>
+                                <div className="ula-visit-datetime-line ula-surveyor-second">
+                                  <span className="ula-visit-datetime-label">2nd:</span>{' '}
+                                  {formatSecondSurveyorCell(row)}
+                                </div>
                               </td>
                               <td className="fs-12 text-muted ula-survey-dates">
                                 <div className="ula-visit-datetime-line">

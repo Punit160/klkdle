@@ -12,6 +12,25 @@ import { resolveJwtUserId } from "../../../Utils/requestUser.js";
 const surveyOwnedByUser = (row, userId) =>
   Boolean(row && userId && String(row.user_id) === String(userId));
 
+const resolveJwtUserCompanyId = (req) =>
+  String(req.user?.company_id || req.user?.companyId || "").trim();
+
+const buildUlaExistingRecordSummary = (row) => {
+  if (!row) return null;
+  const first_visit_complete = Boolean(String(row.system_img ?? "").trim());
+  const second_visit_complete = secondVisitIsComplete(row);
+  let visit_status = "first_incomplete";
+  if (second_visit_complete) visit_status = "complete";
+  else if (first_visit_complete) visit_status = "second_pending";
+  return {
+    id: row.id?.toString?.() ?? String(row.id),
+    ca_no: row.ca_no,
+    first_visit_complete,
+    second_visit_complete,
+    visit_status,
+  };
+};
+
 const parseUserIdBigInt = (userId) => {
   const raw = userId == null ? "" : String(userId).trim();
   if (!/^\d+$/.test(raw)) return null;
@@ -52,7 +71,13 @@ const loadUserDisplayNames = async (userIds) => {
     const label = String(user.name || user.email || "").trim();
     if (!label) continue;
     map.set(key, label);
-    map.set(String(Number(key)), label);
+    if (/^\d+$/.test(key)) {
+      try {
+        map.set(BigInt(key).toString(), label);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   return map;
@@ -61,7 +86,16 @@ const loadUserDisplayNames = async (userIds) => {
 const nameFromMap = (nameMap, userId) => {
   if (userId == null || userId === "") return null;
   const key = String(userId).trim();
-  return nameMap.get(key) || nameMap.get(String(Number(key))) || null;
+  const fromDirect = nameMap.get(key);
+  if (fromDirect) return fromDirect;
+  if (/^\d+$/.test(key)) {
+    try {
+      return nameMap.get(BigInt(key).toString()) || null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 };
 
 /** Resolve display name from `users` table by stored survey user id. */
@@ -115,6 +149,14 @@ const applyUserNamesToSerialized = (serialized, row, nameMap) => {
     serialized.user_name2 ||
     String(remarksMeta.surveyor_name2 || "").trim() ||
     null;
+
+  serialized.surveyor_name = String(remarksMeta.surveyor_name || "").trim() || null;
+  serialized.surveyor_name2 = String(remarksMeta.surveyor_name2 || "").trim() || null;
+  serialized.first_visit_surveyor =
+    serialized.user_name || serialized.surveyor_name || null;
+  serialized.second_visit_surveyor =
+    serialized.user_name2 || serialized.surveyor_name2 || null;
+
   return serialized;
 };
 
@@ -133,6 +175,10 @@ const enrichSurveysWithUserNames = async (req, rows) => {
       if (row.user_id2 && !serialized.user_name2) {
         serialized.user_name2 = await resolveUserDisplayName(row.user_id2);
       }
+      serialized.first_visit_surveyor =
+        serialized.user_name || serialized.surveyor_name || null;
+      serialized.second_visit_surveyor =
+        serialized.user_name2 || serialized.surveyor_name2 || null;
     })
   );
 
@@ -169,6 +215,53 @@ const secondVisitIsComplete = (row) =>
     String(row?.system_img2 ?? "").trim() &&
       String(row?.solar_meter_img2 ?? "").trim()
   );
+
+const isSecondVisitPendingRow = (row) =>
+  Boolean(String(row?.system_img ?? "").trim()) && !secondVisitIsComplete(row);
+
+const companiesMatch = (left, right) => {
+  const a = String(left ?? "").trim();
+  const b = String(right ?? "").trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+    try {
+      return BigInt(a) === BigInt(b);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
+const resolveUserCompanyFromDb = async (userId) => {
+  const uid = parseUserIdBigInt(userId);
+  if (uid == null) return "";
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: uid },
+      select: { company_id: true },
+    });
+    return String(user?.company_id ?? "").trim();
+  } catch {
+    return "";
+  }
+};
+
+/** Owner, same company, or any ULA user when 2nd visit is pending (team completion). */
+const surveyAccessibleByDleUser = async (req, row) => {
+  const userId = resolveJwtUserId(req);
+  if (!row || !userId) return false;
+  if (surveyOwnedByUser(row, userId)) return true;
+  if (isSecondVisitPendingRow(row)) return true;
+
+  let userCompany = resolveJwtUserCompanyId(req);
+  if (!userCompany) {
+    userCompany = await resolveUserCompanyFromDb(userId);
+  }
+  const rowCompany = String(row.company_id || "").trim();
+  return companiesMatch(userCompany, rowCompany);
+};
 
 /** Completed 2nd visits saved before `second_visit_at` existed may only have updated_at. */
 const resolveSecondVisitAt = (row) => {
@@ -434,7 +527,7 @@ const findUlaRegistrationConflicts = async ({
       conflicts.push({
         field: "ca_no",
         message:
-          "This CA number is already registered. Open the existing record for 2nd visit.",
+          "This CA number is already registered. Check visit status below or complete the 2nd visit.",
         existing_id: byCa.id?.toString?.() ?? String(byCa.id),
         existing_ca_no: byCa.ca_no,
       });
@@ -512,10 +605,34 @@ export const checkBiharUlaUniqueController = async (req, res) => {
       inverterNo: req.query.inverter_no,
     });
 
+    let existing_record = null;
+    let existing_survey = null;
+    const caConflict = conflicts.find((c) => c.field === "ca_no" && c.existing_id);
+    if (caConflict?.existing_id) {
+      try {
+        const row = await prisma.biharUlaSurvey.findUnique({
+          where: { id: BigInt(caConflict.existing_id) },
+        });
+        existing_record = buildUlaExistingRecordSummary(row);
+        if (
+          row &&
+          existing_record?.visit_status === "second_pending" &&
+          (await surveyAccessibleByDleUser(req, row))
+        ) {
+          existing_survey = await serializeSurveyResponse(req, row);
+        }
+      } catch {
+        existing_record = null;
+        existing_survey = null;
+      }
+    }
+
     return res.json({
       success: true,
       available: conflicts.length === 0,
       conflicts,
+      existing_record,
+      existing_survey,
       validation: {
         ca_no: caParsed.validationMessage || null,
         beneficiary_contact: mobileParsed.validationMessage || null,
@@ -819,10 +936,17 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       return res.status(404).json({ success: false, message: "ULA record not found." });
     }
 
-    if (!surveyOwnedByUser(existing, userId)) {
+    if (!(await surveyAccessibleByDleUser(req, existing))) {
       return res.status(403).json({
         success: false,
-        message: "You can only update ULA records you created.",
+        message: "You do not have access to update this ULA record.",
+      });
+    }
+
+    if (!String(existing.system_img ?? "").trim()) {
+      return res.status(422).json({
+        success: false,
+        message: "1st visit is not completed for this CA yet.",
       });
     }
 
@@ -917,8 +1041,10 @@ export const listBiharUlaSurveys = async (req, res) => {
     let where;
 
     if (jwtUserId) {
-      // DLE app: only records created by this user (user_id column).
-      where = { user_id: jwtUserId };
+      // DLE app: rows where this user did 1st visit (user_id) or 2nd visit (user_id2).
+      where = {
+        OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }],
+      };
     } else if (portalCompanyId) {
       where = { company_id: portalCompanyId };
     } else {
@@ -982,10 +1108,10 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
       ? String(req.portalCompanyId).trim()
       : "";
     if (jwtUserId) {
-      if (!surveyOwnedByUser(row, jwtUserId)) {
+      if (!(await surveyAccessibleByDleUser(req, row))) {
         return res.status(403).json({
           success: false,
-          message: "You can only download images for your own ULA records.",
+          message: "You do not have access to download images for this ULA record.",
         });
       }
     } else if (portalCompanyId) {
@@ -1271,10 +1397,10 @@ export const getBiharUlaSurvey = async (req, res) => {
     }
 
     if (jwtUserId) {
-      if (!surveyOwnedByUser(row, jwtUserId)) {
+      if (!(await surveyAccessibleByDleUser(req, row))) {
         return res.status(403).json({
           success: false,
-          message: "You can only view ULA records you created.",
+          message: "You do not have access to view this ULA record.",
         });
       }
     } else if (!surveyMatchesPortalCompany(row, portalCompanyId)) {

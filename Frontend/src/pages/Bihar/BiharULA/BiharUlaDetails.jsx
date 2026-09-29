@@ -240,16 +240,19 @@ const BiharUlaDetails = () => {
                   <span className="ula-detail-chip">
                     <FiCamera size={12} /> {photoCount} photos
                   </span>
-                  {record.createdByName && (
-                    <span className="ula-detail-chip">
-                      <FiUser size={12} /> 1st visit: {record.createdByName}
-                    </span>
-                  )}
-                  {record.secondVisitByName && (
-                    <span className="ula-detail-chip">
-                      <FiUser size={12} /> 2nd visit: {record.secondVisitByName}
-                    </span>
-                  )}
+                  <span className="ula-detail-chip">
+                    <FiUser size={12} /> 1st visit: {record.createdByName || '—'}
+                  </span>
+                  <span className="ula-detail-chip">
+                    <FiUser size={12} /> 2nd visit:{' '}
+                    {record.secondVisitSurveyor ||
+                      record.secondVisitByName ||
+                      (record.secondVisitById
+                        ? `User #${record.secondVisitById}`
+                        : secondVisitPending
+                          ? 'Pending'
+                          : '—')}
+                  </span>
                   <span
                     className={`ula-detail-chip ${
                       record.secondVisitComplete ? 'text-success' : ''
@@ -294,8 +297,19 @@ const BiharUlaDetails = () => {
               <DetailItem label="Block" value={record.block} />
               <DetailItem label="Panchayat" value={record.panchayat} />
               <DetailItem label="Village" value={record.village} />
-              <DetailItem label="1st visit survey by" value={record.createdByName} />
-              <DetailItem label="2nd visit survey by" value={record.secondVisitByName} />
+              <DetailItem label="1st visit survey by" value={record.createdByName || '—'} />
+              <DetailItem
+                label="2nd visit survey by"
+                value={
+                  record.secondVisitSurveyor ||
+                  record.secondVisitByName ||
+                  (record.secondVisitById
+                    ? `User #${record.secondVisitById}`
+                    : secondVisitPending
+                      ? 'Pending'
+                      : '—')
+                }
+              />
             </div>
           </div>
 

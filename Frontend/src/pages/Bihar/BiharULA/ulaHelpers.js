@@ -42,6 +42,22 @@ export const resolveUlaSurveyorDisplayName = (surveyRow, { userIdField = 'user_i
   return '—'
 }
 
+/** 2nd visit surveyor — API fields first, then remarks / user id. */
+export const resolveUlaSecondSurveyorDisplayName = (surveyRow) => {
+  const fromDedicated = String(
+    surveyRow?.second_visit_surveyor ??
+      surveyRow?.user_name2 ??
+      surveyRow?.surveyor_name2 ??
+      ''
+  ).trim()
+  if (fromDedicated) return fromDedicated
+
+  return resolveUlaSurveyorDisplayName(surveyRow, {
+    userIdField: 'user_id2',
+    nameField: 'user_name2',
+  })
+}
+
 /** User remarks stored in survey `remarks` JSON (visit1_note / visit2_note). */
 export const parseUlaSurveyVisitNotes = (survey) => {
   if (!survey) return { visit1Note: '', visit2Note: '' }
@@ -839,14 +855,17 @@ export const mapSurveyToDetailsRecord = (survey) => {
     updatedAt: survey.updated_at,
     createdByName: resolveUlaSurveyorDisplayName(survey),
     secondVisitByName: (() => {
-      const n = resolveUlaSurveyorDisplayName(survey, {
-        userIdField: 'user_id2',
-        nameField: 'user_name2',
-      })
+      const n = resolveUlaSecondSurveyorDisplayName(survey)
+      return n === '—' ? null : n
+    })(),
+    secondVisitSurveyor: (() => {
+      const n = resolveUlaSecondSurveyorDisplayName(survey)
       return n === '—' ? null : n
     })(),
     createdById: survey.user_id,
     secondVisitById: survey.user_id2,
+    secondVisitPending:
+      survey.first_visit_complete && !survey.second_visit_complete,
     secondVisitAt: resolveUlaSecondVisitAt(survey),
     secondVisitAtDisplay: formatSurveyDateTimeDisplay(
       resolveUlaSecondVisitAt(survey)

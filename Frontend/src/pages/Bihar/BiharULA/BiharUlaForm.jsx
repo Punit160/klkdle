@@ -78,8 +78,17 @@ const ReadOnlyField = ({ label, value }) => (
 const BiharUlaForm = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const recordId = searchParams.get('id')
-  const isSecondVisitMode = searchParams.get('visit') === '2' && Boolean(recordId)
+  const recordIdFromQuery = searchParams.get('id')
+  const isSecondVisitFromQuery =
+    searchParams.get('visit') === '2' && Boolean(recordIdFromQuery)
+  /** Set when user enters an existing CA that needs 2nd visit (any surveyor). */
+  const [caSecondVisitId, setCaSecondVisitId] = useState(null)
+  /** null | complete | second_pending */
+  const [caVisitStatus, setCaVisitStatus] = useState(null)
+  const effectiveRecordId = isSecondVisitFromQuery
+    ? recordIdFromQuery
+    : caSecondVisitId
+  const isSecondVisitMode = Boolean(isSecondVisitFromQuery || caSecondVisitId)
 
   // Form State
   const [selectedDistrict, setSelectedDistrict] = useState(null)
@@ -151,6 +160,83 @@ const BiharUlaForm = () => {
     )
   }
 
+  const applyLoadedSurveyForSecondVisit = (survey) => {
+    if (!survey) return
+    setLoadedSurvey(survey)
+    setVisitType('2nd Visit')
+    setCaNumber(survey.ca_no || '')
+    setCaName(survey.ca_name || survey.beneficiary_name || '')
+    setBeneficiaryContact(survey.beneficiary_contact || '')
+    if (survey.district) {
+      setSelectedDistrict({ value: survey.district, label: survey.district })
+    }
+    if (survey.block) {
+      setSelectedBlock({ value: survey.block, label: survey.block })
+    }
+    if (survey.panchayat) {
+      setSelectedPanchayat({ value: survey.panchayat, label: survey.panchayat })
+    }
+    setVillage(survey.village || '')
+    handleDetectGps()
+    setSerialNumbers({
+      panel1_qr: survey.panel_one_no || '',
+      panel2_qr: survey.panel_two_no || '',
+      inverter_qr: survey.inverter_no || '',
+    })
+    const notes = parseUlaSurveyVisitNotes(survey)
+    setVisit1Remarks(notes.visit1Note)
+    setVisit2Remarks('')
+    setIsLoadingRecord(false)
+  }
+
+  const resetCaVisitFlow = () => {
+    setCaSecondVisitId(null)
+    setCaVisitStatus(null)
+    setLoadedSurvey(null)
+    setVisitType('1st Visit')
+  }
+
+  const resolveCaRegistrationOnBlur = async (caVal) => {
+    if (isSecondVisitFromQuery || !isValidCaNumber(caVal)) return true
+
+    resetCaVisitFlow()
+    setSubmitError('')
+    setIsCheckingUnique(true)
+    try {
+      const uniqueCheck = await checkUlaRegistrationUnique({
+        caNumber: caVal,
+        beneficiaryContact: '',
+      })
+      const record = uniqueCheck?.existing_record
+
+      if (record?.second_visit_complete) {
+        setCaVisitStatus('complete')
+        setUniqueFieldErrors((prev) => ({
+          ...prev,
+          ca_no: 'Site visits have already been completed for this CA.',
+        }))
+        return false
+      }
+
+      if (record?.first_visit_complete && !record?.second_visit_complete) {
+        setCaVisitStatus('second_pending')
+        setUniqueFieldErrors((prev) => ({ ...prev, ca_no: '' }))
+        setCaSecondVisitId(String(record.id))
+        if (uniqueCheck?.existing_survey) {
+          applyLoadedSurveyForSecondVisit(uniqueCheck.existing_survey)
+        }
+        return false
+      }
+
+      const hasIssue = applyUlaUniqueCheckToFields(uniqueCheck)
+      return !hasIssue
+    } catch {
+      return true
+    } finally {
+      setIsCheckingUnique(false)
+    }
+  }
+
   const runUlaUniqueFieldCheck = async ({ ca, contact } = {}) => {
     if (isSecondVisitMode) return true
 
@@ -159,6 +245,11 @@ const BiharUlaForm = () => {
 
     const canCheckCa = isValidCaNumber(caVal)
     const canCheckContact = isValidIndianMobile(contactVal)
+
+    if (canCheckCa && !canCheckContact) {
+      return resolveCaRegistrationOnBlur(caVal)
+    }
+
     if (!canCheckCa && !canCheckContact) {
       setUniqueFieldErrors({ ca_no: '', beneficiary_contact: '' })
       return true
@@ -170,6 +261,28 @@ const BiharUlaForm = () => {
         caNumber: canCheckCa ? caVal : '',
         beneficiaryContact: canCheckContact ? contactVal : '',
       })
+      const record = uniqueCheck?.existing_record
+      if (canCheckCa && record?.second_visit_complete) {
+        setCaVisitStatus('complete')
+        setUniqueFieldErrors((prev) => ({
+          ...prev,
+          ca_no: 'Site visits have already been completed for this CA.',
+        }))
+        return false
+      }
+      if (
+        canCheckCa &&
+        record?.first_visit_complete &&
+        !record?.second_visit_complete
+      ) {
+        setCaVisitStatus('second_pending')
+        setUniqueFieldErrors((prev) => ({ ...prev, ca_no: '' }))
+        setCaSecondVisitId(String(record.id))
+        if (uniqueCheck?.existing_survey) {
+          applyLoadedSurveyForSecondVisit(uniqueCheck.existing_survey)
+        }
+        return false
+      }
       const hasIssue = applyUlaUniqueCheckToFields(uniqueCheck)
       return !hasIssue
     } catch {
@@ -301,47 +414,38 @@ const BiharUlaForm = () => {
   }
 
   useEffect(() => {
-    if (!isSecondVisitMode || !recordId) return
+    if (!isSecondVisitMode || !effectiveRecordId) {
+      setIsLoadingRecord(false)
+      return
+    }
+
+    if (loadedSurvey?.id != null && String(loadedSurvey.id) === String(effectiveRecordId)) {
+      setIsLoadingRecord(false)
+      return
+    }
 
     setIsLoadingRecord(true)
-    fetchUlaSurveyById(recordId)
+    fetchUlaSurveyById(effectiveRecordId)
       .then((survey) => {
-        if (!survey) return
-        setLoadedSurvey(survey)
-        setVisitType('2nd Visit')
-        setCaNumber(survey.ca_no || '')
-        setCaName(survey.ca_name || survey.beneficiary_name || '')
-        setBeneficiaryContact(survey.beneficiary_contact || '')
-        if (survey.district) {
-          setSelectedDistrict({ value: survey.district, label: survey.district })
+        if (!survey) {
+          setSubmitError('ULA record not found for this CA.')
+          return
         }
-        if (survey.block) {
-          setSelectedBlock({ value: survey.block, label: survey.block })
+        if (survey.second_visit_complete) {
+          setCaVisitStatus('complete')
+          setCaSecondVisitId(null)
+          setSubmitError('Site visits have already been completed for this CA.')
+          return
         }
-        if (survey.panchayat) {
-          setSelectedPanchayat({ value: survey.panchayat, label: survey.panchayat })
-        }
-        setVillage(survey.village || '')
-        if (!isSecondVisitMode) {
-          setLatitude(survey.latitude || '')
-          setLongitude(survey.longitude || '')
-        } else {
-          handleDetectGps()
-        }
-        setSerialNumbers({
-          panel1_qr: survey.panel_one_no || '',
-          panel2_qr: survey.panel_two_no || '',
-          inverter_qr: survey.inverter_no || '',
-        })
-        const notes = parseUlaSurveyVisitNotes(survey)
-        setVisit1Remarks(notes.visit1Note)
-        setVisit2Remarks('')
+        applyLoadedSurveyForSecondVisit(survey)
       })
-      .catch(() => {
-        setSubmitError('Failed to load ULA record for 2nd visit.')
+      .catch((err) => {
+        setSubmitError(
+          err?.response?.data?.message || 'Failed to load ULA record for 2nd visit.'
+        )
       })
       .finally(() => setIsLoadingRecord(false))
-  }, [isSecondVisitMode, recordId])
+  }, [isSecondVisitMode, effectiveRecordId])
 
   const handleDetectGps = () => {
     if (!navigator.geolocation) return
@@ -429,6 +533,12 @@ const BiharUlaForm = () => {
     e.preventDefault()
     setSubmitError('')
     setSubmitSuccess(false)
+
+    if (caVisitStatus === 'complete') {
+      setSubmitError('Site visits have already been completed for this CA.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
 
     if (!caNumber.trim()) {
       setSubmitError('Please enter CA Number.')
@@ -544,9 +654,9 @@ const BiharUlaForm = () => {
     setIsSubmitting(true)
 
     try {
-      if (visitType === '2nd Visit' && recordId) {
+      if (visitType === '2nd Visit' && effectiveRecordId) {
         await submitUlaSecondVisit({
-          recordId,
+          recordId: effectiveRecordId,
           images,
           latitude,
           longitude,
@@ -673,6 +783,24 @@ const BiharUlaForm = () => {
           </div>
         )}
 
+        {caVisitStatus === 'complete' && (
+          <div className="alert alert-warning mb-0" role="status">
+            <strong>Site visits already completed.</strong> 1st and 2nd visits are on file for
+            this CA. You cannot start a new survey for this consumer account.
+          </div>
+        )}
+
+        {caVisitStatus === 'second_pending' && isSecondVisitMode && !isLoadingRecord && (
+          <div className="alert alert-info py-2 fs-13 mb-0" role="status">
+            <strong>1st visit done</strong> · <strong>2nd visit pending</strong> — any surveyor
+            can complete the two photos below.
+          </div>
+        )}
+
+        {isLoadingRecord && isSecondVisitMode && !loadedSurvey && (
+          <div className="alert alert-light py-2 fs-13 mb-0">Loading saved 1st visit…</div>
+        )}
+
         {locationLoadError && !isSecondVisitMode && (
           <div className="alert alert-warning py-2 fs-13" role="alert">
             {locationLoadError}
@@ -680,6 +808,62 @@ const BiharUlaForm = () => {
         )}
 
         {!isSecondVisitMode && (
+          <>
+        {/* =========================================
+            CA NUMBER (first on 1st visit)
+        ========================================= */}
+        <SectionHeading
+          icon={<FiHash size={16} />}
+          title="CA Number"
+          subtitle="Enter consumer account number first — existing sites open 2nd visit or show completed"
+        />
+
+        <div className="row g-3">
+          <div className="col-lg-6 col-md-8">
+            <FormLabelHi en="CA Number" hi={ULA_FORM_LABELS_HI.caNumber} required />
+            <div className="input-group">
+              <span className="input-group-text bg-light text-muted">
+                <FiHash size={14} />
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                className={`form-control${uniqueFieldErrors.ca_no ? ' is-invalid' : ''}`}
+                placeholder="e.g. 1029384756"
+                value={caNumber}
+                onChange={(e) => {
+                  setCaNumber(sanitizeCaNumberInput(e.target.value))
+                  if (uniqueFieldErrors.ca_no) {
+                    setUniqueFieldErrors((prev) => ({ ...prev, ca_no: '' }))
+                  }
+                  if (caVisitStatus || caSecondVisitId) {
+                    resetCaVisitFlow()
+                  }
+                }}
+                onBlur={() => {
+                  if (isValidCaNumber(caNumber)) {
+                    resolveCaRegistrationOnBlur(caNumber)
+                  }
+                }}
+                required
+                disabled={caVisitStatus === 'complete'}
+                pattern="\d*"
+              />
+            </div>
+            {uniqueFieldErrors.ca_no ? (
+              <div className="invalid-feedback d-block">{uniqueFieldErrors.ca_no}</div>
+            ) : (
+              <div className="fs-11 text-muted mt-1">
+                Digits only — tab out after CA to check 1st / 2nd visit status
+              </div>
+            )}
+          </div>
+        </div>
+
+        <hr className="border-dashed" />
+
+        {caVisitStatus !== 'complete' && (
           <>
         {/* =========================================
             LOCATION DETAILS
@@ -804,47 +988,10 @@ const BiharUlaForm = () => {
         <SectionHeading
           icon={<FiUser size={16} />}
           title="Consumer (CA) Details"
-          subtitle="Consumer Account Number, Beneficiary Name, and Visit Information"
+          subtitle="Beneficiary name, contact, and visit information"
         />
 
         <div className="row g-3">
-          {/* CA Number */}
-          <div className="col-lg-4 col-md-6">
-            <FormLabelHi en="CA Number" hi={ULA_FORM_LABELS_HI.caNumber} required />
-            <div className="input-group">
-              <span className="input-group-text bg-light text-muted">
-                <FiHash size={14} />
-              </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                className={`form-control${uniqueFieldErrors.ca_no ? ' is-invalid' : ''}`}
-                placeholder="e.g. 1029384756"
-                value={caNumber}
-                onChange={(e) => {
-                  setCaNumber(sanitizeCaNumberInput(e.target.value))
-                  if (uniqueFieldErrors.ca_no) {
-                    setUniqueFieldErrors((prev) => ({ ...prev, ca_no: '' }))
-                  }
-                }}
-                onBlur={() => {
-                  if (!isSecondVisitMode && isValidCaNumber(caNumber)) {
-                    runUlaUniqueFieldCheck({ ca: caNumber, contact: '' })
-                  }
-                }}
-                required
-                readOnly={isSecondVisitMode}
-                pattern="\d*"
-              />
-            </div>
-            {uniqueFieldErrors.ca_no ? (
-              <div className="invalid-feedback d-block">{uniqueFieldErrors.ca_no}</div>
-            ) : (
-              <div className="fs-11 text-muted mt-1">Digits only — must be unique</div>
-            )}
-          </div>
-
           {/* CA Name */}
           <div className="col-lg-4 col-md-6">
             <FormLabelHi en="CA Name" hi={ULA_FORM_LABELS_HI.caName} required />
@@ -974,6 +1121,8 @@ const BiharUlaForm = () => {
         </div>
 
         <hr className="border-dashed" />
+          </>
+        )}
           </>
         )}
 
@@ -1142,6 +1291,8 @@ const BiharUlaForm = () => {
           </>
         )}
 
+        {caVisitStatus !== 'complete' && (
+          <>
         <SectionHeading
           icon={<FiPaperclip size={16} />}
           title={
@@ -1156,7 +1307,7 @@ const BiharUlaForm = () => {
           }
         />
 
-        {isLoadingRecord && (
+        {isLoadingRecord && isSecondVisitMode && !loadedSurvey && (
           <div className="alert alert-info d-flex align-items-center gap-2">
             <FiLoader className="spin" /> Loading saved 1st visit data…
           </div>
@@ -1353,6 +1504,8 @@ const BiharUlaForm = () => {
             )
           })}
         </div>
+          </>
+        )}
 
         {/* =========================================
             SUBMIT / CANCEL
@@ -1366,18 +1519,20 @@ const BiharUlaForm = () => {
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            className="btn btn-primary mt-4 d-inline-flex align-items-center gap-2"
-            disabled={isSubmitting}
-          >
-            {isSubmitting && <FiLoader className="spin" size={14} />}
-            {isSubmitting
-              ? 'Submitting...'
-              : visitType === '2nd Visit'
-                ? 'Save 2nd visit'
-                : 'Save 1st visit'}
-          </button>
+          {caVisitStatus !== 'complete' && (
+            <button
+              type="submit"
+              className="btn btn-primary mt-4 d-inline-flex align-items-center gap-2"
+              disabled={isSubmitting || (isSecondVisitMode && isLoadingRecord)}
+            >
+              {isSubmitting && <FiLoader className="spin" size={14} />}
+              {isSubmitting
+                ? 'Submitting...'
+                : visitType === '2nd Visit'
+                  ? 'Save 2nd visit'
+                  : 'Save 1st visit'}
+            </button>
+          )}
         </div>
       </div>
     </div>
