@@ -44,6 +44,7 @@ import {
   isValidIndianMobile,
 } from './ulaHelpers'
 import { resolveUploadUrl } from '../../../utils/uploadUrl'
+import { getApiErrorMessage } from '../../../utils/apiError'
 import '../../../styles/camera-capture.css'
 import '../../../styles/bihar-ula.css'
 import UlaPhotoLightbox from './UlaPhotoLightbox'
@@ -109,6 +110,7 @@ const BiharUlaForm = () => {
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
   const [isLocating, setIsLocating] = useState(false)
+  const [gpsError, setGpsError] = useState('')
 
   const [visitType, setVisitType] = useState(isSecondVisitMode ? '2nd Visit' : '1st Visit')
   const [solarMeterOnFirstVisit, setSolarMeterOnFirstVisit] = useState(false)
@@ -448,19 +450,38 @@ const BiharUlaForm = () => {
   }, [isSecondVisitMode, effectiveRecordId])
 
   const handleDetectGps = () => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setGpsError('Location is not supported on this device.')
+      return
+    }
     setIsLocating(true)
+    setGpsError('')
+
+    const applyPosition = (pos) => {
+      setLatitude(pos.coords.latitude.toFixed(6))
+      setLongitude(pos.coords.longitude.toFixed(6))
+      refreshDateTime()
+      setGpsError('')
+      setIsLocating(false)
+    }
+
+    const failGps = () => {
+      setIsLocating(false)
+      setGpsError(
+        'GPS timed out. Turn on location, move to open sky if needed, then tap Auto Detect GPS again.'
+      )
+    }
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(pos.coords.latitude.toFixed(6))
-        setLongitude(pos.coords.longitude.toFixed(6))
-        refreshDateTime()
-        setIsLocating(false)
-      },
+      applyPosition,
       () => {
-        setIsLocating(false)
+        navigator.geolocation.getCurrentPosition(applyPosition, failGps, {
+          enableHighAccuracy: false,
+          timeout: 20000,
+          maximumAge: 120000,
+        })
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
     )
   }
 
@@ -693,9 +714,7 @@ const BiharUlaForm = () => {
       if (Array.isArray(conflicts) && conflicts.length) {
         applyUlaUniqueCheckToFields({ available: false, conflicts, validation: {} })
       }
-      setSubmitError(
-        err?.response?.data?.message || err?.message || 'Failed to submit ULA form.'
-      )
+      setSubmitError(getApiErrorMessage(err, 'Failed to submit ULA form.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -977,6 +996,7 @@ const BiharUlaForm = () => {
                 ? '2nd visit GPS — tap Auto Detect before capturing 2nd visit photos.'
                 : 'GPS only — tap "Auto Detect GPS" to refresh (not editable).'}
             </div>
+            {gpsError ? <div className="fs-12 text-danger mt-1">{gpsError}</div> : null}
           </div>
         </div>
 
@@ -1266,6 +1286,7 @@ const BiharUlaForm = () => {
                   <input type="text" className="form-control bg-light" value={latitude} readOnly />
                   <input type="text" className="form-control bg-light" value={longitude} readOnly />
                 </div>
+                {gpsError ? <div className="fs-12 text-danger mt-1">{gpsError}</div> : null}
               </div>
               <div className="col-lg-4">
                 <label className="form-label">Capture time</label>

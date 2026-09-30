@@ -774,24 +774,29 @@ export const createBiharUlaFirstVisit = async (req, res) => {
 
     const caFolderKey = sanitizeUlaCaFolder(caNoNormalized);
     const files = req.files || {};
-    const stored = {};
 
-    for (const [fieldName, objectBasename] of VISIT1_FILE_MAP) {
+    const uploadJobs = VISIT1_FILE_MAP.map(async ([fieldName, objectBasename]) => {
       const file = files[fieldName]?.[0];
-      if (file) {
-        stored[fieldName] = await persistFileField(file, caFolderKey, objectBasename);
-      }
-    }
+      if (!file) return null;
+      return [fieldName, await persistFileField(file, caFolderKey, objectBasename)];
+    });
 
-    let structurePath = null;
     const structureFile = files.structure_img?.[0];
     if (structureFile) {
-      structurePath = await persistFileField(
-        structureFile,
-        caFolderKey,
-        "structure_img"
+      uploadJobs.push(
+        persistFileField(structureFile, caFolderKey, "structure_img").then((storedPath) => [
+          "structure_img",
+          storedPath,
+        ])
       );
     }
+
+    const stored = {};
+    for (const entry of await Promise.all(uploadJobs)) {
+      if (!entry) continue;
+      stored[entry[0]] = entry[1];
+    }
+    const structurePath = stored.structure_img || null;
 
     const required = [
       "panel_one_img",
@@ -978,16 +983,10 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
     }
 
     const caFolderKey = sanitizeUlaCaFolder(existing.ca_no);
-    const solar_meter_img2 = await persistFileField(
-      solarFile,
-      caFolderKey,
-      "solar_meter_img2"
-    );
-    const system_img2 = await persistFileField(
-      systemFile,
-      caFolderKey,
-      "system_img2"
-    );
+    const [solar_meter_img2, system_img2] = await Promise.all([
+      persistFileField(solarFile, caFolderKey, "solar_meter_img2"),
+      persistFileField(systemFile, caFolderKey, "system_img2"),
+    ]);
 
     const surveyorName2 = await resolveUserDisplayName(userId);
     const secondVisitAt = new Date();
@@ -1141,7 +1140,7 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
 
     const { default: archiver } = await import("archiver");
-    const archive = archiver("zip", { zlib: { level: 9 } });
+    const archive = archiver("zip", { zlib: { level: 6 } });
     archive.on("error", (err) => {
       console.error("BIHAR ULA ZIP ARCHIVE ERROR:", err);
       if (!res.headersSent) {
@@ -1150,8 +1149,13 @@ export const downloadBiharUlaImagesZip = async (req, res) => {
     });
     archive.pipe(res);
 
-    for (const { stored, zipName } of entries) {
-      const buffer = await readStoredFileBuffer(stored);
+    const zippedFiles = await Promise.all(
+      entries.map(async ({ stored, zipName }) => ({
+        zipName,
+        buffer: await readStoredFileBuffer(stored),
+      }))
+    );
+    for (const { buffer, zipName } of zippedFiles) {
       if (buffer?.length) {
         archive.append(buffer, { name: zipName });
       }
@@ -1290,13 +1294,22 @@ export const updateBiharUlaSurveyPortal = async (req, res) => {
     const caFolderKey = sanitizeUlaCaFolder(data.ca_no ?? existing.ca_no);
     const files = req.files || {};
 
-    for (const [fieldName, objectBasename] of PORTAL_ULA_EDIT_FILE_MAP) {
-      const file = files[fieldName]?.[0];
-      if (!file) continue;
-      data[fieldName] = await persistFileField(file, caFolderKey, objectBasename);
+    const uploadedFields = (
+      await Promise.all(
+        PORTAL_ULA_EDIT_FILE_MAP.map(async ([fieldName, objectBasename]) => {
+          const file = files[fieldName]?.[0];
+          if (!file) return null;
+          return [fieldName, await persistFileField(file, caFolderKey, objectBasename)];
+        })
+      )
+    ).filter(Boolean);
+
+    for (const [fieldName, storedPath] of uploadedFields) {
       if (fieldName === "structure_img") {
-        remarksMetaPatch.structure_img = data[fieldName];
+        remarksMetaPatch.structure_img = storedPath;
+        continue;
       }
+      data[fieldName] = storedPath;
     }
 
     const nextCa = data.ca_no ?? existing.ca_no;

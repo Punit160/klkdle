@@ -394,11 +394,44 @@ export const dataUrlToBlob = async (dataUrl) => {
   return new Blob([await blob.arrayBuffer()], { type: mime })
 }
 
+/** Keep stamp text readable while staying well under proxy and mobile upload limits. */
+const ULA_UPLOAD_MAX_EDGE = 1600
+const ULA_UPLOAD_JPEG_QUALITY = 0.8
+export const ULA_UPLOAD_TIMEOUT_MS = 180000
+
+const compressDataUrlForUpload = (dataUrl) =>
+  new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const width = img.naturalWidth || img.width || 1
+      const height = img.naturalHeight || img.height || 1
+      const scale = Math.min(1, ULA_UPLOAD_MAX_EDGE / Math.max(width, height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(width * scale))
+      canvas.height = Math.max(1, Math.round(height * scale))
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Could not prepare photo for upload.'))
+            return
+          }
+          resolve(blob)
+        },
+        'image/jpeg',
+        ULA_UPLOAD_JPEG_QUALITY
+      )
+    }
+    img.onerror = () => reject(new Error('Could not read captured photo.'))
+    img.src = dataUrl
+  })
+
 /** FormData part with explicit JPEG type (avoids multer rejecting application/octet-stream). */
 export const dataUrlToUploadFile = async (dataUrl, filename) => {
-  const blob = await dataUrlToBlob(dataUrl)
-  const type = blob.type?.startsWith('image/') ? blob.type : 'image/jpeg'
-  return new File([blob], filename, { type })
+  const blob = await compressDataUrlForUpload(dataUrl)
+  const safeName = String(filename || 'photo.jpg').replace(/\.\w+$/, '.jpg')
+  return new File([blob], safeName, { type: 'image/jpeg' })
 }
 
 export const formatIndianDateTime = (date = new Date()) => {
@@ -657,6 +690,7 @@ export const fetchUlaSurveyById = async (id) => {
 export const downloadUlaImagesZip = async (id, caNumber) => {
   const res = await localApi.get(api.biharUla.downloadImagesZip(id), {
     responseType: 'blob',
+    timeout: ULA_UPLOAD_TIMEOUT_MS,
   })
   const blob = res.data
   const safeName = String(caNumber || id)
@@ -751,6 +785,7 @@ export const submitUlaFirstVisit = async ({
 
   const res = await localApi.post(api.biharUla.store, fd, {
     headers: { 'Content-Type': undefined },
+    timeout: ULA_UPLOAD_TIMEOUT_MS,
   })
   return res?.data
 }
@@ -771,6 +806,7 @@ export const submitUlaSecondVisit = async ({ recordId, images, latitude, longitu
 
   const res = await localApi.patch(api.biharUla.secondVisit(recordId), fd, {
     headers: { 'Content-Type': undefined },
+    timeout: ULA_UPLOAD_TIMEOUT_MS,
   })
   return res?.data
 }
