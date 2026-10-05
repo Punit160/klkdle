@@ -7,12 +7,14 @@ import {
   requireBiharUlaAdd,
   requireBiharUlaRead,
 } from "../../Middleware/portalModulePermission.js";
+import { requireUserMasterAdmin } from "../../Middleware/requireUserMasterAdmin.js";
 import {
   checkBiharUlaUniqueController,
   createBiharUlaFirstVisit,
   downloadBiharUlaImagesZip,
   getBiharUlaSurvey,
   listBiharUlaSurveys,
+  updateBiharUlaApproval,
   updateBiharUlaSecondVisit,
 } from "../../Controller/DLE-Controller/Bihar-ULA/bihar-ula-controller.js";
 
@@ -23,6 +25,7 @@ const ulaAdd = requireBiharUlaAdd();
 
 router.get("/list", ulaRead, listBiharUlaSurveys);
 router.get("/check-unique", ulaAdd, checkBiharUlaUniqueController);
+router.patch("/:id/approval", requireUserMasterAdmin, updateBiharUlaApproval);
 router.get("/:id/download-images", ulaRead, downloadBiharUlaImagesZip);
 router.get("/:id", ulaRead, getBiharUlaSurvey);
 router.post("/store", ulaAdd, biharUlaFirstVisitUpload, createBiharUlaFirstVisit);

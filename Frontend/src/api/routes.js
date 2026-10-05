@@ -174,6 +174,7 @@ export const api = {
     view: (id) => `/api/bihar/ula/${id}`,
     downloadImagesZip: (id) => `/api/bihar/ula/${id}/download-images`,
     secondVisit: (id) => `/api/bihar/ula/${id}/second-visit`,
+    approval: (id) => `/api/bihar/ula/${id}/approval`,
   },
 }
 

@@ -3,6 +3,7 @@ import {
   findAttendanceByUserAndDate,
 } from "../Model/DLE-Model/attendance-model.js";
 import { getISTDateString } from "../Utils/attendance-utils.js";
+import { USER_ROLE_ADMIN } from "../Utils/userRoles.js";
 
 /** Field work (Bihar / UP modules) allowed only while user is punched in today. */
 export const requireActivePunchIn = async (req, res, next) => {
@@ -13,6 +14,10 @@ export const requireActivePunchIn = async (req, res, next) => {
         success: false,
         message: "Authorization required.",
       });
+    }
+
+    if (Number(req.user?.role) === USER_ROLE_ADMIN) {
+      return next();
     }
 
     await autoPunchOutOpenRecords(userId);

@@ -8,6 +8,13 @@ import {
   readStoredFileBuffer,
 } from "../../../Utils/objectStorage.js";
 import { resolveJwtUserId } from "../../../Utils/requestUser.js";
+import { findUserById } from "../../../Model/DLE-Model/dle-user-model.js";
+import { isUserMasterAdmin } from "../../../Utils/userRoles.js";
+import {
+  AMC_DOC_APPROVAL,
+  buildAmcApprovalUpdateData,
+  serializeAmcApprovalFields,
+} from "../../../Utils/amcApproval.js";
 
 const surveyOwnedByUser = (row, userId) =>
   Boolean(row && userId && String(row.user_id) === String(userId));
@@ -248,10 +255,21 @@ const resolveUserCompanyFromDb = async (userId) => {
   }
 };
 
-/** Owner, same company, or any ULA user when 2nd visit is pending (team completion). */
+const requesterIsAdmin = async (req) => {
+  if (req.user?.role != null && req.user.role !== "") {
+    return isUserMasterAdmin({ role: req.user.role });
+  }
+  const userId = resolveJwtUserId(req);
+  if (!userId) return false;
+  const user = await findUserById(userId);
+  return isUserMasterAdmin(user);
+};
+
+/** Owner, same company, admin, or any ULA user when 2nd visit is pending (team completion). */
 const surveyAccessibleByDleUser = async (req, row) => {
   const userId = resolveJwtUserId(req);
   if (!row || !userId) return false;
+  if (await requesterIsAdmin(req)) return true;
   if (surveyOwnedByUser(row, userId)) return true;
   if (isSecondVisitPendingRow(row)) return true;
 
@@ -370,6 +388,7 @@ const serializeSurvey = (req, row, nameMap = new Map()) => {
     system_img2_url: url("system_img2"),
     first_visit_complete: Boolean(row.system_img),
     second_visit_complete: secondVisitIsComplete(row),
+    ...serializeAmcApprovalFields(row),
   };
 };
 
@@ -485,7 +504,11 @@ const findUlaSerialConflict = async (
 ) => {
   if (!serial) return null;
   const existing = await prisma.biharUlaSurvey.findFirst({
-    where: { [column]: serial, ...excludeSurveyIdFilter(excludeSurveyId) },
+    where: {
+      [column]: serial,
+      ...notRejectedSurveyFilter(),
+      ...excludeSurveyIdFilter(excludeSurveyId),
+    },
     select: { id: true, ca_no: true, [column]: true },
   });
   if (!existing) return null;
@@ -496,6 +519,11 @@ const findUlaSerialConflict = async (
     existing_ca_no: existing.ca_no,
   };
 };
+
+/** Pending and approved surveys keep CA, panel, and inverter numbers unique. Rejected rows do not. */
+const notRejectedSurveyFilter = () => ({
+  approval_status: { not: AMC_DOC_APPROVAL.REJECTED },
+});
 
 /** Safe folder segment: klkdle/biharula/{ca_no}/panel_one_img.jpg (flat — no subfolders per photo). */
 const excludeSurveyIdFilter = (excludeSurveyId) => {
@@ -520,7 +548,7 @@ const findUlaRegistrationConflicts = async ({
 
   if (caNo) {
     const byCa = await prisma.biharUlaSurvey.findFirst({
-      where: { ca_no: String(caNo), ...notSelf },
+      where: { ca_no: String(caNo), ...notRejectedSurveyFilter(), ...notSelf },
       select: { id: true, ca_no: true },
     });
     if (byCa) {
@@ -536,7 +564,11 @@ const findUlaRegistrationConflicts = async ({
 
   if (beneficiaryContact) {
     const byContact = await prisma.biharUlaSurvey.findFirst({
-      where: { beneficiary_contact: String(beneficiaryContact), ...notSelf },
+      where: {
+        beneficiary_contact: String(beneficiaryContact),
+        ...notRejectedSurveyFilter(),
+        ...notSelf,
+      },
       select: { id: true, ca_no: true, beneficiary_contact: true },
     });
     if (byContact) {
@@ -1039,7 +1071,11 @@ export const listBiharUlaSurveys = async (req, res) => {
       : "";
     let where;
 
-    if (jwtUserId) {
+    const adminView = jwtUserId ? await requesterIsAdmin(req) : false;
+
+    if (adminView) {
+      where = {};
+    } else if (jwtUserId) {
       // DLE app: rows where this user did 1st visit (user_id) or 2nd visit (user_id2).
       where = {
         OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }],
@@ -1057,7 +1093,7 @@ export const listBiharUlaSurveys = async (req, res) => {
       where,
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
     };
-    if (!portalCompanyId) {
+    if (!portalCompanyId && !adminView) {
       const limitRaw = req.query.limit;
       if (
         limitRaw != null &&
@@ -1076,6 +1112,7 @@ export const listBiharUlaSurveys = async (req, res) => {
 
     return res.json({
       success: true,
+      meta: { scope: adminView ? "all" : "mine" },
       data,
     });
   } catch (error) {
@@ -1083,6 +1120,68 @@ export const listBiharUlaSurveys = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to list ULA records.",
+    });
+  }
+};
+
+export const updateBiharUlaApproval = async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!/^\d+$/.test(id)) {
+      return res.status(422).json({
+        success: false,
+        message: "Valid ULA record id is required.",
+      });
+    }
+
+    const existing = await prisma.biharUlaSurvey.findUnique({
+      where: { id: BigInt(id) },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "ULA record not found." });
+    }
+
+    const { approval_status, approval_remarks } = req.body || {};
+    if (Number(approval_status) === 2 && !String(approval_remarks || "").trim()) {
+      return res.status(422).json({
+        success: false,
+        message: "Remarks are required when rejecting a ULA survey.",
+      });
+    }
+
+    const approvalBy =
+      String(req.actorUser?.name || req.actorUser?.email || "").trim() ||
+      resolveJwtUserId(req);
+
+    const data = buildAmcApprovalUpdateData({
+      approval_status,
+      approval_remarks,
+      approval_by: approvalBy,
+    });
+
+    const updated = await prisma.biharUlaSurvey.update({
+      where: { id: BigInt(id) },
+      data,
+    });
+
+    const status = Number(data.approval_status);
+    const message =
+      status === 1
+        ? "ULA survey approved."
+        : status === 2
+          ? "ULA survey rejected."
+          : "ULA survey set to pending.";
+
+    return res.json({
+      success: true,
+      message,
+      data: await serializeSurveyResponse(req, updated),
+    });
+  } catch (error) {
+    console.error("BIHAR ULA APPROVAL ERROR:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to update ULA approval.",
     });
   }
 };

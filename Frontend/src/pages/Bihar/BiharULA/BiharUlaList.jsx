@@ -8,7 +8,10 @@ import {
   FiCamera,
   FiSearch,
   FiRefreshCw,
+  FiCheck,
+  FiX,
 } from 'react-icons/fi'
+import Swal from 'sweetalert2'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import CardHeader from '@/components/shared/CardHeader'
 import CardLoader from '@/components/shared/CardLoader'
@@ -27,7 +30,15 @@ import {
   resolveUlaSurveyorDisplayName,
   resolveUlaSecondSurveyorDisplayName,
   resolveUlaSecondVisitAt,
+  updateUlaApproval,
 } from './ulaHelpers'
+import { userIsAdmin } from '../../../utils/userRoles'
+import {
+  AMC_DOC_APPROVAL,
+  getAmcApprovalBadgeClass,
+  getAmcApprovalLabel,
+} from '../../../utils/amcApproval'
+import { getApiErrorMessage } from '../../../utils/apiError'
 import '../../../styles/bihar-ula.css'
 
 const PER_PAGE = 15
@@ -42,14 +53,16 @@ const BiharUlaList = () => {
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [zipDownloadingId, setZipDownloadingId] = useState(null)
+  const [actionId, setActionId] = useState(null)
   const [listError, setListError] = useState('')
+  const isAdmin = userIsAdmin()
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setListError('')
     fetchUlaSurveys()
-      .then((rows) => {
+      .then(({ rows }) => {
         if (!cancelled) {
           setRecords(
             rows.map((row) => {
@@ -91,6 +104,8 @@ const BiharUlaList = () => {
               expectedPhotoCount:
                 expectedFirstVisitPhotoCount(row) +
                 (row.second_visit_complete ? 2 : 0),
+              approvalStatus: Number(row.approval_status ?? 0),
+              approvalRemarks: row.approval_remarks || '',
             }})
           )
         }
@@ -170,6 +185,70 @@ const BiharUlaList = () => {
     }
   }
 
+  const patchRecordApproval = (id, status, remarks) => {
+    setRecords((prev) =>
+      prev.map((row) =>
+        String(row.id) === String(id)
+          ? { ...row, approvalStatus: Number(status), approvalRemarks: remarks || '' }
+          : row
+      )
+    )
+  }
+
+  const handleApprove = async (row) => {
+    const result = await Swal.fire({
+      title: 'Approve this ULA survey?',
+      text: `CA ${row.caNumber || row.id} — ${row.caName || ''}`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Approve',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    })
+    if (!result.isConfirmed) return
+    setActionId(row.id)
+    setListError('')
+    try {
+      await updateUlaApproval(row.id, AMC_DOC_APPROVAL.APPROVED)
+      patchRecordApproval(row.id, AMC_DOC_APPROVAL.APPROVED, '')
+    } catch (err) {
+      setListError(getApiErrorMessage(err, 'Could not approve this ULA survey.'))
+    } finally {
+      setActionId(null)
+    }
+  }
+
+  const handleReject = async (row) => {
+    const result = await Swal.fire({
+      title: 'Reject this ULA survey?',
+      text: `CA ${row.caNumber || row.id}`,
+      input: 'textarea',
+      inputLabel: 'Rejection remarks',
+      inputPlaceholder: 'Why is this survey rejected?',
+      inputValidator: (value) => {
+        if (!String(value || '').trim()) return 'Remarks are required to reject.'
+        return undefined
+      },
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Reject',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    })
+    if (!result.isConfirmed) return
+    const remarks = String(result.value || '').trim()
+    setActionId(row.id)
+    setListError('')
+    try {
+      await updateUlaApproval(row.id, AMC_DOC_APPROVAL.REJECTED, remarks)
+      patchRecordApproval(row.id, AMC_DOC_APPROVAL.REJECTED, remarks)
+    } catch (err) {
+      setListError(getApiErrorMessage(err, 'Could not reject this ULA survey.'))
+    } finally {
+      setActionId(null)
+    }
+  }
+
   const handleExportCSV = () => {
     if (!filteredRecords.length) {
       alert('No records to export.')
@@ -190,6 +269,7 @@ const BiharUlaList = () => {
       'Latitude',
       'Longitude',
       'Status',
+      'Approval',
       'Photos Count',
     ]
 
@@ -207,6 +287,7 @@ const BiharUlaList = () => {
       r.latitude || '',
       r.longitude || '',
       r.secondVisitComplete ? '2nd complete' : r.firstVisitComplete ? '1st complete' : 'Draft',
+      getAmcApprovalLabel(r.approvalStatus),
       r.imagesCount,
     ])
 
@@ -262,7 +343,11 @@ const BiharUlaList = () => {
           <div className="col-lg-12">
             <div className={`card stretch stretch-full ${isExpanded ? 'card-fullscreen' : ''}`}>
               <CardHeader
-                title="Bihar ULA — Solar Rooftop Surveys"
+                title={
+                  isAdmin
+                    ? 'Bihar ULA — All surveys'
+                    : 'Bihar ULA — Solar Rooftop Surveys'
+                }
                 refresh={handleRefresh}
                 remove={handleDelete}
                 expanded={handleExpand}
@@ -391,7 +476,15 @@ const BiharUlaList = () => {
                                 </div>
                               </td>
                               <td>
-                                <span className={visitPillClass(row)}>{visitPillLabel(row)}</span>
+                                <div className="d-flex flex-column align-items-start gap-1">
+                                  <span className={visitPillClass(row)}>{visitPillLabel(row)}</span>
+                                  <span
+                                    className={`badge ${getAmcApprovalBadgeClass(row.approvalStatus)}`}
+                                    title={row.approvalRemarks || getAmcApprovalLabel(row.approvalStatus)}
+                                  >
+                                    {getAmcApprovalLabel(row.approvalStatus)}
+                                  </span>
+                                </div>
                               </td>
                               <td className="ula-surveyor-cell">
                                 <div className="ula-visit-datetime-line">
@@ -511,6 +604,36 @@ const BiharUlaList = () => {
                                     >
                                       2nd visit
                                     </button>
+                                  )}
+                                  {isAdmin && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-success text-nowrap d-inline-flex align-items-center gap-1"
+                                        disabled={
+                                          actionId === row.id ||
+                                          row.approvalStatus === AMC_DOC_APPROVAL.APPROVED
+                                        }
+                                        onClick={() => handleApprove(row)}
+                                        title="Approve survey"
+                                      >
+                                        <FiCheck size={13} aria-hidden />
+                                        Approve
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-warning text-nowrap d-inline-flex align-items-center gap-1"
+                                        disabled={
+                                          actionId === row.id ||
+                                          row.approvalStatus === AMC_DOC_APPROVAL.REJECTED
+                                        }
+                                        onClick={() => handleReject(row)}
+                                        title="Reject survey"
+                                      >
+                                        <FiX size={13} aria-hidden />
+                                        Reject
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </td>
