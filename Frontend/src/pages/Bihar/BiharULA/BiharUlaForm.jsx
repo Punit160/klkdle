@@ -38,6 +38,7 @@ import {
   submitUlaFirstVisit,
   submitUlaSecondVisit,
   parseUlaSurveyVisitNotes,
+  ulaSolarMeterOnFirstVisit,
   sanitizeCaNumberInput,
   sanitizeMobileInput,
   isValidCaNumber,
@@ -211,11 +212,13 @@ const BiharUlaForm = () => {
       })
       const record = uniqueCheck?.existing_record
 
-      if (record?.second_visit_complete) {
+      if (record?.visits_complete || record?.second_visit_complete) {
         setCaVisitStatus('complete')
         setUniqueFieldErrors((prev) => ({
           ...prev,
-          ca_no: 'Site visits have already been completed for this CA.',
+          ca_no: record?.solar_meter_on_first_visit && !record?.second_visit_complete
+            ? 'Solar meter was captured on the 1st visit. A 2nd visit is not required for this CA.'
+            : 'Site visits have already been completed for this CA.',
         }))
         return false
       }
@@ -264,11 +267,13 @@ const BiharUlaForm = () => {
         beneficiaryContact: canCheckContact ? contactVal : '',
       })
       const record = uniqueCheck?.existing_record
-      if (canCheckCa && record?.second_visit_complete) {
+      if (canCheckCa && (record?.visits_complete || record?.second_visit_complete)) {
         setCaVisitStatus('complete')
         setUniqueFieldErrors((prev) => ({
           ...prev,
-          ca_no: 'Site visits have already been completed for this CA.',
+          ca_no: record?.solar_meter_on_first_visit && !record?.second_visit_complete
+            ? 'Solar meter was captured on the 1st visit. A 2nd visit is not required for this CA.'
+            : 'Site visits have already been completed for this CA.',
         }))
         return false
       }
@@ -433,10 +438,14 @@ const BiharUlaForm = () => {
           setSubmitError('ULA record not found for this CA.')
           return
         }
-        if (survey.second_visit_complete) {
+        if (survey.second_visit_complete || ulaSolarMeterOnFirstVisit(survey)) {
           setCaVisitStatus('complete')
           setCaSecondVisitId(null)
-          setSubmitError('Site visits have already been completed for this CA.')
+          setSubmitError(
+            ulaSolarMeterOnFirstVisit(survey) && !survey.second_visit_complete
+              ? 'Solar meter was captured on the 1st visit. A 2nd visit is not required for this CA.'
+              : 'Site visits have already been completed for this CA.'
+          )
           return
         }
         applyLoadedSurveyForSecondVisit(survey)
@@ -626,7 +635,11 @@ const BiharUlaForm = () => {
           panelOneNo: serialNumbers.panel1_qr,
           panelTwoNo: serialNumbers.panel2_qr,
           inverterNo: serialNumbers.inverter_qr,
+          latitude,
+          longitude,
         })
+        const gpsMsg = fieldMessageFromUlaUniqueCheck(uniqueCheck, 'gps')
+        if (gpsMsg) setGpsError(gpsMsg)
         if (applyUlaUniqueCheckToFields(uniqueCheck)) {
           const msg =
             uniqueCheck?.conflicts?.map((c) => c.message).join(' ') ||
@@ -640,6 +653,29 @@ const BiharUlaForm = () => {
       } catch (checkErr) {
         setSubmitError(
           checkErr?.response?.data?.message || 'Could not verify CA / contact uniqueness.'
+        )
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+    }
+
+    if (visitType === '2nd Visit') {
+      try {
+        const uniqueCheck = await checkUlaRegistrationUnique({
+          latitude,
+          longitude,
+          excludeId: effectiveRecordId,
+        })
+        const gpsMsg = fieldMessageFromUlaUniqueCheck(uniqueCheck, 'gps')
+        if (gpsMsg) {
+          setGpsError(gpsMsg)
+          setSubmitError(gpsMsg)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          return
+        }
+      } catch (checkErr) {
+        setSubmitError(
+          checkErr?.response?.data?.message || 'Could not verify GPS uniqueness.'
         )
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
@@ -713,6 +749,8 @@ const BiharUlaForm = () => {
       const conflicts = err?.response?.data?.conflicts
       if (Array.isArray(conflicts) && conflicts.length) {
         applyUlaUniqueCheckToFields({ available: false, conflicts, validation: {} })
+        const gpsMsg = fieldMessageFromUlaUniqueCheck({ conflicts }, 'gps')
+        if (gpsMsg) setGpsError(gpsMsg)
       }
       setSubmitError(getApiErrorMessage(err, 'Failed to submit ULA form.'))
     } finally {

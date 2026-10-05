@@ -26,14 +26,19 @@ const buildUlaExistingRecordSummary = (row) => {
   if (!row) return null;
   const first_visit_complete = Boolean(String(row.system_img ?? "").trim());
   const second_visit_complete = secondVisitIsComplete(row);
+  const solar_meter_on_first_visit = solarMeterCapturedOnFirstVisit(row);
+  const visits_complete =
+    first_visit_complete && (second_visit_complete || solar_meter_on_first_visit);
   let visit_status = "first_incomplete";
-  if (second_visit_complete) visit_status = "complete";
+  if (visits_complete) visit_status = "complete";
   else if (first_visit_complete) visit_status = "second_pending";
   return {
     id: row.id?.toString?.() ?? String(row.id),
     ca_no: row.ca_no,
     first_visit_complete,
     second_visit_complete,
+    solar_meter_on_first_visit,
+    visits_complete,
     visit_status,
   };
 };
@@ -223,8 +228,17 @@ const secondVisitIsComplete = (row) =>
       String(row?.solar_meter_img2 ?? "").trim()
   );
 
+const solarMeterCapturedOnFirstVisit = (row) =>
+  Boolean(String(row?.solar_meter_img ?? "").trim());
+
+/** 8 first-visit photos, including the solar meter, finish the site. No 2nd visit. */
+const siteVisitsAreComplete = (row) => {
+  const firstVisitDone = Boolean(String(row?.system_img ?? "").trim());
+  return firstVisitDone && (secondVisitIsComplete(row) || solarMeterCapturedOnFirstVisit(row));
+};
+
 const isSecondVisitPendingRow = (row) =>
-  Boolean(String(row?.system_img ?? "").trim()) && !secondVisitIsComplete(row);
+  Boolean(String(row?.system_img ?? "").trim()) && !siteVisitsAreComplete(row);
 
 const companiesMatch = (left, right) => {
   const a = String(left ?? "").trim();
@@ -388,6 +402,9 @@ const serializeSurvey = (req, row, nameMap = new Map()) => {
     system_img2_url: url("system_img2"),
     first_visit_complete: Boolean(row.system_img),
     second_visit_complete: secondVisitIsComplete(row),
+    solar_meter_on_first_visit: solarMeterCapturedOnFirstVisit(row),
+    second_visit_required: isSecondVisitPendingRow(row),
+    visits_complete: siteVisitsAreComplete(row),
     ...serializeAmcApprovalFields(row),
   };
 };
@@ -520,10 +537,105 @@ const findUlaSerialConflict = async (
   };
 };
 
-/** Pending and approved surveys keep CA, panel, and inverter numbers unique. Rejected rows do not. */
+/** Pending and approved surveys keep CA, panel, inverter, and GPS unique. Rejected rows do not. */
 const notRejectedSurveyFilter = () => ({
   approval_status: { not: AMC_DOC_APPROVAL.REJECTED },
 });
+
+/** Six decimal places — same precision the survey form stores from GPS. */
+const normalizeGpsCoord = (raw) => {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  const value = Number(text);
+  if (!Number.isFinite(value)) return null;
+  return value.toFixed(6);
+};
+
+const parseGpsPair = (latRaw, lngRaw) => {
+  const latitude = normalizeGpsCoord(latRaw);
+  const longitude = normalizeGpsCoord(lngRaw);
+  if (!latitude || !longitude) {
+    return { ok: false, message: "Latitude and longitude are required." };
+  }
+  const latNum = Number(latitude);
+  const lngNum = Number(longitude);
+  if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+    return { ok: false, message: "Latitude or longitude is out of range." };
+  }
+  return { ok: true, latitude, longitude, latNum, lngNum };
+};
+
+/**
+ * Another non-rejected site already uses this pin (1st or 2nd visit).
+ * The same site may reuse its own coordinates on the 2nd visit.
+ */
+const findUlaGpsConflict = async (latitude, longitude, excludeSurveyId = null) => {
+  const parsed = parseGpsPair(latitude, longitude);
+  if (!parsed.ok) return null;
+
+  let excludeId = null;
+  if (excludeSurveyId != null && excludeSurveyId !== "") {
+    try {
+      excludeId = BigInt(excludeSurveyId);
+    } catch {
+      excludeId = null;
+    }
+  }
+
+  const lat = parsed.latNum;
+  const lng = parsed.lngNum;
+  const rows = excludeId
+    ? await prisma.$queryRaw`
+        SELECT id, ca_no
+        FROM bihar_ula_site_survey
+        WHERE approval_status <> ${AMC_DOC_APPROVAL.REJECTED}
+          AND id <> ${excludeId}
+          AND (
+            (
+              latitude IS NOT NULL AND latitude <> ''
+              AND longitude IS NOT NULL AND longitude <> ''
+              AND ABS((latitude + 0) - ${lat}) < 0.0000005
+              AND ABS((longitude + 0) - ${lng}) < 0.0000005
+            )
+            OR (
+              latitude2 IS NOT NULL AND latitude2 <> ''
+              AND longitude2 IS NOT NULL AND longitude2 <> ''
+              AND ABS((latitude2 + 0) - ${lat}) < 0.0000005
+              AND ABS((longitude2 + 0) - ${lng}) < 0.0000005
+            )
+          )
+        LIMIT 1
+      `
+    : await prisma.$queryRaw`
+        SELECT id, ca_no
+        FROM bihar_ula_site_survey
+        WHERE approval_status <> ${AMC_DOC_APPROVAL.REJECTED}
+          AND (
+            (
+              latitude IS NOT NULL AND latitude <> ''
+              AND longitude IS NOT NULL AND longitude <> ''
+              AND ABS((latitude + 0) - ${lat}) < 0.0000005
+              AND ABS((longitude + 0) - ${lng}) < 0.0000005
+            )
+            OR (
+              latitude2 IS NOT NULL AND latitude2 <> ''
+              AND longitude2 IS NOT NULL AND longitude2 <> ''
+              AND ABS((latitude2 + 0) - ${lat}) < 0.0000005
+              AND ABS((longitude2 + 0) - ${lng}) < 0.0000005
+            )
+          )
+        LIMIT 1
+      `;
+
+  const existing = Array.isArray(rows) ? rows[0] : null;
+  if (!existing) return null;
+  return {
+    field: "gps",
+    message: `These coordinates are already used for CA ${existing.ca_no}. Each site must have its own latitude and longitude.`,
+    existing_id: existing.id?.toString?.() ?? String(existing.id),
+    existing_ca_no: existing.ca_no,
+  };
+};
 
 /** Safe folder segment: klkdle/biharula/{ca_no}/panel_one_img.jpg (flat — no subfolders per photo). */
 const excludeSurveyIdFilter = (excludeSurveyId) => {
@@ -541,6 +653,8 @@ const findUlaRegistrationConflicts = async ({
   panelOneNo,
   panelTwoNo,
   inverterNo,
+  latitude = null,
+  longitude = null,
   excludeSurveyId = null,
 }) => {
   const conflicts = [];
@@ -607,6 +721,11 @@ const findUlaRegistrationConflicts = async ({
     if (conflict) conflicts.push(conflict);
   }
 
+  if (String(latitude ?? "").trim() && String(longitude ?? "").trim()) {
+    const gpsConflict = await findUlaGpsConflict(latitude, longitude, excludeSurveyId);
+    if (gpsConflict) conflicts.push(gpsConflict);
+  }
+
   return conflicts;
 };
 
@@ -635,6 +754,9 @@ export const checkBiharUlaUniqueController = async (req, res) => {
       panelOneNo: req.query.panel_one_no,
       panelTwoNo: req.query.panel_two_no,
       inverterNo: req.query.inverter_no,
+      latitude: req.query.latitude,
+      longitude: req.query.longitude,
+      excludeSurveyId: req.query.exclude_id,
     });
 
     let existing_record = null;
@@ -786,12 +908,19 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       });
     }
 
+    const gpsParsed = parseGpsPair(latitude, longitude);
+    if (!gpsParsed.ok) {
+      return res.status(422).json({ success: false, message: gpsParsed.message });
+    }
+
     const conflicts = await findUlaRegistrationConflicts({
       caNo: caNoNormalized,
       beneficiaryContact: mobileParsed.value,
       panelOneNo: panelOneNormalized,
       panelTwoNo: panelTwoNormalized,
       inverterNo: inverterNormalized,
+      latitude: gpsParsed.latitude,
+      longitude: gpsParsed.longitude,
     });
 
     if (conflicts.length) {
@@ -854,13 +983,6 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       });
     }
 
-    if (!latitude?.trim() || !longitude?.trim()) {
-      return res.status(422).json({
-        success: false,
-        message: "Latitude and longitude are required.",
-      });
-    }
-
     if (
       String(solar_meter_on_first_visit).toLowerCase() === "true" ||
       solar_meter_on_first_visit === "1"
@@ -897,8 +1019,8 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         acdb_img: stored.acdb_img,
         system_img: stored.system_img,
         solar_meter_img: stored.solar_meter_img || null,
-        latitude: latitude?.trim() || null,
-        longitude: longitude?.trim() || null,
+        latitude: gpsParsed.latitude,
+        longitude: gpsParsed.longitude,
         user_id: clip(String(userId).trim(), 50),
         modification: null,
         remarks: mergeSurveyRemarksMeta(null, {
@@ -987,6 +1109,14 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       });
     }
 
+    if (solarMeterCapturedOnFirstVisit(existing)) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "2nd visit is not required. The solar meter photo was already captured on the 1st visit.",
+      });
+    }
+
     if (existing.system_img2 && existing.solar_meter_img2) {
       return res.status(409).json({
         success: false,
@@ -1007,10 +1137,24 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       });
     }
 
-    if (!latitude2?.trim() || !longitude2?.trim()) {
+    const gpsParsed = parseGpsPair(latitude2, longitude2);
+    if (!gpsParsed.ok) {
       return res.status(422).json({
         success: false,
-        message: "Latitude and longitude are required for 2nd visit.",
+        message: gpsParsed.message,
+      });
+    }
+
+    const gpsConflict = await findUlaGpsConflict(
+      gpsParsed.latitude,
+      gpsParsed.longitude,
+      id
+    );
+    if (gpsConflict) {
+      return res.status(409).json({
+        success: false,
+        message: gpsConflict.message,
+        conflicts: [gpsConflict],
       });
     }
 
@@ -1027,8 +1171,8 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       data: {
         solar_meter_img2,
         system_img2,
-        latitude2: latitude2?.trim() || null,
-        longitude2: longitude2?.trim() || null,
+        latitude2: gpsParsed.latitude,
+        longitude2: gpsParsed.longitude,
         user_id2: clip(String(userId).trim(), 50),
         second_visit_at: secondVisitAt,
         remarks: mergeSurveyRemarksMeta(existing.remarks, {
@@ -1423,6 +1567,26 @@ export const updateBiharUlaSurveyPortal = async (req, res) => {
       ? data.inverter_no
       : existing.inverter_no;
 
+    const gpsChecks = [];
+    if (bodyFieldProvided(body, "latitude") || bodyFieldProvided(body, "longitude")) {
+      gpsChecks.push([
+        Object.prototype.hasOwnProperty.call(data, "latitude") ? data.latitude : existing.latitude,
+        Object.prototype.hasOwnProperty.call(data, "longitude")
+          ? data.longitude
+          : existing.longitude,
+      ]);
+    }
+    if (bodyFieldProvided(body, "latitude2") || bodyFieldProvided(body, "longitude2")) {
+      gpsChecks.push([
+        Object.prototype.hasOwnProperty.call(data, "latitude2")
+          ? data.latitude2
+          : existing.latitude2,
+        Object.prototype.hasOwnProperty.call(data, "longitude2")
+          ? data.longitude2
+          : existing.longitude2,
+      ]);
+    }
+
     const conflicts = await findUlaRegistrationConflicts({
       caNo: nextCa,
       beneficiaryContact: nextContact,
@@ -1431,6 +1595,12 @@ export const updateBiharUlaSurveyPortal = async (req, res) => {
       inverterNo: nextInverter,
       excludeSurveyId: id,
     });
+
+    for (const [lat, lng] of gpsChecks) {
+      if (!String(lat ?? "").trim() || !String(lng ?? "").trim()) continue;
+      const gpsConflict = await findUlaGpsConflict(lat, lng, id);
+      if (gpsConflict) conflicts.push(gpsConflict);
+    }
 
     if (conflicts.length) {
       const primary = conflicts[0];

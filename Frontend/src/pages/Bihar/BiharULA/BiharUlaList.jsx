@@ -12,6 +12,7 @@ import {
   FiX,
 } from 'react-icons/fi'
 import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import CardHeader from '@/components/shared/CardHeader'
 import CardLoader from '@/components/shared/CardLoader'
@@ -31,6 +32,8 @@ import {
   resolveUlaSecondSurveyorDisplayName,
   resolveUlaSecondVisitAt,
   updateUlaApproval,
+  ulaSecondVisitNeeded,
+  ulaSolarMeterOnFirstVisit,
 } from './ulaHelpers'
 import { userIsAdmin } from '../../../utils/userRoles'
 import {
@@ -55,6 +58,9 @@ const BiharUlaList = () => {
   const [zipDownloadingId, setZipDownloadingId] = useState(null)
   const [actionId, setActionId] = useState(null)
   const [listError, setListError] = useState('')
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [rejectRemarks, setRejectRemarks] = useState('')
+  const [rejectRemarksError, setRejectRemarksError] = useState('')
   const isAdmin = userIsAdmin()
 
   useEffect(() => {
@@ -90,16 +96,17 @@ const BiharUlaList = () => {
               longitude: row.longitude,
               latitude2: row.latitude2,
               longitude2: row.longitude2,
-              solarMeterOnFirst: Boolean(row.solar_meter_img),
+              solarMeterOnFirst: ulaSolarMeterOnFirstVisit(row),
               secondVisitComplete: Boolean(row.second_visit_complete),
               firstVisitComplete: Boolean(row.first_visit_complete),
               visitType: row.second_visit_complete
                 ? 'Complete'
-                : row.first_visit_complete
-                  ? '1st done'
-                  : 'Draft',
-              secondVisitPending:
-                row.first_visit_complete && !row.second_visit_complete,
+                : ulaSolarMeterOnFirstVisit(row) && row.first_visit_complete
+                  ? 'Complete'
+                  : row.first_visit_complete
+                    ? '1st done'
+                    : 'Draft',
+              secondVisitPending: ulaSecondVisitNeeded(row),
               imagesCount: countUlaSurveyPhotos(row),
               expectedPhotoCount:
                 expectedFirstVisitPhotoCount(row) +
@@ -131,9 +138,7 @@ const BiharUlaList = () => {
     const total = records.length
     const secondComplete = records.filter((r) => r.secondVisitComplete).length
     const pendingSecond = records.filter((r) => r.secondVisitPending).length
-    const firstOnly = records.filter(
-      (r) => r.firstVisitComplete && !r.secondVisitComplete
-    ).length
+    const firstOnly = records.filter((r) => r.secondVisitPending).length
     return { total, secondComplete, pendingSecond, firstOnly }
   }, [records])
 
@@ -218,32 +223,36 @@ const BiharUlaList = () => {
     }
   }
 
-  const handleReject = async (row) => {
-    const result = await Swal.fire({
-      title: 'Reject this ULA survey?',
-      text: `CA ${row.caNumber || row.id}`,
-      input: 'textarea',
-      inputLabel: 'Rejection remarks',
-      inputPlaceholder: 'Why is this survey rejected?',
-      inputValidator: (value) => {
-        if (!String(value || '').trim()) return 'Remarks are required to reject.'
-        return undefined
-      },
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Reject',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
-    })
-    if (!result.isConfirmed) return
-    const remarks = String(result.value || '').trim()
-    setActionId(row.id)
+  const openReject = (row) => {
+    setRejectTarget(row)
+    setRejectRemarks('')
+    setRejectRemarksError('')
+  }
+
+  const closeReject = () => {
+    if (actionId) return
+    setRejectTarget(null)
+    setRejectRemarks('')
+    setRejectRemarksError('')
+  }
+
+  const submitReject = async () => {
+    const remarks = rejectRemarks.trim()
+    if (!remarks) {
+      setRejectRemarksError('Remarks are required to reject.')
+      return
+    }
+    if (!rejectTarget?.id) return
+    setActionId(rejectTarget.id)
     setListError('')
+    setRejectRemarksError('')
     try {
-      await updateUlaApproval(row.id, AMC_DOC_APPROVAL.REJECTED, remarks)
-      patchRecordApproval(row.id, AMC_DOC_APPROVAL.REJECTED, remarks)
+      await updateUlaApproval(rejectTarget.id, AMC_DOC_APPROVAL.REJECTED, remarks)
+      patchRecordApproval(rejectTarget.id, AMC_DOC_APPROVAL.REJECTED, remarks)
+      setRejectTarget(null)
+      setRejectRemarks('')
     } catch (err) {
-      setListError(getApiErrorMessage(err, 'Could not reject this ULA survey.'))
+      setRejectRemarksError(getApiErrorMessage(err, 'Could not reject this ULA survey.'))
     } finally {
       setActionId(null)
     }
@@ -286,7 +295,13 @@ const BiharUlaList = () => {
       `"${formatSecondSurveyorCell(r).replace(/"/g, '""')}"`,
       r.latitude || '',
       r.longitude || '',
-      r.secondVisitComplete ? '2nd complete' : r.firstVisitComplete ? '1st complete' : 'Draft',
+      r.secondVisitComplete
+        ? '2nd complete'
+        : r.solarMeterOnFirst && r.firstVisitComplete
+          ? 'Complete (solar meter on 1st visit)'
+          : r.firstVisitComplete
+            ? '1st complete'
+            : 'Draft',
       getAmcApprovalLabel(r.approvalStatus),
       r.imagesCount,
     ])
@@ -304,13 +319,16 @@ const BiharUlaList = () => {
   }
 
   const visitPillClass = (row) => {
-    if (row.secondVisitComplete) return 'ula-visit-pill ula-visit-pill--complete'
+    if (row.secondVisitComplete || (row.solarMeterOnFirst && row.firstVisitComplete)) {
+      return 'ula-visit-pill ula-visit-pill--complete'
+    }
     if (row.secondVisitPending) return 'ula-visit-pill ula-visit-pill--pending'
     return 'ula-visit-pill ula-visit-pill--first'
   }
 
   const visitPillLabel = (row) => {
     if (row.secondVisitComplete) return '2nd visit done'
+    if (row.solarMeterOnFirst && row.firstVisitComplete) return 'Complete'
     if (row.secondVisitPending) return '2nd visit pending'
     if (row.firstVisitComplete) return '1st visit done'
     return 'Draft'
@@ -627,7 +645,7 @@ const BiharUlaList = () => {
                                           actionId === row.id ||
                                           row.approvalStatus === AMC_DOC_APPROVAL.REJECTED
                                         }
-                                        onClick={() => handleReject(row)}
+                                        onClick={() => openReject(row)}
                                         title="Reject survey"
                                       >
                                         <FiX size={13} aria-hidden />
@@ -668,6 +686,78 @@ const BiharUlaList = () => {
           </div>
         </div>
       </div>
+      {rejectTarget ? (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 100000 }} />
+          <div
+            className="modal fade show d-block"
+            style={{ zIndex: 100001 }}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ula-reject-title"
+          >
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title" id="ula-reject-title">
+                    Reject ULA survey
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={closeReject}
+                    disabled={Boolean(actionId)}
+                  />
+                </div>
+                <div className="modal-body">
+                  <p className="fs-13 text-muted mb-3">
+                    CA {rejectTarget.caNumber || rejectTarget.id}
+                    {rejectTarget.caName ? ` — ${rejectTarget.caName}` : ''}
+                  </p>
+                  <label className="form-label" htmlFor="ula-reject-remarks">
+                    Remarks <span className="text-danger">*</span>
+                  </label>
+                  <textarea
+                    id="ula-reject-remarks"
+                    className={`form-control${rejectRemarksError ? ' is-invalid' : ''}`}
+                    rows={4}
+                    value={rejectRemarks}
+                    placeholder="Write the reason for rejection"
+                    onChange={(e) => {
+                      setRejectRemarks(e.target.value)
+                      if (rejectRemarksError) setRejectRemarksError('')
+                    }}
+                    autoFocus
+                  />
+                  {rejectRemarksError ? (
+                    <div className="invalid-feedback d-block">{rejectRemarksError}</div>
+                  ) : null}
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-light"
+                    onClick={closeReject}
+                    disabled={Boolean(actionId)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-warning"
+                    onClick={submitReject}
+                    disabled={Boolean(actionId)}
+                  >
+                    {actionId ? 'Rejecting…' : 'Reject'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
     </>
   )
 }

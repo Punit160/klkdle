@@ -146,8 +146,7 @@ const BiharUlaDetails = () => {
     record.secondVisitComplete ||
     secondVisitSlots.some((slot) => record.images?.[slot.key])
 
-  const secondVisitPending =
-    surveyRaw?.first_visit_complete && !surveyRaw?.second_visit_complete
+  const secondVisitPending = Boolean(record.secondVisitPending)
 
   const photoCount = Object.values(record.images || {}).filter(Boolean).length
 

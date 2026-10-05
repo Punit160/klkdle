@@ -385,6 +385,19 @@ export const countUlaSurveyPhotos = (row) => {
 export const expectedFirstVisitPhotoCount = (row) =>
   row?.solar_meter_img ? 8 : 7
 
+/** Solar meter captured with the 1st visit (the 8th photo). That site needs no 2nd visit. */
+export const ulaSolarMeterOnFirstVisit = (survey) =>
+  Boolean(
+    survey?.solar_meter_on_first_visit ||
+      survey?.solar_meter_img ||
+      survey?.solar_meter_img_url
+  )
+
+export const ulaSecondVisitNeeded = (survey) =>
+  Boolean(survey?.first_visit_complete) &&
+  !survey?.second_visit_complete &&
+  !ulaSolarMeterOnFirstVisit(survey)
+
 export const dataUrlToBlob = async (dataUrl) => {
   const res = await fetch(dataUrl)
   const blob = await res.blob()
@@ -724,6 +737,9 @@ export const checkUlaRegistrationUnique = async ({
   panelOneNo,
   panelTwoNo,
   inverterNo,
+  latitude,
+  longitude,
+  excludeId,
 }) => {
   const res = await localApi.get(api.biharUla.checkUnique, {
     params: {
@@ -732,6 +748,9 @@ export const checkUlaRegistrationUnique = async ({
       panel_one_no: String(panelOneNo || '').trim(),
       panel_two_no: String(panelTwoNo || '').trim(),
       inverter_no: String(inverterNo || '').trim(),
+      latitude: String(latitude || '').trim(),
+      longitude: String(longitude || '').trim(),
+      exclude_id: excludeId ? String(excludeId) : '',
     },
   })
   return res?.data
@@ -882,11 +901,14 @@ export const mapSurveyToDetailsRecord = (survey) => {
     longitude2: survey.longitude2,
     visitType: survey.second_visit_complete
       ? '2nd Visit complete'
-      : survey.first_visit_complete
-        ? '1st Visit complete'
-        : '1st Visit',
+      : ulaSolarMeterOnFirstVisit(survey) && survey.first_visit_complete
+        ? 'Complete (solar meter on 1st visit)'
+        : survey.first_visit_complete
+          ? '1st Visit complete'
+          : '1st Visit',
     firstVisitComplete: Boolean(survey.first_visit_complete),
     secondVisitComplete: Boolean(survey.second_visit_complete),
+    solarMeterOnFirst: ulaSolarMeterOnFirstVisit(survey),
     serialNumbers: {
       panel1_qr: survey.panel_one_no,
       panel2_qr: survey.panel_two_no,
@@ -911,8 +933,7 @@ export const mapSurveyToDetailsRecord = (survey) => {
     })(),
     createdById: survey.user_id,
     secondVisitById: survey.user_id2,
-    secondVisitPending:
-      survey.first_visit_complete && !survey.second_visit_complete,
+    secondVisitPending: ulaSecondVisitNeeded(survey),
     secondVisitAt: resolveUlaSecondVisitAt(survey),
     secondVisitAtDisplay: formatSurveyDateTimeDisplay(
       resolveUlaSecondVisitAt(survey)
