@@ -1,4 +1,5 @@
 import path from "node:path";
+import { Prisma } from "@prisma/client";
 import prisma from "../../../Config/Prisma.js";
 import { resolveStoredFileUrl } from "../../../Utils/publicUrl.js";
 import { persistModuleUpload } from "../../../Utils/amcObjectStorage.js";
@@ -173,6 +174,7 @@ const applyUserNamesToSerialized = (serialized, row, nameMap) => {
 };
 
 const enrichSurveysWithUserNames = async (req, rows) => {
+  await attachApprovalFields(rows);
   const nameMap = await loadUserDisplayNames(collectSurveyUserIds(rows));
   const serializedList = rows.map((row) =>
     applyUserNamesToSerialized(serializeSurvey(req, row, nameMap), row, nameMap)
@@ -523,7 +525,7 @@ const findUlaSerialConflict = async (
   const existing = await prisma.biharUlaSurvey.findFirst({
     where: {
       [column]: serial,
-      ...notRejectedSurveyFilter(),
+      ...(await notRejectedSurveyFilter()),
       ...excludeSurveyIdFilter(excludeSurveyId),
     },
     select: { id: true, ca_no: true, [column]: true },
@@ -537,10 +539,79 @@ const findUlaSerialConflict = async (
   };
 };
 
-/** Pending and approved surveys keep CA, panel, inverter, and GPS unique. Rejected rows do not. */
-const notRejectedSurveyFilter = () => ({
-  approval_status: { not: AMC_DOC_APPROVAL.REJECTED },
-});
+/** True when this process was started after `prisma generate` included approval columns. */
+const ulaClientHasApprovalField = () => {
+  const model = Prisma.dmmf?.datamodel?.models?.find((item) => item.name === "BiharUlaSurvey");
+  return Boolean(model?.fields?.some((field) => field.name === "approval_status"));
+};
+
+let ulaApprovalColumnsReady = false;
+
+/** Live servers can be running a Prisma client generated before these columns existed. */
+const ensureUlaApprovalColumns = async () => {
+  if (ulaApprovalColumnsReady) return;
+  const columns = await prisma.$queryRaw`
+    SHOW COLUMNS FROM bihar_ula_site_survey LIKE 'approval_status'
+  `;
+  if (!Array.isArray(columns) || columns.length === 0) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE \`bihar_ula_site_survey\`
+        ADD COLUMN \`approval_status\` TINYINT NOT NULL DEFAULT 0,
+        ADD COLUMN \`approval_date\` TIMESTAMP(0) NULL,
+        ADD COLUMN \`approval_remarks\` TEXT NULL,
+        ADD COLUMN \`approval_by\` VARCHAR(255) NULL
+    `);
+  }
+  ulaApprovalColumnsReady = true;
+};
+
+/**
+ * Pending and approved surveys keep CA, panel, inverter, and GPS unique. Rejected rows do not.
+ * When the generated client has no approval_status field, exclude rejected ids with raw SQL.
+ */
+const notRejectedSurveyFilter = async () => {
+  if (ulaClientHasApprovalField()) {
+    return { approval_status: { not: AMC_DOC_APPROVAL.REJECTED } };
+  }
+  await ensureUlaApprovalColumns();
+  const rejected = await prisma.$queryRaw`
+    SELECT id FROM bihar_ula_site_survey
+    WHERE approval_status = ${AMC_DOC_APPROVAL.REJECTED}
+  `;
+  const ids = (Array.isArray(rejected) ? rejected : [])
+    .map((row) => row.id)
+    .filter((id) => id != null);
+  if (!ids.length) return {};
+  return { id: { notIn: ids } };
+};
+
+/** Fill approval fields when the running Prisma client does not select them. */
+const attachApprovalFields = async (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const missing = rows.some(
+    (row) => row && !Object.prototype.hasOwnProperty.call(row, "approval_status")
+  );
+  if (!missing) return;
+  await ensureUlaApprovalColumns();
+  const ids = rows.map((row) => row?.id).filter((id) => id != null);
+  if (!ids.length) return;
+  const extras = await prisma.$queryRaw`
+    SELECT id, approval_status, approval_date, approval_remarks, approval_by
+    FROM bihar_ula_site_survey
+    WHERE id IN (${Prisma.join(ids)})
+  `;
+  const byId = new Map(
+    (Array.isArray(extras) ? extras : []).map((row) => [String(row.id), row])
+  );
+  for (const row of rows) {
+    const extra = byId.get(String(row?.id));
+    if (!extra) continue;
+    row.approval_status = Number(extra.approval_status ?? 0);
+    row.approval_date = extra.approval_date ?? null;
+    row.approval_remarks = extra.approval_remarks ?? null;
+    row.approval_by = extra.approval_by ?? null;
+  }
+};
 
 /** Six decimal places — same precision the survey form stores from GPS. */
 const normalizeGpsCoord = (raw) => {
@@ -572,6 +643,7 @@ const parseGpsPair = (latRaw, lngRaw) => {
 const findUlaGpsConflict = async (latitude, longitude, excludeSurveyId = null) => {
   const parsed = parseGpsPair(latitude, longitude);
   if (!parsed.ok) return null;
+  await ensureUlaApprovalColumns();
 
   let excludeId = null;
   if (excludeSurveyId != null && excludeSurveyId !== "") {
@@ -662,7 +734,7 @@ const findUlaRegistrationConflicts = async ({
 
   if (caNo) {
     const byCa = await prisma.biharUlaSurvey.findFirst({
-      where: { ca_no: String(caNo), ...notRejectedSurveyFilter(), ...notSelf },
+      where: { ca_no: String(caNo), ...(await notRejectedSurveyFilter()), ...notSelf },
       select: { id: true, ca_no: true },
     });
     if (byCa) {
@@ -680,7 +752,7 @@ const findUlaRegistrationConflicts = async ({
     const byContact = await prisma.biharUlaSurvey.findFirst({
       where: {
         beneficiary_contact: String(beneficiaryContact),
-        ...notRejectedSurveyFilter(),
+        ...(await notRejectedSurveyFilter()),
         ...notSelf,
       },
       select: { id: true, ca_no: true, beneficiary_contact: true },
@@ -1303,9 +1375,27 @@ export const updateBiharUlaApproval = async (req, res) => {
       approval_by: approvalBy,
     });
 
-    const updated = await prisma.biharUlaSurvey.update({
+    await ensureUlaApprovalColumns();
+    if (ulaClientHasApprovalField()) {
+      await prisma.biharUlaSurvey.update({
+        where: { id: BigInt(id) },
+        data,
+      });
+    } else {
+      await ensureUlaApprovalColumns();
+      await prisma.$executeRaw`
+        UPDATE bihar_ula_site_survey
+        SET approval_status = ${data.approval_status},
+            approval_remarks = ${data.approval_remarks},
+            approval_by = ${data.approval_by},
+            approval_date = ${data.approval_date},
+            updated_at = ${data.updated_at}
+        WHERE id = ${BigInt(id)}
+      `;
+    }
+
+    const updated = await prisma.biharUlaSurvey.findUnique({
       where: { id: BigInt(id) },
-      data,
     });
 
     const status = Number(data.approval_status);

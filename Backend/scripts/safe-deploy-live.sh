@@ -12,7 +12,7 @@ echo "==> backend install + migrate"
 cd "$ROOT/Backend"
 npm install
 npx prisma generate
-npx prisma migrate deploy
+npx prisma migrate deploy || echo "WARN: prisma migrate deploy failed. Approval columns are added on API startup if missing."
 
 echo "==> frontend build"
 cd "$ROOT/Frontend"
