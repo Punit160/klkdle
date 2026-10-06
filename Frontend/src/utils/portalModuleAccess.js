@@ -30,6 +30,7 @@ export const PAGE_PATH_PORTAL_PERMISSIONS = {
   [pages.bihar.ulaForm]: [PORTAL_BIHAR_ULA_ADD],
   [pages.bihar.ulaList]: [PORTAL_BIHAR_ULA_READ],
   [pages.bihar.ulaDetails]: [PORTAL_BIHAR_ULA_READ],
+  [pages.bihar.ulaDashboard]: [PORTAL_BIHAR_ULA_READ, PORTAL_BIHAR_ULA_ADD],
 
   [pages.up.amcDashboard]: [PORTAL_UP_SSL_AMC_DASHBOARD, PORTAL_UP_SSL_AMC_READ],
   [pages.up.amcUpload]: [PORTAL_UP_SSL_AMC_ADD],

@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { menuList } from "@/components/shared/navigationMenu/menuList";
 import getIcon from "@/utils/getIcon";
 import { getUser } from "@/utils/auth";
+import { userIsAdmin } from "@/utils/userRoles";
 import { filterMenuByUserState, getFieldModulesPunchInLabel } from "@/utils/stateAccess";
 import { usePunchInStatus } from "@/hooks/usePunchInStatus";
 import { openPunchInFirstModal } from "../../../utils/punchInModal";
@@ -30,7 +31,7 @@ const Menus = () => {
     const visibleMenu = filterMenuByUserState(menuList, user);
 
     const blockFieldModuleNav = (event, groupId) => {
-        if (punchLoading || isPunchedIn || !FIELD_MODULE_GROUPS.has(groupId)) {
+        if (userIsAdmin(user) || punchLoading || isPunchedIn || !FIELD_MODULE_GROUPS.has(groupId)) {
             return false;
         }
         event.preventDefault();

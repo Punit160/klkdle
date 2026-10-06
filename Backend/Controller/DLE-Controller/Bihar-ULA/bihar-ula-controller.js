@@ -1340,6 +1340,41 @@ export const listBiharUlaSurveys = async (req, res) => {
   }
 };
 
+/** Admin sees every site. A field user sees only surveys they did (1st or 2nd visit). */
+export const getBiharUlaReport = async (req, res) => {
+  try {
+    const jwtUserId = String(resolveJwtUserId(req) || "").trim();
+    if (!jwtUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Login required to open the ULA dashboard.",
+      });
+    }
+
+    const adminView = await requesterIsAdmin(req);
+    const where = adminView
+      ? {}
+      : { OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }] };
+
+    const rows = await prisma.biharUlaSurvey.findMany({
+      where,
+      orderBy: [{ created_at: "desc" }, { id: "desc" }],
+    });
+    const data = await enrichSurveysWithUserNames(req, rows);
+    return res.json({
+      success: true,
+      meta: { scope: adminView ? "all" : "mine", total: data.length },
+      data,
+    });
+  } catch (error) {
+    console.error("BIHAR ULA REPORT ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to build ULA report.",
+    });
+  }
+};
+
 export const updateBiharUlaApproval = async (req, res) => {
   try {
     const id = String(req.params.id || "");

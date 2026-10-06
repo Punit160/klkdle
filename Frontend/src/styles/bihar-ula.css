@@ -20,6 +20,17 @@
   background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
 }
 
+button.ula-stat-card {
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
+button.ula-stat-card.is-active {
+  border-color: #3454d1;
+  box-shadow: 0 0 0 2px rgba(52, 84, 209, 0.16);
+}
+
 .ula-stat-card .ula-stat-value {
   font-size: 22px;
   font-weight: 800;

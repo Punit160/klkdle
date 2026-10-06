@@ -54,6 +54,7 @@ const BiharUlaList = () => {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [approvalFilter, setApprovalFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [zipDownloadingId, setZipDownloadingId] = useState(null)
   const [actionId, setActionId] = useState(null)
@@ -139,13 +140,21 @@ const BiharUlaList = () => {
     const secondComplete = records.filter((r) => r.secondVisitComplete).length
     const pendingSecond = records.filter((r) => r.secondVisitPending).length
     const firstOnly = records.filter((r) => r.secondVisitPending).length
-    return { total, secondComplete, pendingSecond, firstOnly }
+    const approved = records.filter((r) => r.approvalStatus === AMC_DOC_APPROVAL.APPROVED).length
+    const rejected = records.filter((r) => r.approvalStatus === AMC_DOC_APPROVAL.REJECTED).length
+    return { total, secondComplete, pendingSecond, firstOnly, approved, rejected }
   }, [records])
 
   const filteredRecords = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return records
     return records.filter((r) => {
+      if (approvalFilter === 'approved' && r.approvalStatus !== AMC_DOC_APPROVAL.APPROVED) {
+        return false
+      }
+      if (approvalFilter === 'rejected' && r.approvalStatus !== AMC_DOC_APPROVAL.REJECTED) {
+        return false
+      }
+      if (!q) return true
       const hay = [
         r.caNumber,
         r.caName,
@@ -161,11 +170,15 @@ const BiharUlaList = () => {
         .toLowerCase()
       return hay.includes(q)
     })
-  }, [records, search])
+  }, [records, search, approvalFilter])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search])
+  }, [search, approvalFilter])
+
+  const toggleApprovalFilter = (key) => {
+    setApprovalFilter((prev) => (prev === key ? '' : key))
+  }
 
   const paginatedRecords = useMemo(() => {
     const start = (currentPage - 1) * PER_PAGE
@@ -372,10 +385,14 @@ const BiharUlaList = () => {
               />
               <div className="card-body custom-card-action p-0">
                 <div className="ula-stat-grid">
-                  <div className="ula-stat-card">
+                  <button
+                    type="button"
+                    className={`ula-stat-card${approvalFilter === '' ? ' is-active' : ''}`}
+                    onClick={() => setApprovalFilter('')}
+                  >
                     <div className="ula-stat-value">{stats.total}</div>
                     <div className="ula-stat-label">Total records</div>
-                  </div>
+                  </button>
                   <div className="ula-stat-card">
                     <div className="ula-stat-value text-primary">{stats.firstOnly}</div>
                     <div className="ula-stat-label">Awaiting 2nd visit</div>
@@ -388,6 +405,22 @@ const BiharUlaList = () => {
                     <div className="ula-stat-value text-success">{stats.secondComplete}</div>
                     <div className="ula-stat-label">Fully complete</div>
                   </div>
+                  <button
+                    type="button"
+                    className={`ula-stat-card${approvalFilter === 'approved' ? ' is-active' : ''}`}
+                    onClick={() => toggleApprovalFilter('approved')}
+                  >
+                    <div className="ula-stat-value text-success">{stats.approved}</div>
+                    <div className="ula-stat-label">Approved</div>
+                  </button>
+                  <button
+                    type="button"
+                    className={`ula-stat-card${approvalFilter === 'rejected' ? ' is-active' : ''}`}
+                    onClick={() => toggleApprovalFilter('rejected')}
+                  >
+                    <div className="ula-stat-value text-danger">{stats.rejected}</div>
+                    <div className="ula-stat-label">Rejected</div>
+                  </button>
                 </div>
 
                 {listError && (
@@ -416,6 +449,13 @@ const BiharUlaList = () => {
                       onClick={handleRefresh}
                     >
                       <FiRefreshCw size={13} /> Refresh
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                      onClick={() => navigate(pages.bihar.ulaDashboard)}
+                    >
+                      Dashboard
                     </button>
                     <button
                       type="button"

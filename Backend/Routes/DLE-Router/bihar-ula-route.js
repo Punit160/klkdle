@@ -6,12 +6,14 @@ import {
 import {
   requireBiharUlaAdd,
   requireBiharUlaRead,
+  requireBiharUlaReport,
 } from "../../Middleware/portalModulePermission.js";
 import { requireUserMasterAdmin } from "../../Middleware/requireUserMasterAdmin.js";
 import {
   checkBiharUlaUniqueController,
   createBiharUlaFirstVisit,
   downloadBiharUlaImagesZip,
+  getBiharUlaReport,
   getBiharUlaSurvey,
   listBiharUlaSurveys,
   updateBiharUlaApproval,
@@ -24,6 +26,7 @@ const ulaRead = requireBiharUlaRead();
 const ulaAdd = requireBiharUlaAdd();
 
 router.get("/list", ulaRead, listBiharUlaSurveys);
+router.get("/report", requireBiharUlaReport(), getBiharUlaReport);
 router.get("/check-unique", ulaAdd, checkBiharUlaUniqueController);
 router.patch("/:id/approval", requireUserMasterAdmin, updateBiharUlaApproval);
 router.get("/:id/download-images", ulaRead, downloadBiharUlaImagesZip);

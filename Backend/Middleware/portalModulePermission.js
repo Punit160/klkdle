@@ -47,6 +47,8 @@ export const requireSslAmcAdd = (region) =>
 
 export const requireBiharUlaRead = () => requirePortalPermission("portal.bihar.ula.read");
 export const requireBiharUlaAdd = () => requirePortalPermission("portal.bihar.ula.add");
+export const requireBiharUlaReport = () =>
+  requireAnyPortalPermission(["portal.bihar.ula.read", "portal.bihar.ula.add"]);
 
 export const requireLightAmcRead = async (req, res, next) => {
   const region = await resolveLightAmcRegion(req);

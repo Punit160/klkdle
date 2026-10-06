@@ -34,6 +34,7 @@ import { legacyPages, pages } from "../api/routes"
 import BiharUlaForm from "../pages/Bihar/BiharULA/BiharUlaForm"
 import BiharUlaList from "../pages/Bihar/BiharULA/BiharUlaList"
 import BiharUlaDetails from "../pages/Bihar/BiharULA/BiharUlaDetails"
+import BiharUlaDashboard from "../pages/Bihar/BiharULA/BiharUlaDashboard"
 import PortalAccessAdmin from "../pages/Portal/PortalAccessAdmin"
 import UserMaster from "../pages/Admin/UserMaster"
 
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
       moduleRoute("bihar", pages.bihar.ulaForm, <BiharUlaForm />),
       moduleRoute("bihar", pages.bihar.ulaList, <BiharUlaList />),
       moduleRoute("bihar", pages.bihar.ulaDetails, <BiharUlaDetails />),
+      moduleRoute("bihar", pages.bihar.ulaDashboard, <BiharUlaDashboard />),
 
       moduleRoute("up", pages.up.amcDashboard, <UPDashboard />),
       moduleRoute("up", pages.up.amcUpload, <UPUploadForm />),

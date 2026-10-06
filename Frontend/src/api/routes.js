@@ -37,6 +37,7 @@ export const pages = {
     assignAmc: '/bihar/amc/assign',
     ulaForm: '/bihar/ula/form',
     ulaList: '/bihar/ula/list',
+    ulaDashboard: '/bihar/ula/dashboard',
     ulaDetails: '/bihar/ula/details',
   },
 
@@ -169,6 +170,7 @@ export const api = {
   },
   biharUla: {
     list: '/api/bihar/ula/list',
+    report: '/api/bihar/ula/report',
     checkUnique: '/api/bihar/ula/check-unique',
     store: '/api/bihar/ula/store',
     view: (id) => `/api/bihar/ula/${id}`,

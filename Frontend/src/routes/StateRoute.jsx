@@ -1,4 +1,5 @@
 import { getUser } from '../utils/auth'
+import { userIsAdmin } from '../utils/userRoles'
 import { getFieldModulesPunchInLabel } from '../utils/stateAccess'
 import { usePunchInStatus } from '../hooks/usePunchInStatus'
 import CardLoader from '../components/shared/CardLoader'
@@ -16,7 +17,7 @@ const StateRoute = ({ children }) => {
     )
   }
 
-  if (!isPunchedIn) {
+  if (!isPunchedIn && !userIsAdmin(user)) {
     return <PunchInRedirect stateLabel={getFieldModulesPunchInLabel(user)} />
   }
 

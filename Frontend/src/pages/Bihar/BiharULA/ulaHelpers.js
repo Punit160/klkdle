@@ -689,6 +689,15 @@ export const fetchUlaInstallationPanchayats = async (district, block) => {
   )
 }
 
+export const fetchUlaReport = async () => {
+  const res = await localApi.get(api.biharUla.report)
+  return {
+    rows: res?.data?.data || [],
+    total: Number(res?.data?.meta?.total ?? res?.data?.data?.length ?? 0),
+    scope: res?.data?.meta?.scope || 'mine',
+  }
+}
+
 export const fetchUlaSurveys = async () => {
   const res = await localApi.get(api.biharUla.list)
   return {
