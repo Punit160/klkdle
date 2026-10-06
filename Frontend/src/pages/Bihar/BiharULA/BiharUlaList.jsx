@@ -55,7 +55,9 @@ const BiharUlaList = () => {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [approvalFilter, setApprovalFilter] = useState('')
+  const [approvalFilter, setApprovalFilter] = useState('pending')
+  const [visitFilter, setVisitFilter] = useState('')
+  const [districtFilter, setDistrictFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [zipDownloadingId, setZipDownloadingId] = useState(null)
   const [actionId, setActionId] = useState(null)
@@ -139,23 +141,46 @@ const BiharUlaList = () => {
 
   const stats = useMemo(() => {
     const total = records.length
-    const secondComplete = records.filter((r) => r.secondVisitComplete).length
+    const pendingApproval = records.filter(
+      (r) =>
+        r.approvalStatus !== AMC_DOC_APPROVAL.APPROVED &&
+        r.approvalStatus !== AMC_DOC_APPROVAL.REJECTED
+    ).length
+    const secondComplete = records.filter((r) => r.visitsReady).length
     const pendingSecond = records.filter((r) => r.secondVisitPending).length
-    const firstOnly = records.filter((r) => r.secondVisitPending).length
     const approved = records.filter((r) => r.approvalStatus === AMC_DOC_APPROVAL.APPROVED).length
     const rejected = records.filter((r) => r.approvalStatus === AMC_DOC_APPROVAL.REJECTED).length
-    return { total, secondComplete, pendingSecond, firstOnly, approved, rejected }
+    return { total, pendingApproval, secondComplete, pendingSecond, approved, rejected }
   }, [records])
+
+  const districtOptions = useMemo(
+    () =>
+      [...new Set(records.map((row) => String(row.district || '').trim()).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b)
+      ),
+    [records]
+  )
 
   const filteredRecords = useMemo(() => {
     const q = search.trim().toLowerCase()
     return records.filter((r) => {
+      if (
+        approvalFilter === 'pending' &&
+        (r.approvalStatus === AMC_DOC_APPROVAL.APPROVED ||
+          r.approvalStatus === AMC_DOC_APPROVAL.REJECTED)
+      ) {
+        return false
+      }
       if (approvalFilter === 'approved' && r.approvalStatus !== AMC_DOC_APPROVAL.APPROVED) {
         return false
       }
       if (approvalFilter === 'rejected' && r.approvalStatus !== AMC_DOC_APPROVAL.REJECTED) {
         return false
       }
+      if (visitFilter === 'second_pending' && !r.secondVisitPending) return false
+      if (visitFilter === 'complete' && !r.visitsReady) return false
+      if (visitFilter === 'draft' && r.firstVisitComplete) return false
+      if (districtFilter && String(r.district || '').trim() !== districtFilter) return false
       if (!q) return true
       const hay = [
         r.caNumber,
@@ -172,14 +197,17 @@ const BiharUlaList = () => {
         .toLowerCase()
       return hay.includes(q)
     })
-  }, [records, search, approvalFilter])
+  }, [records, search, approvalFilter, visitFilter, districtFilter])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, approvalFilter])
+  }, [search, approvalFilter, visitFilter, districtFilter])
 
-  const toggleApprovalFilter = (key) => {
-    setApprovalFilter((prev) => (prev === key ? '' : key))
+  const resetFilters = () => {
+    setApprovalFilter('pending')
+    setVisitFilter('')
+    setDistrictFilter('')
+    setSearch('')
   }
 
   const paginatedRecords = useMemo(() => {
@@ -390,28 +418,19 @@ const BiharUlaList = () => {
                 <div className="ula-stat-grid">
                   <button
                     type="button"
-                    className={`ula-stat-card${approvalFilter === '' ? ' is-active' : ''}`}
-                    onClick={() => setApprovalFilter('')}
+                    className={`ula-stat-card${approvalFilter === 'pending' && !visitFilter ? ' is-active' : ''}`}
+                    onClick={() => {
+                      setApprovalFilter('pending')
+                      setVisitFilter('')
+                    }}
                   >
-                    <div className="ula-stat-value">{stats.total}</div>
-                    <div className="ula-stat-label">Total records</div>
+                    <div className="ula-stat-value text-warning">{stats.pendingApproval}</div>
+                    <div className="ula-stat-label">Pending approval</div>
                   </button>
-                  <div className="ula-stat-card">
-                    <div className="ula-stat-value text-primary">{stats.firstOnly}</div>
-                    <div className="ula-stat-label">Awaiting 2nd visit</div>
-                  </div>
-                  <div className="ula-stat-card">
-                    <div className="ula-stat-value text-warning">{stats.pendingSecond}</div>
-                    <div className="ula-stat-label">2nd visit pending</div>
-                  </div>
-                  <div className="ula-stat-card">
-                    <div className="ula-stat-value text-success">{stats.secondComplete}</div>
-                    <div className="ula-stat-label">Fully complete</div>
-                  </div>
                   <button
                     type="button"
                     className={`ula-stat-card${approvalFilter === 'approved' ? ' is-active' : ''}`}
-                    onClick={() => toggleApprovalFilter('approved')}
+                    onClick={() => setApprovalFilter('approved')}
                   >
                     <div className="ula-stat-value text-success">{stats.approved}</div>
                     <div className="ula-stat-label">Approved</div>
@@ -419,10 +438,42 @@ const BiharUlaList = () => {
                   <button
                     type="button"
                     className={`ula-stat-card${approvalFilter === 'rejected' ? ' is-active' : ''}`}
-                    onClick={() => toggleApprovalFilter('rejected')}
+                    onClick={() => setApprovalFilter('rejected')}
                   >
                     <div className="ula-stat-value text-danger">{stats.rejected}</div>
                     <div className="ula-stat-label">Rejected</div>
+                  </button>
+                  <button
+                    type="button"
+                    className={`ula-stat-card${approvalFilter === '' && !visitFilter && !districtFilter ? ' is-active' : ''}`}
+                    onClick={() => {
+                      setApprovalFilter('')
+                      setVisitFilter('')
+                      setDistrictFilter('')
+                    }}
+                  >
+                    <div className="ula-stat-value">{stats.total}</div>
+                    <div className="ula-stat-label">All records</div>
+                  </button>
+                  <button
+                    type="button"
+                    className={`ula-stat-card${visitFilter === 'second_pending' ? ' is-active' : ''}`}
+                    onClick={() =>
+                      setVisitFilter((prev) => (prev === 'second_pending' ? '' : 'second_pending'))
+                    }
+                  >
+                    <div className="ula-stat-value text-primary">{stats.pendingSecond}</div>
+                    <div className="ula-stat-label">2nd visit pending</div>
+                  </button>
+                  <button
+                    type="button"
+                    className={`ula-stat-card${visitFilter === 'complete' ? ' is-active' : ''}`}
+                    onClick={() =>
+                      setVisitFilter((prev) => (prev === 'complete' ? '' : 'complete'))
+                    }
+                  >
+                    <div className="ula-stat-value text-success">{stats.secondComplete}</div>
+                    <div className="ula-stat-label">Visits complete</div>
                   </button>
                 </div>
 
@@ -431,6 +482,43 @@ const BiharUlaList = () => {
                 )}
 
                 <div className="ula-toolbar">
+                  <div className="ula-filters">
+                    <select
+                      value={approvalFilter}
+                      onChange={(event) => setApprovalFilter(event.target.value)}
+                      aria-label="Filter by approval"
+                    >
+                      <option value="pending">Pending approval</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                      <option value="">All approvals</option>
+                    </select>
+                    <select
+                      value={visitFilter}
+                      onChange={(event) => setVisitFilter(event.target.value)}
+                      aria-label="Filter by visit"
+                    >
+                      <option value="">All visits</option>
+                      <option value="draft">1st visit incomplete</option>
+                      <option value="second_pending">2nd visit pending</option>
+                      <option value="complete">Visits complete</option>
+                    </select>
+                    <select
+                      value={districtFilter}
+                      onChange={(event) => setDistrictFilter(event.target.value)}
+                      aria-label="Filter by district"
+                    >
+                      <option value="">All districts</option>
+                      {districtOptions.map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" className="btn btn-sm btn-light" onClick={resetFilters}>
+                      Reset
+                    </button>
+                  </div>
                   <div className="ula-search-wrap">
                     <div className="input-group input-group-sm">
                       <span className="input-group-text bg-white">
@@ -504,8 +592,20 @@ const BiharUlaList = () => {
                       {!loading && paginatedRecords.length === 0 && (
                         <tr>
                           <td colSpan={isAdmin ? 10 : 9} className="text-center py-5">
-                            <div className="text-muted mb-2">No records found.</div>
-                            {!search && (
+                            <div className="text-muted mb-2">
+                              {records.length
+                                ? 'No records match these filters.'
+                                : 'No records found.'}
+                            </div>
+                            {records.length ? (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-light"
+                                onClick={resetFilters}
+                              >
+                                Show pending approval
+                              </button>
+                            ) : !search && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-primary"

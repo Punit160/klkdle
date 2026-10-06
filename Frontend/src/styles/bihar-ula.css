@@ -63,6 +63,23 @@ button.ula-stat-card.is-active {
   max-width: 360px;
 }
 
+.ula-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 100%;
+}
+
+.ula-filters select {
+  border: 1px solid var(--bs-border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #fff;
+  min-width: 160px;
+}
+
 .ula-table thead th {
   font-size: 11px;
   font-weight: 700;
