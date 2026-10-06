@@ -91,9 +91,9 @@ const stateHubConfig = {
       { label: 'Assign AMC', path: pages.bihar.assignAmc, desc: 'Sites assigned to you for AMC' },
       { label: 'Upload AMC Data', path: pages.bihar.amcUpload, desc: 'Submit SSL AMC documents' },
       { label: 'Field AMC', path: pages.bihar.lightAmc, desc: 'Submit light AMC with GPS' },
+      { label: 'ULA Dashboard', path: pages.bihar.ulaDashboard, desc: 'Your ULA work, or every site for admin' },
       { label: 'ULA Form', path: pages.bihar.ulaForm, desc: 'Submit Bihar ULA readings' },
       { label: 'ULA Data', path: pages.bihar.ulaList, desc: 'View ULA submissions' },
-      { label: 'ULA Dashboard', path: pages.bihar.ulaDashboard, desc: 'Your ULA work, or every site for admin' },
     ],
   },
   up: {

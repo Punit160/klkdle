@@ -177,10 +177,88 @@ button.ula-stat-card.is-active {
   color: #b45309;
 }
 
-.ula-table .ula-actions-col {
-  min-width: 168px;
-  width: 168px;
+.ula-table .ula-view-col {
+  width: 92px;
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ula-table .ula-actions-col {
+  width: 1%;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ula-decision {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  vertical-align: middle;
+}
+
+.ula-decision-btn {
+  appearance: none;
+  border: 0;
+  background: #fff;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #334155;
+}
+
+.ula-decision-btn + .ula-decision-btn,
+.ula-decision-btn + .ula-decision-state,
+.ula-decision-state + .ula-decision-btn,
+.ula-decision-state + .ula-decision-state {
+  border-left: 1px solid #e2e8f0;
+}
+
+.ula-decision-btn--approve {
+  color: #0f766e;
+}
+
+.ula-decision-btn--approve:hover:not(:disabled) {
+  background: #ecfdf5;
+}
+
+.ula-decision-btn--reject {
+  color: #b91c1c;
+}
+
+.ula-decision-btn--reject:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.ula-decision-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.ula-decision-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.ula-decision-state--approved {
+  color: #0f766e;
+  background: #ecfdf5;
+}
+
+.ula-decision-state--rejected {
+  color: #b91c1c;
+  background: #fef2f2;
 }
 
 .ula-table .ula-photos-col {

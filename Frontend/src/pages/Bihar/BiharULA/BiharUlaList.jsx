@@ -34,6 +34,7 @@ import {
   updateUlaApproval,
   ulaSecondVisitNeeded,
   ulaSolarMeterOnFirstVisit,
+  ulaVisitsReadyForApproval,
 } from './ulaHelpers'
 import { userIsAdmin } from '../../../utils/userRoles'
 import {
@@ -108,6 +109,7 @@ const BiharUlaList = () => {
                     ? '1st done'
                     : 'Draft',
               secondVisitPending: ulaSecondVisitNeeded(row),
+              visitsReady: ulaVisitsReadyForApproval(row),
               imagesCount: countUlaSurveyPhotos(row),
               expectedPhotoCount:
                 expectedFirstVisitPhotoCount(row) +
@@ -214,6 +216,7 @@ const BiharUlaList = () => {
   }
 
   const handleApprove = async (row) => {
+    if (!row?.visitsReady) return
     const result = await Swal.fire({
       title: 'Approve this ULA survey?',
       text: `CA ${row.caNumber || row.id} — ${row.caName || ''}`,
@@ -486,20 +489,21 @@ const BiharUlaList = () => {
                         <th>Visit date & time</th>
                         <th>GPS</th>
                         <th>Photos</th>
-                        <th className="text-end ula-actions-col">Actions</th>
+                        <th className="ula-view-col">View</th>
+                        {isAdmin ? <th className="ula-actions-col">Actions</th> : null}
                       </tr>
                     </thead>
                     <tbody>
                       {loading && (
                         <tr>
-                          <td colSpan={9} className="text-center py-5 text-muted">
+                          <td colSpan={isAdmin ? 10 : 9} className="text-center py-5 text-muted">
                             Loading ULA records…
                           </td>
                         </tr>
                       )}
                       {!loading && paginatedRecords.length === 0 && (
                         <tr>
-                          <td colSpan={9} className="text-center py-5">
+                          <td colSpan={isAdmin ? 10 : 9} className="text-center py-5">
                             <div className="text-muted mb-2">No records found.</div>
                             {!search && (
                               <button
@@ -542,6 +546,16 @@ const BiharUlaList = () => {
                                   >
                                     {getAmcApprovalLabel(row.approvalStatus)}
                                   </span>
+                                  {row.secondVisitPending ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-primary text-nowrap"
+                                      onClick={() => openSecondVisit(row.id)}
+                                      title="Complete 2nd visit"
+                                    >
+                                      2nd visit
+                                    </button>
+                                  ) : null}
                                 </div>
                               </td>
                               <td className="ula-surveyor-cell">
@@ -637,64 +651,60 @@ const BiharUlaList = () => {
                                   )}
                                 </button>
                               </td>
-                              <td className="text-end ula-actions-col">
-                                <div className="ula-action-group">
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1"
-                                    onClick={() =>
-                                      navigate(
-                                        `${pages.bihar.ulaDetails || '/bihar/ula/details'}?id=${row.id}`,
-                                        { state: { row } }
-                                      )
-                                    }
-                                    title="View full record"
-                                  >
-                                    <FiEye size={14} aria-hidden />
-                                    <span>View</span>
-                                  </button>
-                                  {row.secondVisitPending && (
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-primary text-nowrap"
-                                      onClick={() => openSecondVisit(row.id)}
-                                      title="Complete 2nd visit"
-                                    >
-                                      2nd visit
-                                    </button>
-                                  )}
-                                  {isAdmin && (
-                                    <>
+                              <td className="ula-view-col">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-light border d-inline-flex align-items-center gap-1"
+                                  onClick={() =>
+                                    navigate(
+                                      `${pages.bihar.ulaDetails || '/bihar/ula/details'}?id=${row.id}`,
+                                      { state: { row } }
+                                    )
+                                  }
+                                  title="View full record"
+                                >
+                                  <FiEye size={14} aria-hidden />
+                                  <span>View</span>
+                                </button>
+                              </td>
+                              {isAdmin ? (
+                                <td className="ula-actions-col">
+                                  <div className="ula-decision">
+                                    {row.approvalStatus === AMC_DOC_APPROVAL.APPROVED ? (
+                                      <span className="ula-decision-state ula-decision-state--approved">
+                                        Approved
+                                      </span>
+                                    ) : row.visitsReady ? (
                                       <button
                                         type="button"
-                                        className="btn btn-sm btn-success text-nowrap d-inline-flex align-items-center gap-1"
-                                        disabled={
-                                          actionId === row.id ||
-                                          row.approvalStatus === AMC_DOC_APPROVAL.APPROVED
-                                        }
+                                        className="ula-decision-btn ula-decision-btn--approve"
+                                        disabled={actionId === row.id}
                                         onClick={() => handleApprove(row)}
-                                        title="Approve survey"
+                                        title="Approve this finished site"
                                       >
                                         <FiCheck size={13} aria-hidden />
                                         Approve
                                       </button>
+                                    ) : null}
+                                    {row.approvalStatus === AMC_DOC_APPROVAL.REJECTED ? (
+                                      <span className="ula-decision-state ula-decision-state--rejected">
+                                        Rejected
+                                      </span>
+                                    ) : (
                                       <button
                                         type="button"
-                                        className="btn btn-sm btn-warning text-nowrap d-inline-flex align-items-center gap-1"
-                                        disabled={
-                                          actionId === row.id ||
-                                          row.approvalStatus === AMC_DOC_APPROVAL.REJECTED
-                                        }
+                                        className="ula-decision-btn ula-decision-btn--reject"
+                                        disabled={actionId === row.id}
                                         onClick={() => openReject(row)}
                                         title="Reject survey"
                                       >
                                         <FiX size={13} aria-hidden />
                                         Reject
                                       </button>
-                                    </>
-                                  )}
-                                </div>
-                              </td>
+                                    )}
+                                  </div>
+                                </td>
+                              ) : null}
                             </tr>
                           )
                         })}

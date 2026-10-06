@@ -10,7 +10,11 @@ import {
   FiPhone,
   FiCalendar,
   FiPaperclip,
+  FiCheck,
+  FiX,
 } from 'react-icons/fi'
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { pages } from '../../../api/routes'
 import {
@@ -18,7 +22,15 @@ import {
   fetchUlaSurveyById,
   mapSurveyToDetailsRecord,
   buildMapsUrl,
+  updateUlaApproval,
 } from './ulaHelpers'
+import { userIsAdmin } from '../../../utils/userRoles'
+import {
+  AMC_DOC_APPROVAL,
+  getAmcApprovalBadgeClass,
+  getAmcApprovalLabel,
+} from '../../../utils/amcApproval'
+import { getApiErrorMessage } from '../../../utils/apiError'
 import { resolveUploadUrl } from '../../../utils/uploadUrl'
 import UlaPhotoLightbox from './UlaPhotoLightbox'
 import '../../../styles/bihar-ula.css'
@@ -69,6 +81,12 @@ const BiharUlaDetails = () => {
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(Boolean(recordId && !location.state?.row))
   const [surveyRaw, setSurveyRaw] = useState(null)
+  const [actionId, setActionId] = useState(null)
+  const [actionError, setActionError] = useState('')
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectRemarks, setRejectRemarks] = useState('')
+  const [rejectRemarksError, setRejectRemarksError] = useState('')
+  const isAdmin = userIsAdmin()
 
   useEffect(() => {
     if (!recordId) return
@@ -94,6 +112,73 @@ const BiharUlaDetails = () => {
       cancelled = true
     }
   }, [recordId])
+
+  const patchApproval = (status, remarks) => {
+    setRecord((prev) =>
+      prev
+        ? { ...prev, approvalStatus: Number(status), approvalRemarks: remarks || '' }
+        : prev
+    )
+  }
+
+  const handleApprove = async () => {
+    if (!record?.visitsReady || !record?.id) return
+    const result = await Swal.fire({
+      title: 'Approve this ULA survey?',
+      text: `CA ${record.caNumber || record.id} — ${record.caName || ''}`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Approve',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    })
+    if (!result.isConfirmed) return
+    setActionId(record.id)
+    setActionError('')
+    try {
+      await updateUlaApproval(record.id, AMC_DOC_APPROVAL.APPROVED)
+      patchApproval(AMC_DOC_APPROVAL.APPROVED, '')
+    } catch (err) {
+      setActionError(getApiErrorMessage(err, 'Could not approve this ULA survey.'))
+    } finally {
+      setActionId(null)
+    }
+  }
+
+  const openReject = () => {
+    setRejectOpen(true)
+    setRejectRemarks('')
+    setRejectRemarksError('')
+  }
+
+  const closeReject = () => {
+    if (actionId) return
+    setRejectOpen(false)
+    setRejectRemarks('')
+    setRejectRemarksError('')
+  }
+
+  const submitReject = async () => {
+    const remarks = rejectRemarks.trim()
+    if (!remarks) {
+      setRejectRemarksError('Remarks are required to reject.')
+      return
+    }
+    if (!record?.id) return
+    setActionId(record.id)
+    setActionError('')
+    setRejectRemarksError('')
+    try {
+      await updateUlaApproval(record.id, AMC_DOC_APPROVAL.REJECTED, remarks)
+      patchApproval(AMC_DOC_APPROVAL.REJECTED, remarks)
+      setRejectOpen(false)
+      setRejectRemarks('')
+    } catch (err) {
+      setRejectRemarksError(getApiErrorMessage(err, 'Could not reject this ULA survey.'))
+    } finally {
+      setActionId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -259,9 +344,49 @@ const BiharUlaDetails = () => {
                   >
                     {record.visitType}
                   </span>
+                  <span className={`badge ${getAmcApprovalBadgeClass(record.approvalStatus ?? 0)}`}>
+                    {getAmcApprovalLabel(record.approvalStatus ?? 0)}
+                  </span>
                 </div>
               </div>
               <div className="d-flex flex-column gap-2 align-items-stretch">
+                {isAdmin ? (
+                  <div className="ula-decision">
+                    {record.approvalStatus === AMC_DOC_APPROVAL.APPROVED ? (
+                      <span className="ula-decision-state ula-decision-state--approved">
+                        Approved
+                      </span>
+                    ) : record.visitsReady ? (
+                      <button
+                        type="button"
+                        className="ula-decision-btn ula-decision-btn--approve"
+                        disabled={actionId === record.id}
+                        onClick={handleApprove}
+                        title="Approve this finished site"
+                      >
+                        <FiCheck size={13} aria-hidden />
+                        Approve
+                      </button>
+                    ) : null}
+                    {record.approvalStatus === AMC_DOC_APPROVAL.REJECTED ? (
+                      <span className="ula-decision-state ula-decision-state--rejected">
+                        Rejected
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ula-decision-btn ula-decision-btn--reject"
+                        disabled={actionId === record.id}
+                        onClick={openReject}
+                        title="Reject survey"
+                      >
+                        <FiX size={13} aria-hidden />
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+                {actionError ? <div className="fs-12 text-danger">{actionError}</div> : null}
                 {secondVisitPending && (
                   <button
                     type="button"
@@ -311,6 +436,24 @@ const BiharUlaDetails = () => {
               />
             </div>
           </div>
+
+          {(record.approvalRemarks || record.approvalBy) && (
+            <div className="ula-detail-section">
+              <h6 className="fw-bold mb-3">Approval</h6>
+              <div className="row g-3">
+                <DetailItem
+                  label="Status"
+                  value={getAmcApprovalLabel(record.approvalStatus ?? 0)}
+                />
+                {record.approvalRemarks ? (
+                  <DetailItem label="Remarks" value={record.approvalRemarks} />
+                ) : null}
+                {record.approvalBy ? (
+                  <DetailItem label="Approved / rejected by" value={record.approvalBy} />
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {(record.visit1Remarks || record.visit2Remarks) && (
             <div className="ula-detail-section">
@@ -406,6 +549,79 @@ const BiharUlaDetails = () => {
         onClose={() => setSelectedPhoto(null)}
         downloadPrefix={record.caNumber || 'ula'}
       />
+
+      {isAdmin && rejectOpen ? (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 100000 }} />
+          <div
+            className="modal fade show d-block"
+            style={{ zIndex: 100001 }}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ula-detail-reject-title"
+          >
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title" id="ula-detail-reject-title">
+                    Reject ULA survey
+                  </h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={closeReject}
+                    disabled={Boolean(actionId)}
+                  />
+                </div>
+                <div className="modal-body">
+                  <p className="fs-13 text-muted mb-3">
+                    CA {record.caNumber || record.id}
+                    {record.caName ? ` — ${record.caName}` : ''}
+                  </p>
+                  <label className="form-label" htmlFor="ula-detail-reject-remarks">
+                    Remarks <span className="text-danger">*</span>
+                  </label>
+                  <textarea
+                    id="ula-detail-reject-remarks"
+                    className={`form-control${rejectRemarksError ? ' is-invalid' : ''}`}
+                    rows={4}
+                    value={rejectRemarks}
+                    placeholder="Write the reason for rejection"
+                    onChange={(e) => {
+                      setRejectRemarks(e.target.value)
+                      if (rejectRemarksError) setRejectRemarksError('')
+                    }}
+                    autoFocus
+                  />
+                  {rejectRemarksError ? (
+                    <div className="invalid-feedback d-block">{rejectRemarksError}</div>
+                  ) : null}
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-light"
+                    onClick={closeReject}
+                    disabled={Boolean(actionId)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-warning"
+                    onClick={submitReject}
+                    disabled={Boolean(actionId)}
+                  >
+                    {actionId ? 'Rejecting…' : 'Reject'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
     </>
   )
 }

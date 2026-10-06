@@ -98,9 +98,9 @@ export const menuList = [
                 path: "#",
                 icon: "feather-sun",
                 dropdownMenu: [
-                    { id: 1, name: "ULA Form", path: pages.bihar.ulaForm },
-                    { id: 2, name: "ULA Data Table", path: pages.bihar.ulaList },
-                    { id: 3, name: "ULA Dashboard", path: pages.bihar.ulaDashboard },
+                    { id: 1, name: "ULA Dashboard", path: pages.bihar.ulaDashboard },
+                    { id: 2, name: "ULA Form", path: pages.bihar.ulaForm },
+                    { id: 3, name: "ULA Data Table", path: pages.bihar.ulaList },
                 ],
             },
         ],

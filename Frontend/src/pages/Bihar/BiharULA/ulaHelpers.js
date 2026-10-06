@@ -398,6 +398,16 @@ export const ulaSecondVisitNeeded = (survey) =>
   !survey?.second_visit_complete &&
   !ulaSolarMeterOnFirstVisit(survey)
 
+/** Approve only when both visits are done, or the 1st visit already finished the site. */
+export const ulaVisitsReadyForApproval = (survey) => {
+  if (!survey) return false
+  const firstDone = Boolean(survey.firstVisitComplete ?? survey.first_visit_complete)
+  const secondDone = Boolean(survey.secondVisitComplete ?? survey.second_visit_complete)
+  if (!firstDone) return false
+  if (secondDone) return true
+  return Boolean(survey.solarMeterOnFirst) || ulaSolarMeterOnFirstVisit(survey)
+}
+
 export const dataUrlToBlob = async (dataUrl) => {
   const res = await fetch(dataUrl)
   const blob = await res.blob()
@@ -943,6 +953,10 @@ export const mapSurveyToDetailsRecord = (survey) => {
     createdById: survey.user_id,
     secondVisitById: survey.user_id2,
     secondVisitPending: ulaSecondVisitNeeded(survey),
+    visitsReady: ulaVisitsReadyForApproval(survey),
+    approvalStatus: Number(survey.approval_status ?? 0),
+    approvalRemarks: survey.approval_remarks || '',
+    approvalBy: survey.approval_by || '',
     secondVisitAt: resolveUlaSecondVisitAt(survey),
     secondVisitAtDisplay: formatSurveyDateTimeDisplay(
       resolveUlaSecondVisitAt(survey)

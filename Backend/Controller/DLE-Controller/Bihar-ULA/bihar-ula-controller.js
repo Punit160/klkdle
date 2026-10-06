@@ -1393,7 +1393,14 @@ export const updateBiharUlaApproval = async (req, res) => {
     }
 
     const { approval_status, approval_remarks } = req.body || {};
-    if (Number(approval_status) === 2 && !String(approval_remarks || "").trim()) {
+    if (Number(approval_status) === AMC_DOC_APPROVAL.APPROVED && !siteVisitsAreComplete(existing)) {
+      return res.status(422).json({
+        success: false,
+        message:
+          "Approve this site only after both visits are complete, or the first visit already includes the solar meter photo.",
+      });
+    }
+    if (Number(approval_status) === AMC_DOC_APPROVAL.REJECTED && !String(approval_remarks || "").trim()) {
       return res.status(422).json({
         success: false,
         message: "Remarks are required when rejecting a ULA survey.",

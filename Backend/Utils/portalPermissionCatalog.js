@@ -154,13 +154,13 @@ export const PORTAL_PERMISSION_CATALOG = [
 
   {
 
-    key: "portal.bihar.ula.read",
+    key: "portal.bihar.ula.dashboard",
 
-    label: "Bihar ULA — view",
+    label: "Bihar ULA — dashboard",
 
     module: "bihar_ula",
 
-    description: "View Bihar ULA surveys in this app.",
+    description: "Open the Bihar ULA dashboard and reports.",
 
   },
 
@@ -173,6 +173,18 @@ export const PORTAL_PERMISSION_CATALOG = [
     module: "bihar_ula",
 
     description: "Submit Bihar ULA surveys in this app.",
+
+  },
+
+  {
+
+    key: "portal.bihar.ula.read",
+
+    label: "Bihar ULA — view",
+
+    module: "bihar_ula",
+
+    description: "View Bihar ULA surveys in this app.",
 
   },
 
