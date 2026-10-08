@@ -4,7 +4,7 @@ import {
   captureStampedCameraPhoto,
   captureStampedDataUrlFromVideo,
 } from '../../utils/cameraCapture'
-import { prefetchLocationForCapture } from '../../utils/geolocation'
+import { captureCurrentLocation, prefetchLocationForCapture } from '../../utils/geolocation'
 import { openRearCameraStream, waitForVideoReady } from '../../utils/cameraStream'
 
 const cameraOpenErrorMessage = (err) => {
@@ -38,6 +38,7 @@ const CameraCapture = ({
   beforeOpen,
   modalNote,
   onPreviewClick,
+  freshGps = false,
 }) => {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -110,7 +111,9 @@ const CameraCapture = ({
         }
 
         streamRef.current = stream
-        gpsPrefetchRef.current = prefetchLocationForCapture()
+        gpsPrefetchRef.current = freshGps
+          ? null
+          : prefetchLocationForCapture()
         setStreamVersion((n) => n + 1)
         setIsOpen(true)
       } catch (err) {
@@ -139,7 +142,13 @@ const CameraCapture = ({
         await waitForVideoReady(video, 4000, stream)
       }
 
-      const coordsPromise = gpsPrefetchRef.current ?? prefetchLocationForCapture()
+      const coordsPromise = freshGps
+        ? captureCurrentLocation({
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          })
+        : (gpsPrefetchRef.current ?? prefetchLocationForCapture())
       gpsPrefetchRef.current = null
 
       const captureOpts = { coordsPromise }

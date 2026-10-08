@@ -48,6 +48,9 @@ const toRadians = (value) => (value * Math.PI) / 180;
 
 export const AMC_GPS_TOLERANCE_METERS = 50;
 
+/** ULA photos and the saved pin must be at the site, not where the form was opened. */
+export const ULA_GPS_SITE_TOLERANCE_METERS = 200;
+
 export const distanceBetweenCoordinatesMeters = (a, b) => {
   const lat1 = Number(a?.latitude);
   const lon1 = Number(a?.longitude);

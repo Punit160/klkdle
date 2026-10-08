@@ -45,6 +45,11 @@ import {
   isValidIndianMobile,
 } from './ulaHelpers'
 import { resolveUploadUrl } from '../../../utils/uploadUrl'
+import {
+  captureCurrentLocation,
+  distanceBetweenCoordinatesMeters,
+  ULA_GPS_SITE_TOLERANCE_METERS,
+} from '../../../utils/geolocation'
 import { getApiErrorMessage } from '../../../utils/apiError'
 import '../../../styles/camera-capture.css'
 import '../../../styles/bihar-ula.css'
@@ -123,6 +128,7 @@ const BiharUlaForm = () => {
 
   // Images state: { [slot_key]: dataUrl }
   const [images, setImages] = useState({})
+  const [photoGps, setPhotoGps] = useState({})
   // Serial numbers state: { [slot_key]: "KLK3M0300526128613" }
   const [serialNumbers, setSerialNumbers] = useState({})
   /** true = filled from QR on capture; false = typed manually */
@@ -180,7 +186,6 @@ const BiharUlaForm = () => {
       setSelectedPanchayat({ value: survey.panchayat, label: survey.panchayat })
     }
     setVillage(survey.village || '')
-    handleDetectGps()
     setSerialNumbers({
       panel1_qr: survey.panel_one_no || '',
       panel2_qr: survey.panel_two_no || '',
@@ -329,7 +334,6 @@ const BiharUlaForm = () => {
 
   useEffect(() => {
     refreshDateTime()
-    handleDetectGps()
   }, [])
 
   useEffect(() => {
@@ -487,10 +491,10 @@ const BiharUlaForm = () => {
         navigator.geolocation.getCurrentPosition(applyPosition, failGps, {
           enableHighAccuracy: false,
           timeout: 20000,
-          maximumAge: 120000,
+          maximumAge: 0,
         })
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     )
   }
 
@@ -541,6 +545,11 @@ const BiharUlaForm = () => {
       delete copy[slotKey]
       return copy
     })
+    setPhotoGps((prev) => {
+      const copy = { ...prev }
+      delete copy[slotKey]
+      return copy
+    })
     if (ULA_SERIAL_API_FIELD[slotKey]) {
       setSerialNumbers((prev) => {
         const copy = { ...prev }
@@ -578,12 +587,6 @@ const BiharUlaForm = () => {
 
     if (!isValidCaNumber(caNumber)) {
       setSubmitError('CA number must be digits only (at least 4 digits).')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
-
-    if (!latitude || !longitude) {
-      setSubmitError('Please tap Auto Detect GPS before capturing photos.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -627,7 +630,78 @@ const BiharUlaForm = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
+    }
 
+    const missingSlots = visibleSlots.filter(
+      (slot) => slot.required && !images[slot.key]
+    )
+    if (missingSlots.length) {
+      setSubmitError(
+        `Please capture required photos: ${missingSlots.map((s) => s.title).join(', ')}`
+      )
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    const photosMissingGps = visibleSlots.filter(
+      (slot) => slot.required && images[slot.key] && !photoGps[slot.key]
+    )
+    if (photosMissingGps.length) {
+      setSubmitError(
+        `Recapture these photos at the site so they get a current GPS location: ${photosMissingGps
+          .map((slot) => slot.title)
+          .join(', ')}.`
+      )
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    let saveLatitude = ''
+    let saveLongitude = ''
+    setIsLocating(true)
+    setGpsError('')
+    try {
+      const fresh = await captureCurrentLocation({
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      })
+      saveLatitude = Number(fresh.latitude).toFixed(6)
+      saveLongitude = Number(fresh.longitude).toFixed(6)
+      setLatitude(saveLatitude)
+      setLongitude(saveLongitude)
+      refreshDateTime()
+    } catch (err) {
+      setGpsError(err?.message || 'Could not read current location. Turn on GPS and try again.')
+      setSubmitError(
+        'Current GPS is required. A location from when the form was opened is not saved.'
+      )
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    } finally {
+      setIsLocating(false)
+    }
+
+    const movedPhoto = visibleSlots.find((slot) => {
+      const pin = photoGps[slot.key]
+      if (!pin || !images[slot.key]) return false
+      return (
+        distanceBetweenCoordinatesMeters(
+          { latitude: saveLatitude, longitude: saveLongitude },
+          pin
+        ) > ULA_GPS_SITE_TOLERANCE_METERS
+      )
+    })
+    if (movedPhoto) {
+      const message =
+        'You are more than 200 m from where the photos were taken. Recapture the photos at the site. The location from when the form opened is not used.'
+      setGpsError(message)
+      setSubmitError(message)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    if (visitType !== '2nd Visit') {
       try {
         const uniqueCheck = await checkUlaRegistrationUnique({
           caNumber,
@@ -635,8 +709,8 @@ const BiharUlaForm = () => {
           panelOneNo: serialNumbers.panel1_qr,
           panelTwoNo: serialNumbers.panel2_qr,
           inverterNo: serialNumbers.inverter_qr,
-          latitude,
-          longitude,
+          latitude: saveLatitude,
+          longitude: saveLongitude,
         })
         const gpsMsg = fieldMessageFromUlaUniqueCheck(uniqueCheck, 'gps')
         if (gpsMsg) setGpsError(gpsMsg)
@@ -662,8 +736,8 @@ const BiharUlaForm = () => {
     if (visitType === '2nd Visit') {
       try {
         const uniqueCheck = await checkUlaRegistrationUnique({
-          latitude,
-          longitude,
+          latitude: saveLatitude,
+          longitude: saveLongitude,
           excludeId: effectiveRecordId,
         })
         const gpsMsg = fieldMessageFromUlaUniqueCheck(uniqueCheck, 'gps')
@@ -680,17 +754,6 @@ const BiharUlaForm = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
-    }
-
-    const missingSlots = visibleSlots.filter(
-      (slot) => slot.required && !images[slot.key]
-    )
-    if (missingSlots.length) {
-      setSubmitError(
-        `Please capture required photos: ${missingSlots.map((s) => s.title).join(', ')}`
-      )
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
     }
 
     if (visitType !== '2nd Visit') {
@@ -715,8 +778,8 @@ const BiharUlaForm = () => {
         await submitUlaSecondVisit({
           recordId: effectiveRecordId,
           images,
-          latitude,
-          longitude,
+          latitude: saveLatitude,
+          longitude: saveLongitude,
           remarks: visit2Remarks,
         })
         setSuccessMessage(`2nd visit saved for CA #${caNumber}.`)
@@ -730,8 +793,8 @@ const BiharUlaForm = () => {
             block: selectedBlock?.value || '',
             panchayat: selectedPanchayat?.value || '',
             village: village.trim(),
-            latitude,
-            longitude,
+            latitude: saveLatitude,
+            longitude: saveLongitude,
           },
           images,
           serialNumbers,
@@ -1030,9 +1093,7 @@ const BiharUlaForm = () => {
               />
             </div>
             <div className="fs-11 text-muted mt-1">
-              {isSecondVisitMode
-                ? '2nd visit GPS — tap Auto Detect before capturing 2nd visit photos.'
-                : 'GPS only — tap "Auto Detect GPS" to refresh (not editable).'}
+              GPS is read when each photo is taken, and again when you save. A pin from when the form opened is not used.
             </div>
             {gpsError ? <div className="fs-12 text-danger mt-1">{gpsError}</div> : null}
           </div>
@@ -1302,7 +1363,7 @@ const BiharUlaForm = () => {
             <SectionHeading
               icon={<FiMapPin size={16} />}
               title="2nd visit GPS & time"
-              subtitle="Detect GPS before capturing — used on 2nd visit photo stamps"
+              subtitle="GPS is taken at each photo and again when you save"
             />
             <div className="row g-3 mb-2">
               <div className="col-lg-8">
@@ -1410,6 +1471,7 @@ const BiharUlaForm = () => {
                         }
                         hint={`Camera only • ${slot.desc}${slot.descHi ? ` • ${slot.descHi}` : ''}`}
                         previewDataUrl={currentImage || ''}
+                        freshGps
                         stampCaNumber={caNumber.trim() || undefined}
                         stampMetadata={
                           isSystemPhotoSlot(slot.key)
@@ -1453,13 +1515,19 @@ const BiharUlaForm = () => {
                           void attemptQrAutoDetect(canvas, slot)
                         }}
                         onCaptureDataUrl={async (dataUrl, coords) => {
+                          const lat = Number(coords?.latitude)
+                          const lng = Number(coords?.longitude)
+                          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                            setGpsError(
+                              'Photo was not saved. GPS at the camera is required, not the location from when the form opened.'
+                            )
+                            return
+                          }
+                          const pin = { latitude: lat.toFixed(6), longitude: lng.toFixed(6) }
                           setImages((prev) => ({ ...prev, [slot.key]: dataUrl }))
-                          if (coords?.latitude != null && coords?.latitude !== '') {
-                            setLatitude(Number(coords.latitude).toFixed(6))
-                          }
-                          if (coords?.longitude != null && coords?.longitude !== '') {
-                            setLongitude(Number(coords.longitude).toFixed(6))
-                          }
+                          setPhotoGps((prev) => ({ ...prev, [slot.key]: pin }))
+                          setLatitude(pin.latitude)
+                          setLongitude(pin.longitude)
                           refreshDateTime()
                           setSubmitError('')
                           await attemptQrFromCapturedPhoto(dataUrl, slot)
