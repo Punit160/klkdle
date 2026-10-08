@@ -352,6 +352,29 @@ export const formatGpsPair = (latitude, longitude, fractionDigits = 4) => {
   return `${lat.toFixed(fractionDigits)}, ${lng.toFixed(fractionDigits)}`
 }
 
+/** Straight-line distance in metres between two GPS pins. */
+export const distanceBetweenGpsMeters = (lat1, lng1, lat2, lng2) => {
+  const aLat = Number(lat1)
+  const aLng = Number(lng1)
+  const bLat = Number(lat2)
+  const bLng = Number(lng2)
+  if (![aLat, aLng, bLat, bLng].every(Number.isFinite)) return null
+  const toRad = (deg) => (deg * Math.PI) / 180
+  const dLat = toRad(bLat - aLat)
+  const dLng = toRad(bLng - aLng)
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
+  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+export const formatGpsDistance = (lat1, lng1, lat2, lng2) => {
+  const meters = distanceBetweenGpsMeters(lat1, lng1, lat2, lng2)
+  if (meters == null) return null
+  if (meters < 1000) return `${Math.round(meters)} m`
+  return `${(meters / 1000).toFixed(2)} km`
+}
+
 const ULA_IMAGE_FIELD_KEYS = [
   'panel_one_img',
   'panel_two_img',

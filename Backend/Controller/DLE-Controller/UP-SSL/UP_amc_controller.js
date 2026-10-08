@@ -11,6 +11,7 @@ import {
     resolveJwtUserId,
     resolveRequestUserId,
 } from '../../../Utils/requestUser.js'
+import { isUserMasterAdmin } from '../../../Utils/userRoles.js'
 
 
 const parseJsonArray = (value) => {
@@ -826,11 +827,15 @@ export const getAllDistricts = async (req, res) => {
         // FETCH ALL UP AMC DOCUMENTS
         // ==========================================
 
+        const adminView = isUserMasterAdmin(req.user)
+
         const documents =
             await prisma.upSslAmcDocument.findMany({
-                where: buildCreatedByDocumentWhere(userId),
+                where: adminView ? {} : buildCreatedByDocumentWhere(userId),
                 include: {
-                    uploadDocuments: buildCreatedByUploadInclude(userId),
+                    uploadDocuments: adminView
+                        ? true
+                        : buildCreatedByUploadInclude(userId),
                 },
                 orderBy: {
                     id: 'desc',
@@ -1150,6 +1155,8 @@ export const getAllDistricts = async (req, res) => {
             level: 'district',
 
             period: 'all',
+
+            meta: { scope: adminView ? 'all' : 'mine' },
 
             summary: {
 

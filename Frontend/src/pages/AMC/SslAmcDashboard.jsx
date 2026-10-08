@@ -19,6 +19,7 @@ import localApi from '../../api/localApi'
 import { app } from '../../api/routes'
 import { getCompanyId } from '../../utils/auth'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
+import { userIsAdmin } from '../../utils/userRoles'
 import '../../styles/Bihar/bihar-ssl-amc-dashboard.css'
 
 const formatDate = (value) => {
@@ -319,8 +320,10 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
   const amcConfig = getSslAmcConfig(region)
   const [docData, setDocData] = useState(null)
   const [amcRows, setAmcRows] = useState([])
+  const [dataScope, setDataScope] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const isAdmin = userIsAdmin()
 
   const fetchDashboard = async () => {
     setLoading(true)
@@ -330,7 +333,11 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
       const [docRes, amcRes] = await Promise.all([
         localApi.get(app.ssl.dashboardDistrict(amcConfig.sslState)),
         localApi.get(app.lightAmc.get, {
-          params: { company_id: getCompanyId(), state: amcConfig.stateName },
+          params: {
+            company_id: getCompanyId(),
+            state: amcConfig.stateName,
+            ...(isAdmin ? { scope: 'all' } : {}),
+          },
         }),
       ])
 
@@ -340,6 +347,9 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
         throw new Error(docRes.data?.message || 'Failed to load documentation dashboard.')
       }
 
+      const docScope = docRes.data?.meta?.scope
+      const amcScope = amcRes.data?.meta?.scope
+      setDataScope(docScope === 'all' && amcScope === 'all' ? 'all' : 'mine')
       setAmcRows(amcRes.data?.data || [])
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load dashboard data')
@@ -352,7 +362,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
 
   useEffect(() => {
     fetchDashboard()
-  }, [amcConfig.sslState, amcConfig.stateName])
+  }, [amcConfig.sslState, amcConfig.stateName, isAdmin])
 
   return (
     <div>
@@ -366,8 +376,12 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
             <div className="bihar-amc-hero">
               <div>
                 <span className="bihar-amc-hero-badge">{amcConfig.stateName} Operations</span>
-                <h4>{amcConfig.moduleTitle}</h4>
-                <p>Field AMC activity first, then documentation progress — all in one dashboard.</p>
+                <h4>{dataScope === 'all' ? `${amcConfig.stateName} AMC Dashboard` : amcConfig.moduleTitle}</h4>
+                <p>
+                  {dataScope === 'all'
+                    ? `Every ${amcConfig.stateName} field AMC visit and documentation record.`
+                    : 'Your field AMC visits and documentation, in one dashboard.'}
+                </p>
               </div>
               <div className="d-flex flex-wrap gap-2">
                 <Link to={amcConfig.pages.lightAmc} className="btn btn-primary d-inline-flex align-items-center gap-2">

@@ -9,6 +9,7 @@ import {
 } from "../../Model/DLE-Model/light-amc-model.js";
 import { storedPathFromUploadedFile } from "../../Utils/amcStoredUploadPath.js";
 import { resolveJwtUserId, resolveRequestUserId } from "../../Utils/requestUser.js";
+import { isUserMasterAdmin } from "../../Utils/userRoles.js";
 
 const stateFilterForRegion = (region) => {
   if (region === "up") return "Uttar Pradesh";
@@ -37,11 +38,14 @@ const resolveLightAmcReadScope = (req) => {
   }
 
   if (jwtUserId || userId) {
+    const adminAll =
+      String(req.query.scope || "") === "all" && isUserMasterAdmin(req.user);
     return {
       ok: true,
-      companyId: req.query.company_id,
+      companyId: adminAll ? null : req.query.company_id,
       state,
-      userId,
+      userId: adminAll ? null : userId,
+      scope: adminAll ? "all" : "mine",
     };
   }
 
@@ -146,7 +150,7 @@ export const getLightAmcs = async (req, res) => {
       meta: {
         state: scope.state || "all",
         company_id: scope.companyId ? String(scope.companyId) : null,
-        scope: scope.userId ? "user" : "company",
+        scope: scope.scope || (scope.userId ? "mine" : "company"),
       },
       data: rows.map(serializeLightAmc),
     });

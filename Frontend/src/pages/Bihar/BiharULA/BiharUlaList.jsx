@@ -26,6 +26,7 @@ import {
   downloadUlaImagesZip,
   buildMapsUrl,
   formatGpsPair,
+  formatGpsDistance,
   countUlaSurveyPhotos,
   expectedFirstVisitPhotoCount,
   resolveUlaSurveyorDisplayName,
@@ -690,6 +691,12 @@ const BiharUlaList = () => {
                                   const firstMap = buildMapsUrl(row.latitude, row.longitude)
                                   const secondLabel = formatGpsPair(row.latitude2, row.longitude2)
                                   const secondMap = buildMapsUrl(row.latitude2, row.longitude2)
+                                  const visitDistance = formatGpsDistance(
+                                    row.latitude,
+                                    row.longitude,
+                                    row.latitude2,
+                                    row.longitude2
+                                  )
                                   if (!firstLabel && !secondLabel) return '—'
                                   return (
                                     <div className="d-flex flex-column gap-1">
@@ -717,6 +724,9 @@ const BiharUlaList = () => {
                                           <span>{secondLabel}</span>
                                         </a>
                                       )}
+                                      {visitDistance ? (
+                                        <span className="ula-gps-distance">Distance {visitDistance}</span>
+                                      ) : null}
                                     </div>
                                   )
                                 })()}

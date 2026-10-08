@@ -22,6 +22,7 @@ import {
   fetchUlaSurveyById,
   mapSurveyToDetailsRecord,
   buildMapsUrl,
+  formatGpsDistance,
   updateUlaApproval,
 } from './ulaHelpers'
 import { userIsAdmin } from '../../../utils/userRoles'
@@ -495,6 +496,15 @@ const BiharUlaDetails = () => {
                 value={
                   <GpsDetailValue latitude={record.latitude2} longitude={record.longitude2} />
                 }
+              />
+              <DetailItem
+                label="Distance between visits"
+                value={formatGpsDistance(
+                  record.latitude,
+                  record.longitude,
+                  record.latitude2,
+                  record.longitude2
+                )}
               />
             </div>
           </div>

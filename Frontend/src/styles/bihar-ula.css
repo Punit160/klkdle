@@ -164,6 +164,12 @@ button.ula-stat-card.is-active {
   font-size: 10px;
 }
 
+.ula-gps-distance {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+}
+
 .ula-location-cell .ula-hierarchy {
   font-size: 11px;
   color: var(--bs-secondary, #64748b);
