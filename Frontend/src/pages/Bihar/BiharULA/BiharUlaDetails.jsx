@@ -497,15 +497,17 @@ const BiharUlaDetails = () => {
                   <GpsDetailValue latitude={record.latitude2} longitude={record.longitude2} />
                 }
               />
-              <DetailItem
-                label="Distance between visits"
-                value={formatGpsDistance(
-                  record.latitude,
-                  record.longitude,
-                  record.latitude2,
-                  record.longitude2
-                )}
-              />
+              {record.secondVisitComplete ? (
+                <DetailItem
+                  label="Distance between visits"
+                  value={formatGpsDistance(
+                    record.latitude,
+                    record.longitude,
+                    record.latitude2,
+                    record.longitude2
+                  )}
+                />
+              ) : null}
             </div>
           </div>
 
