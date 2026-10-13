@@ -38,11 +38,28 @@ const pathDistanceKm = (points) => {
 
 const placeLabel = (...parts) => parts.map((part) => String(part || "").trim()).filter(Boolean).join(" / ");
 
-const ensureBucket = (map, userId) => {
-  const key = String(userId);
+const monthWindow = (monthStr) => {
+  const [year, month] = monthStr.split("-").map(Number);
+  const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const endStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  const start = istDateToUTCDate(startStr);
+  const end = new Date(istDateToUTCDate(endStr).getTime() + DAY_MS);
+  return { start, end };
+};
+
+const dayKeyOf = (value) => {
+  if (!value) return "";
+  return getISTDateString(new Date(value));
+};
+
+const ensureBucket = (map, userId, at) => {
+  const day = dayKeyOf(at);
+  const key = `${String(userId)}|${day}`;
   if (!map.has(key)) {
     map.set(key, {
-      user_id: key,
+      user_id: String(userId),
+      date: day,
       name: "",
       punch_in_at: null,
       punch_in_latitude: null,
@@ -65,8 +82,14 @@ export const getDailyWorkReport = async (req, res) => {
       return res.status(401).json({ success: false, message: "Login required." });
     }
 
+    const monthStr = String(req.query.month || "").trim();
+    const hasDate = Boolean(String(req.query.date || "").trim());
+    const monthMode = !hasDate && Boolean(monthStr);
+    if (monthMode && !/^\d{4}-\d{2}$/.test(monthStr)) {
+      return res.status(422).json({ success: false, message: "Month must be YYYY-MM." });
+    }
     const dateStr = String(req.query.date || getISTDateString(new Date())).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    if (!monthMode && !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return res.status(422).json({ success: false, message: "Date must be YYYY-MM-DD." });
     }
 
@@ -77,12 +100,12 @@ export const getDailyWorkReport = async (req, res) => {
     if (targetUserId && !/^\d+$/.test(targetUserId)) {
       return res.status(422).json({ success: false, message: "User id is not valid." });
     }
-    const { start, end } = dayWindow(dateStr);
+    const { start, end } = monthMode ? monthWindow(monthStr) : dayWindow(dateStr);
     const createdRange = { gte: start, lt: end };
 
     const companyFilter = portalCompanyId ? { company_id: portalCompanyId } : {};
     const attendanceWhere = {
-      attendance_date: start,
+      attendance_date: monthMode ? { gte: start, lt: end } : start,
       ...companyFilter,
       ...(targetUserId ? { user_id: BigInt(targetUserId) } : {}),
     };
@@ -184,7 +207,7 @@ export const getDailyWorkReport = async (req, res) => {
     const buckets = new Map();
 
     attendance.forEach((row) => {
-      const bucket = ensureBucket(buckets, row.user_id);
+      const bucket = ensureBucket(buckets, row.user_id, row.punch_in_at || row.attendance_date);
       bucket.punch_in_at = row.punch_in_at;
       bucket.punch_in_latitude = row.punch_in_latitude;
       bucket.punch_in_longitude = row.punch_in_longitude;
@@ -196,7 +219,7 @@ export const getDailyWorkReport = async (req, res) => {
 
     ulaFirst.forEach((row) => {
       if (!row.user_id) return;
-      const bucket = ensureBucket(buckets, row.user_id);
+      const bucket = ensureBucket(buckets, row.user_id, row.created_at);
       bucket.sites.push({
         at: row.created_at,
         kind: "ULA 1st visit",
@@ -210,7 +233,7 @@ export const getDailyWorkReport = async (req, res) => {
 
     ulaSecond.forEach((row) => {
       if (!row.user_id2) return;
-      const bucket = ensureBucket(buckets, row.user_id2);
+      const bucket = ensureBucket(buckets, row.user_id2, row.second_visit_at);
       bucket.sites.push({
         at: row.second_visit_at,
         kind: "ULA 2nd visit",
@@ -224,7 +247,7 @@ export const getDailyWorkReport = async (req, res) => {
 
     fieldAmc.forEach((row) => {
       if (!row.user_id) return;
-      const bucket = ensureBucket(buckets, row.user_id);
+      const bucket = ensureBucket(buckets, row.user_id, row.created_at);
       bucket.sites.push({
         at: row.created_at,
         kind: "Field AMC",
@@ -237,7 +260,7 @@ export const getDailyWorkReport = async (req, res) => {
     });
 
     const pushDoc = (row, parent, region) => {
-      const bucket = ensureBucket(buckets, row.created_by);
+      const bucket = ensureBucket(buckets, row.created_by, row.created_at);
       bucket.sites.push({
         at: row.created_at,
         kind: `${region} documentation`,
@@ -252,7 +275,9 @@ export const getDailyWorkReport = async (req, res) => {
     biharDocs.forEach((row) => pushDoc(row, row.biharSslAmc, "Bihar"));
     upDocs.forEach((row) => pushDoc(row, row.upSslAmc, "UP"));
 
-    const ids = [...buckets.keys()].filter((id) => /^\d+$/.test(id)).map((id) => BigInt(id));
+    const ids = [...new Set([...buckets.values()].map((bucket) => bucket.user_id))]
+      .filter((id) => /^\d+$/.test(id))
+      .map((id) => BigInt(id));
     const people = ids.length
       ? await prisma.user.findMany({
           where: { id: { in: ids } },
@@ -261,13 +286,13 @@ export const getDailyWorkReport = async (req, res) => {
       : [];
     const names = new Map(people.map((person) => [person.id.toString(), person.name]));
 
-    const users = [...buckets.values()]
+    const days = [...buckets.values()]
       .map((bucket) => {
         bucket.sites.sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
         const stillOpen = Boolean(bucket.punch_in_at) && !bucket.punch_out_at;
         const endAt = bucket.punch_out_at
           ? new Date(bucket.punch_out_at)
-          : stillOpen && dateStr === getISTDateString(new Date())
+          : stillOpen && bucket.date === getISTDateString(new Date())
             ? new Date()
             : null;
         const durationMinutes =
@@ -290,23 +315,75 @@ export const getDailyWorkReport = async (req, res) => {
             longitude: bucket.punch_out_longitude,
           });
         }
-        return {
-          ...bucket,
-          name: names.get(bucket.user_id) || `User ${bucket.user_id}`,
+        const day = {
+          date: bucket.date,
+          punch_in_at: bucket.punch_in_at,
+          punch_in_latitude: bucket.punch_in_latitude,
+          punch_in_longitude: bucket.punch_in_longitude,
+          punch_out_at: bucket.punch_out_at,
+          punch_out_latitude: bucket.punch_out_latitude,
+          punch_out_longitude: bucket.punch_out_longitude,
+          punch_out_auto: bucket.punch_out_auto,
           duration_minutes: durationMinutes,
           site_count: bucket.sites.length,
           ula_visits: bucket.sites.filter((site) => site.kind.startsWith("ULA")).length,
           field_amc: bucket.sites.filter((site) => site.kind === "Field AMC").length,
           documents: bucket.sites.filter((site) => site.kind.includes("documentation")).length,
           distance_km: pathDistanceKm(path),
+          ...(monthMode ? {} : { sites: bucket.sites, user_id: bucket.user_id, name: names.get(bucket.user_id) || `User ${bucket.user_id}` }),
+        };
+        return {
+          user_id: bucket.user_id,
+          name: names.get(bucket.user_id) || `User ${bucket.user_id}`,
+          day,
+        };
+      });
+
+    const scope = portalCompanyId ? "company" : adminView && !targetUserId ? "all" : "mine";
+
+    if (!monthMode) {
+      const users = days
+        .map((entry) => entry.day)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return res.json({
+        success: true,
+        date: dateStr,
+        scope,
+        users,
+      });
+    }
+
+    const byUser = new Map();
+    days.forEach((entry) => {
+      if (!byUser.has(entry.user_id)) {
+        byUser.set(entry.user_id, {
+          user_id: entry.user_id,
+          name: entry.name,
+          days: [],
+        });
+      }
+      byUser.get(entry.user_id).days.push(entry.day);
+    });
+
+    const users = [...byUser.values()]
+      .map((user) => {
+        user.days.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        const totalMinutes = user.days.reduce((sum, day) => sum + Number(day.duration_minutes || 0), 0);
+        return {
+          ...user,
+          day_count: user.days.length,
+          total_minutes: totalMinutes,
+          total_sites: user.days.reduce((sum, day) => sum + day.site_count, 0),
+          total_distance_km:
+            Math.round(user.days.reduce((sum, day) => sum + Number(day.distance_km || 0), 0) * 100) / 100,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
 
     return res.json({
       success: true,
-      date: dateStr,
-      scope: portalCompanyId ? "company" : adminView && !targetUserId ? "all" : "mine",
+      month: monthStr,
+      scope,
       users,
     });
   } catch (error) {

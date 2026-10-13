@@ -1,130 +1,209 @@
 .daily-work-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.daily-work-head,
-.daily-work-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  gap: 20px;
+  padding-bottom: 24px;
 }
 
 .daily-work-head {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 20px 22px;
 }
 
-.daily-work-head h4 {
-  margin: 0 0 4px;
-  font-weight: 800;
-}
-
-.daily-work-head p {
-  margin: 0;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.daily-work-filters {
+.daily-work-tools {
   display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.daily-work-filters label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.daily-work-filters input,
-.daily-work-filters select {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  min-width: 160px;
-  background: #fff;
-}
-
-.daily-work-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.daily-work-stats div,
-.daily-work-punch div {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+.daily-work-page .month-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
   border-radius: 12px;
-  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
-.daily-work-stats span,
-.daily-work-punch span {
+.daily-work-page .month-switcher-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.daily-work-page .month-switcher-btn:hover:not(:disabled) {
+  background: rgba(52, 84, 209, 0.08);
+  color: #3454d1;
+}
+
+.daily-work-page .month-switcher-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.daily-work-page .month-switcher-label {
+  min-width: 120px;
+  text-align: center;
+}
+
+.daily-work-page .month-switcher-label strong,
+.daily-work-page .month-switcher-label span {
   display: block;
+}
+
+.daily-work-page .month-switcher-label strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.daily-work-page .month-switcher-label span {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: #64748b;
 }
 
-.daily-work-stats strong {
-  font-size: 22px;
+.daily-work-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  color: #3454d1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
-.daily-work-card-head {
-  width: 100%;
+.daily-work-user select {
   border: 0;
   background: transparent;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding: 16px 18px;
-  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  min-width: 150px;
+  outline: none;
 }
 
-.daily-work-card-head h5 {
-  margin: 0 0 4px;
-  font-weight: 800;
+.daily-work-stat {
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
 
-.daily-work-card-head p {
-  margin: 0;
-  color: #64748b;
+.daily-work-stat span {
+  display: block;
   font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
 }
 
-.daily-work-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
+.daily-work-stat strong {
+  display: block;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.daily-work-pills span {
-  background: #eef2ff;
-  color: #3454d1;
-  border-radius: 999px;
+.daily-work-stat.days strong { color: #3454d1; }
+.daily-work-stat.sites strong { color: #166534; }
+.daily-work-stat.distance strong { color: #b45309; }
+
+.daily-work-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.daily-work-table thead th {
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.daily-work-table thead th svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+.daily-work-table tbody td {
+  font-size: 13px;
+  color: #334155;
+  padding: 14px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.daily-work-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.daily-work-table tbody tr.is-open {
+  background: rgba(52, 84, 209, 0.04);
+}
+
+.daily-work-table .date-cell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.daily-work-badge {
+  display: inline-flex;
   padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.daily-work-badge.done { background: #dcfce7; color: #166534; }
+.daily-work-badge.auto { background: #fef3c7; color: #92400e; }
+.daily-work-badge.open { background: #dbeafe; color: #1d4ed8; }
+.daily-work-badge.hours { background: #eef2ff; color: #3454d1; }
+.daily-work-badge.muted { background: #f1f5f9; color: #64748b; }
+
+.daily-work-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #3454d1;
+  border-radius: 8px;
+  padding: 6px 10px;
   font-size: 12px;
   font-weight: 700;
 }
 
-.daily-work-card-body {
-  border-top: 1px solid #e2e8f0;
+.daily-work-view:hover {
+  background: rgba(52, 84, 209, 0.08);
+}
+
+.daily-work-detail {
+  margin: 4px 8px 12px;
   padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .daily-work-punch {
@@ -134,36 +213,69 @@
   margin-bottom: 14px;
 }
 
+.daily-work-punch div {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.daily-work-punch span,
 .daily-work-punch strong,
 .daily-work-punch a,
 .daily-work-punch em {
   display: block;
+}
+
+.daily-work-punch span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.daily-work-punch span svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+.daily-work-punch a,
+.daily-work-punch em {
   margin-top: 4px;
+  font-size: 12px;
 }
 
 .daily-work-punch em {
   color: #94a3b8;
   font-style: normal;
-  font-size: 12px;
 }
 
-.daily-work-empty {
-  padding: 18px;
-  text-align: center;
-  color: #64748b;
+.daily-work-detail .table {
   background: #fff;
-  border: 1px dashed #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.daily-work-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.daily-work-note,
+.daily-work-empty {
+  margin: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+}
+
+.daily-work-note.is-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
 }
 
 @media (max-width: 767px) {
-  .daily-work-stats,
   .daily-work-punch {
     grid-template-columns: 1fr;
   }

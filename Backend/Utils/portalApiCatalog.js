@@ -351,7 +351,7 @@ export const PORTAL_API_ROUTE_CATALOG = [
     method: "GET",
     path: "/api/attendance/integration/work-report",
     description:
-      "User-wise day report: punch in/out, GPS, sites, and distance. Optional ?date=YYYY-MM-DD and ?user_id=",
+      "User-wise work. ?month=YYYY-MM returns each working day. ?date=YYYY-MM-DD returns that day's sites, GPS, and distance. Optional ?user_id=",
   },
 ];
 
