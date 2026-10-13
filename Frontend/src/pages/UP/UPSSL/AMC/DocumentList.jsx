@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { FiEye, FiFileText, FiMapPin } from 'react-icons/fi'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import CardHeader from '@/components/shared/CardHeader'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import getIcon from '@/utils/getIcon'
@@ -17,6 +17,8 @@ import {
     getAmcApprovalBadgeClass,
     getRowApprovalSummary,
 } from '../../../../utils/amcApproval'
+import { matchAmcDocument, useAmcDocumentFilters } from '../../../AMC/amcDocFilters'
+import AmcDocumentFilterBar from '../../../AMC/AmcDocumentFilterBar'
 
 const PER_PAGE = 20
 
@@ -85,9 +87,7 @@ const DocumentList = () => {
     const [error, setError] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const navigate = useNavigate()
-    const [searchParams] = useSearchParams()
-    const districtFilter = (searchParams.get('district') || '').trim()
-    const statusFilter = (searchParams.get('status') || '').trim()
+    const { approvalFilter, statusFilter, districtFilter, apply } = useAmcDocumentFilters()
     const [summary, setSummary] = useState({
         total_district: 0,
         total_block: 0,
@@ -141,25 +141,12 @@ const DocumentList = () => {
 
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchTerm, districtFilter, statusFilter])
+    }, [searchTerm, districtFilter, statusFilter, approvalFilter])
 
-    const filteredData = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase()
-        const district = districtFilter.toLowerCase()
-        return amcData.filter((row) => {
-            if (district && String(row.district || '').trim().toLowerCase() !== district) return false
-            const lights = getLightTotals(row)
-            const complete = lights.total > 0 && lights.pending === 0
-            if (statusFilter === 'completed' && !complete) return false
-            if (statusFilter === 'pending' && complete) return false
-            if (!term) return true
-            return (
-                row.panchayat?.toLowerCase().includes(term) ||
-                row.district?.toLowerCase().includes(term) ||
-                row.block?.toLowerCase().includes(term)
-            )
-        })
-    }, [amcData, searchTerm, districtFilter, statusFilter])
+    const filteredData = useMemo(
+        () => amcData.filter((row) => matchAmcDocument(row, { approvalFilter, statusFilter, districtFilter, searchTerm })),
+        [amcData, searchTerm, districtFilter, statusFilter, approvalFilter]
+    )
 
     const statisticsData = [
         {
@@ -238,12 +225,13 @@ const DocumentList = () => {
                     <div className={`card stretch stretch-full ${isExpanded ? "card-expand" : ""} ${refreshKey ? "card-loading" : ""}`}>
                         <CardHeader title={districtFilter ? `AMC documentation — ${districtFilter}` : 'AMC documentation'} refresh={handleRefresh} remove={handleDelete} expanded={handleExpand} />
                         <div className="card-body custom-card-action p-0">
-                            {districtFilter || statusFilter ? (
-                                <div className="px-3 pt-3 fs-12 text-muted">
-                                    Showing {statusFilter === 'completed' ? 'completed' : statusFilter === 'pending' ? 'pending' : 'all'} localities
-                                    {districtFilter ? ` in ${districtFilter}` : ''}.
-                                </div>
-                            ) : null}
+                            <AmcDocumentFilterBar
+                                rows={amcData}
+                                approvalFilter={approvalFilter}
+                                statusFilter={statusFilter}
+                                districtFilter={districtFilter}
+                                onApply={apply}
+                            />
                             <div className="table-responsive">
                                 <table className="table table-hover mb-0">
                                     <thead>
@@ -271,7 +259,7 @@ const DocumentList = () => {
                                         )}
 
                                         {!loading && !error && amcData.length > 0 && filteredData.length === 0 && (
-                                            <tr><td colSpan={7} className="text-center py-4 text-muted">No results found for &quot;{searchTerm}&quot;.</td></tr>
+                                            <tr><td colSpan={7} className="text-center py-4 text-muted">No records match these filters.</td></tr>
                                         )}
 
                                         {!loading && !error && paginatedData.map((row) => (

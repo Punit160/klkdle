@@ -275,6 +275,7 @@ export const getDailyWorkReport = async (req, res) => {
     biharDocs.forEach((row) => pushDoc(row, row.biharSslAmc, "Bihar"));
     upDocs.forEach((row) => pushDoc(row, row.upSslAmc, "UP"));
 
+    const includeSites = !monthMode || String(req.query.detail || "") === "1";
     const ids = [...new Set([...buckets.values()].map((bucket) => bucket.user_id))]
       .filter((id) => /^\d+$/.test(id))
       .map((id) => BigInt(id));
@@ -330,7 +331,13 @@ export const getDailyWorkReport = async (req, res) => {
           field_amc: bucket.sites.filter((site) => site.kind === "Field AMC").length,
           documents: bucket.sites.filter((site) => site.kind.includes("documentation")).length,
           distance_km: pathDistanceKm(path),
-          ...(monthMode ? {} : { sites: bucket.sites, user_id: bucket.user_id, name: names.get(bucket.user_id) || `User ${bucket.user_id}` }),
+          ...(includeSites
+            ? {
+                sites: bucket.sites,
+                user_id: bucket.user_id,
+                name: names.get(bucket.user_id) || `User ${bucket.user_id}`,
+              }
+            : {}),
         };
         return {
           user_id: bucket.user_id,
@@ -380,11 +387,36 @@ export const getDailyWorkReport = async (req, res) => {
       })
       .sort((a, b) => a.name.localeCompare(b.name));
 
+    let directory = [];
+    if (adminView) {
+      let companyId = portalCompanyId;
+      if (!companyId && /^\d+$/.test(viewerId)) {
+        const viewer = await prisma.user.findUnique({
+          where: { id: BigInt(viewerId) },
+          select: { company_id: true },
+        });
+        companyId = viewer?.company_id || "";
+      }
+      const staff = await prisma.user.findMany({
+        where: {
+          status: 1,
+          ...(companyId ? { company_id: companyId } : {}),
+        },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      });
+      directory = staff.map((person) => ({
+        user_id: person.id.toString(),
+        name: person.name,
+      }));
+    }
+
     return res.json({
       success: true,
       month: monthStr,
       scope,
       users,
+      directory,
     });
   } catch (error) {
     console.error("DAILY WORK REPORT ERROR:", error);

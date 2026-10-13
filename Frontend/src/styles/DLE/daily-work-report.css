@@ -198,6 +198,13 @@
   background: rgba(52, 84, 209, 0.08);
 }
 
+.daily-work-day-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
 .daily-work-detail {
   margin: 4px 8px 12px;
   padding: 16px;

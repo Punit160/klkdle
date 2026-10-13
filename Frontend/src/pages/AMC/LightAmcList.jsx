@@ -11,6 +11,7 @@ import { getCompanyId } from '../../utils/auth'
 import localApi from '../../api/localApi'
 import { app } from '../../api/routes'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
+import '../../styles/AMC/amc-table-filters.css'
 
 const PER_PAGE = 20
 
@@ -32,8 +33,20 @@ const LightAmcList = ({ region = 'bihar' }) => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
-    const [searchParams] = useSearchParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const workingFilter = searchParams.get('working') || ''
+    const districtFilter = (searchParams.get('district') || '').trim()
+
+    const applyFilters = (patch) => {
+        const working = Object.prototype.hasOwnProperty.call(patch, 'working') ? patch.working : workingFilter
+        const district = Object.prototype.hasOwnProperty.call(patch, 'district') ? patch.district : districtFilter
+        const next = new URLSearchParams(searchParams)
+        if (working) next.set('working', working)
+        else next.delete('working')
+        if (district) next.set('district', district)
+        else next.delete('district')
+        setSearchParams(next, { replace: true })
+    }
 
     const fetchRows = async () => {
         setLoading(true)
@@ -55,15 +68,27 @@ const LightAmcList = ({ region = 'bihar' }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refreshKey, stateName])
 
-    const visibleRows = useMemo(() => {
-        if (workingFilter === 'Yes') return rows.filter((row) => row.light_working === 'Yes')
-        if (workingFilter === 'No') return rows.filter((row) => row.light_working !== 'Yes')
-        return rows
-    }, [rows, workingFilter])
+    const stats = useMemo(() => ({
+        total: rows.length,
+        working: rows.filter((row) => row.light_working === 'Yes').length,
+        notWorking: rows.filter((row) => row.light_working !== 'Yes').length,
+    }), [rows])
+
+    const districtOptions = useMemo(
+        () => [...new Set(rows.map((row) => String(row.district || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+        [rows]
+    )
+
+    const visibleRows = useMemo(() => rows.filter((row) => {
+        if (workingFilter === 'Yes' && row.light_working !== 'Yes') return false
+        if (workingFilter === 'No' && row.light_working === 'Yes') return false
+        if (districtFilter && String(row.district || '').trim().toLowerCase() !== districtFilter.toLowerCase()) return false
+        return true
+    }), [rows, workingFilter, districtFilter])
 
     useEffect(() => {
         setCurrentPage(1)
-    }, [workingFilter])
+    }, [workingFilter, districtFilter])
 
     const paged = useMemo(() => {
         const start = (currentPage - 1) * PER_PAGE
@@ -81,11 +106,56 @@ const LightAmcList = ({ region = 'bihar' }) => {
                         <div className={`card stretch stretch-full ${isExpanded ? 'card-fullscreen' : ''}`}>
                             <CardHeader title={`${amcConfig.moduleTitle} — Field AMC`} refresh={handleRefresh} remove={handleDelete} expanded={handleExpand} />
                             <div className="card-body custom-card-action p-0">
-                                {workingFilter ? (
-                                    <div className="px-3 pt-3 fs-12 text-muted">
-                                        Showing {workingFilter === 'Yes' ? 'working' : 'not working'} visits.
-                                    </div>
-                                ) : null}
+                                <div className="amc-stat-grid">
+                                    <button
+                                        type="button"
+                                        className={`amc-stat-card${!workingFilter && !districtFilter ? ' is-active' : ''}`}
+                                        onClick={() => applyFilters({ working: '', district: '' })}
+                                    >
+                                        <div className="amc-stat-value">{stats.total}</div>
+                                        <div className="amc-stat-label">All visits</div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`amc-stat-card${workingFilter === 'Yes' ? ' is-active' : ''}`}
+                                        onClick={() => applyFilters({ working: workingFilter === 'Yes' ? '' : 'Yes' })}
+                                    >
+                                        <div className="amc-stat-value text-success">{stats.working}</div>
+                                        <div className="amc-stat-label">Working</div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`amc-stat-card${workingFilter === 'No' ? ' is-active' : ''}`}
+                                        onClick={() => applyFilters({ working: workingFilter === 'No' ? '' : 'No' })}
+                                    >
+                                        <div className="amc-stat-value text-danger">{stats.notWorking}</div>
+                                        <div className="amc-stat-label">Not working</div>
+                                    </button>
+                                </div>
+                                <div className="amc-toolbar">
+                                    <select
+                                        value={workingFilter}
+                                        onChange={(event) => applyFilters({ working: event.target.value })}
+                                        aria-label="Filter by working status"
+                                    >
+                                        <option value="">All visits</option>
+                                        <option value="Yes">Working</option>
+                                        <option value="No">Not working</option>
+                                    </select>
+                                    <select
+                                        value={districtFilter}
+                                        onChange={(event) => applyFilters({ district: event.target.value })}
+                                        aria-label="Filter by district"
+                                    >
+                                        <option value="">All districts</option>
+                                        {districtOptions.map((district) => (
+                                            <option key={district} value={district}>{district}</option>
+                                        ))}
+                                    </select>
+                                    <button type="button" className="btn btn-sm btn-light" onClick={() => applyFilters({ working: '', district: '' })}>
+                                        Reset
+                                    </button>
+                                </div>
                                 <div className="d-flex justify-content-end p-3 pb-0">
                                     <button type="button" className="btn btn-sm btn-primary" onClick={() => navigate(addPath)}>
                                         Do AMC
@@ -113,8 +183,11 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                             {!loading && error && (
                                                 <tr><td colSpan={9} className="text-center py-4 text-danger">{error}</td></tr>
                                             )}
-                                            {!loading && !error && visibleRows.length === 0 && (
+                                            {!loading && !error && rows.length === 0 && (
                                                 <tr><td colSpan={9} className="text-center py-4 text-muted">No AMC records yet.</td></tr>
+                                            )}
+                                            {!loading && !error && rows.length > 0 && visibleRows.length === 0 && (
+                                                <tr><td colSpan={9} className="text-center py-4 text-muted">No records match these filters.</td></tr>
                                             )}
                                             {!loading && !error && paged.map((row, index) => (
                                                 <tr key={row.id}>

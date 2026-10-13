@@ -37,33 +37,20 @@ const punchOutLabel = (day) => {
   return day.date === todayInput() ? 'Still working' : 'No punch out'
 }
 
-const dayStatus = (day) => {
-  if (!day.punch_in_at && day.site_count) return { label: 'Field work', className: 'hours' }
-  if (!day.punch_out_at && day.punch_in_at) {
-    return day.date === todayInput()
-      ? { label: 'In progress', className: 'open' }
-      : { label: 'No punch out', className: 'auto' }
-  }
-  if (day.punch_out_auto) return { label: 'Auto punch out', className: 'auto' }
-  if (day.punch_out_at) return { label: 'Present', className: 'done' }
-  return { label: '—', className: 'muted' }
-}
-
-const DayDetail = ({ detail, loading, error }) => {
-  if (loading) return <div className="daily-work-empty">Loading this day’s work…</div>
-  if (error) return <div className="alert alert-warning mb-0">{error}</div>
-  if (!detail) return null
-  const punchInMap = mapsUrl(detail.punch_in_latitude, detail.punch_in_longitude)
-  const punchOutMap = mapsUrl(detail.punch_out_latitude, detail.punch_out_longitude)
+const DayBlock = ({ day }) => {
+  const punchInMap = mapsUrl(day.punch_in_latitude, day.punch_in_longitude)
+  const punchOutMap = mapsUrl(day.punch_out_latitude, day.punch_out_longitude)
+  const sites = day.sites || []
   return (
     <div className="daily-work-detail">
+      <div className="daily-work-day-title">{formatAttendanceDate(day.date)}</div>
       <div className="daily-work-punch">
         <div>
           <span><FiLogIn size={13} /> Punch in</span>
-          <strong>{formatAttendanceTime(detail.punch_in_at)}</strong>
+          <strong>{formatAttendanceTime(day.punch_in_at)}</strong>
           {punchInMap ? (
             <a href={punchInMap} target="_blank" rel="noopener noreferrer">
-              <FiMapPin size={12} /> {formatCoords(detail.punch_in_latitude, detail.punch_in_longitude)}
+              <FiMapPin size={12} /> {formatCoords(day.punch_in_latitude, day.punch_in_longitude)}
             </a>
           ) : (
             <em>No GPS</em>
@@ -71,22 +58,22 @@ const DayDetail = ({ detail, loading, error }) => {
         </div>
         <div>
           <span><FiLogOut size={13} /> Punch out</span>
-          <strong>{punchOutLabel(detail)}</strong>
+          <strong>{punchOutLabel(day)}</strong>
           {punchOutMap ? (
             <a href={punchOutMap} target="_blank" rel="noopener noreferrer">
-              <FiMapPin size={12} /> {formatCoords(detail.punch_out_latitude, detail.punch_out_longitude)}
+              <FiMapPin size={12} /> {formatCoords(day.punch_out_latitude, day.punch_out_longitude)}
             </a>
           ) : (
-            <em>{detail.punch_out_at ? 'No GPS' : 'No punch out'}</em>
+            <em>{day.punch_out_at ? 'No GPS' : 'No punch out'}</em>
           )}
         </div>
         <div>
           <span><FiClock size={13} /> Work mix</span>
-          <strong>{detail.ula_visits} ULA</strong>
-          <em>{detail.field_amc} field AMC · {detail.documents} documents · {detail.distance_km} km</em>
+          <strong>{day.ula_visits} ULA</strong>
+          <em>{day.field_amc} field AMC · {day.documents} documents · {day.distance_km} km</em>
         </div>
       </div>
-      {(detail.sites || []).length === 0 ? (
+      {sites.length === 0 ? (
         <p className="daily-work-empty">No site visits recorded for this day.</p>
       ) : (
         <div className="table-responsive">
@@ -101,7 +88,7 @@ const DayDetail = ({ detail, loading, error }) => {
               </tr>
             </thead>
             <tbody>
-              {detail.sites.map((site, index) => {
+              {sites.map((site, index) => {
                 const href = mapsUrl(site.latitude, site.longitude)
                 return (
                   <tr key={`${site.kind}-${site.title}-${index}`}>
@@ -132,6 +119,24 @@ const DayDetail = ({ detail, loading, error }) => {
   )
 }
 
+const UserDetail = ({ detail, loading, error }) => {
+  if (loading) return <div className="daily-work-empty">Loading this user’s work…</div>
+  if (error) return <div className="alert alert-warning mb-0">{error}</div>
+  const days = detail?.days || []
+  if (!days.length) return <p className="daily-work-empty">No punch-in or field work in this month.</p>
+  return days.map((day) => <DayBlock key={day.date} day={day} />)
+}
+
+const blankUser = (person) => ({
+  user_id: String(person.user_id),
+  name: person.name,
+  days: [],
+  day_count: 0,
+  total_minutes: 0,
+  total_sites: 0,
+  total_distance_km: 0,
+})
+
 const DailyWorkReport = () => {
   const isAdmin = userIsAdmin()
   const [month, setMonth] = useState(currentMonth)
@@ -149,6 +154,7 @@ const DailyWorkReport = () => {
   }
   const [userId, setUserId] = useState('')
   const [users, setUsers] = useState([])
+  const [directory, setDirectory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [openKey, setOpenKey] = useState('')
@@ -167,10 +173,12 @@ const DailyWorkReport = () => {
       .then((res) => {
         if (cancelled) return
         setUsers(res.data?.users || [])
+        setDirectory(res.data?.directory || [])
       })
       .catch((err) => {
         if (cancelled) return
         setUsers([])
+        setDirectory([])
         setError(err.response?.data?.message || 'Could not load the daily work report.')
       })
       .finally(() => {
@@ -181,54 +189,73 @@ const DailyWorkReport = () => {
     }
   }, [month])
 
+  const roster = useMemo(() => {
+    const worked = new Map(users.map((user) => [String(user.user_id), user]))
+    const source = directory.length
+      ? directory
+      : users.map((user) => ({ user_id: user.user_id, name: user.name }))
+    const seen = new Set()
+    const list = source.map((person) => {
+      const id = String(person.user_id)
+      seen.add(id)
+      return worked.get(id) || blankUser(person)
+    })
+    users.forEach((user) => {
+      if (!seen.has(String(user.user_id))) list.push(user)
+    })
+    return list.sort((a, b) => {
+      const workedGap = Number(b.day_count > 0) - Number(a.day_count > 0)
+      if (workedGap) return workedGap
+      return String(a.name || '').localeCompare(String(b.name || ''))
+    })
+  }, [users, directory])
+
+  const filterOptions = useMemo(
+    () => [...roster].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))),
+    [roster]
+  )
+
   const visibleUsers = useMemo(
-    () => (isAdmin && userId ? users.filter((user) => user.user_id === userId) : users),
-    [users, isAdmin, userId]
+    () => (isAdmin && userId ? roster.filter((user) => String(user.user_id) === String(userId)) : roster),
+    [roster, isAdmin, userId]
   )
 
-  const rows = useMemo(
-    () =>
-      visibleUsers.flatMap((user) =>
-        (user.days || []).map((day) => ({
-          ...day,
-          user_id: user.user_id,
-          name: user.name,
-        }))
-      ),
-    [visibleUsers]
-  )
+  const totals = useMemo(() => {
+    const working = visibleUsers.filter((user) => user.day_count > 0)
+    return {
+      people: working.length,
+      days: working.reduce((sum, user) => sum + Number(user.day_count || 0), 0),
+      sites: working.reduce((sum, user) => sum + Number(user.total_sites || 0), 0),
+      distance: Math.round(working.reduce((sum, user) => sum + Number(user.total_distance_km || 0), 0) * 100) / 100,
+    }
+  }, [visibleUsers])
 
-  const totals = useMemo(
-    () => ({
-      people: visibleUsers.length,
-      days: rows.length,
-      sites: rows.reduce((sum, row) => sum + Number(row.site_count || 0), 0),
-      distance: Math.round(rows.reduce((sum, row) => sum + Number(row.distance_km || 0), 0) * 100) / 100,
-    }),
-    [visibleUsers, rows]
-  )
-
-  const openDay = (row) => {
-    const key = `${row.user_id}|${row.date}`
+  const openUser = (user) => {
+    const key = String(user.user_id)
     if (openKey === key) {
       setOpenKey('')
       setDetail(null)
       return
     }
     setOpenKey(key)
-    setDetail(null)
     setDetailError('')
+    if (!user.day_count) {
+      setDetail({ days: [] })
+      setDetailLoading(false)
+      return
+    }
+    setDetail(null)
     setDetailLoading(true)
-    const params = { date: row.date }
-    if (isAdmin) params.user_id = row.user_id
+    const params = { month, detail: 1 }
+    if (isAdmin) params.user_id = user.user_id
     localApi
       .get(app.attendance.workReport, { params })
       .then((res) => {
-        const match = (res.data?.users || []).find((user) => String(user.user_id) === String(row.user_id))
-        setDetail(match || res.data?.users?.[0] || null)
+        const match = (res.data?.users || []).find((row) => String(row.user_id) === String(user.user_id))
+        setDetail(match || { days: [] })
       })
       .catch((err) => {
-        setDetailError(err.response?.data?.message || 'Could not load this day’s work.')
+        setDetailError(err.response?.data?.message || 'Could not load this user’s work.')
       })
       .finally(() => setDetailLoading(false))
   }
@@ -252,7 +279,7 @@ const DailyWorkReport = () => {
                 <FiUsers size={14} />
                 <select value={userId} onChange={(event) => setUserId(event.target.value)} aria-label="Filter by user">
                   <option value="">All users</option>
-                  {users.map((user) => (
+                  {filterOptions.map((user) => (
                     <option key={user.user_id} value={user.user_id}>
                       {user.name}
                     </option>
@@ -304,18 +331,16 @@ const DailyWorkReport = () => {
           <div className="card-body p-0">
         {error ? <div className="daily-work-note is-error">{error}</div> : null}
         {loading ? <p className="p-4 text-muted fs-13 mb-0">Loading working days…</p> : null}
-        {!loading && !error && rows.length === 0 ? (
-          <p className="p-4 text-muted fs-13 mb-0">No punch-in or field work in this month.</p>
+        {!loading && !error && visibleUsers.length === 0 ? (
+          <p className="p-4 text-muted fs-13 mb-0">No users to show.</p>
         ) : null}
-        {!loading && rows.length > 0 ? (
+        {!loading && visibleUsers.length > 0 ? (
             <div className="table-responsive">
               <table className="table daily-work-table mb-0">
                 <thead>
                   <tr>
                     <th>User</th>
-                    <th>Working day</th>
-                    <th><FiLogIn size={14} /> Punch in</th>
-                    <th><FiLogOut size={14} /> Punch out</th>
+                    <th>Working days</th>
                     <th><FiClock size={14} /> Hours</th>
                     <th>Sites</th>
                     <th>Distance</th>
@@ -324,31 +349,32 @@ const DailyWorkReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => {
-                    const key = `${row.user_id}|${row.date}`
+                  {visibleUsers.map((user) => {
+                    const key = String(user.user_id)
                     const open = openKey === key
-                    const status = dayStatus(row)
+                    const worked = user.day_count > 0
+                    const status = worked
+                      ? { label: `${user.day_count} day${user.day_count === 1 ? '' : 's'}`, className: 'done' }
+                      : { label: 'No work', className: 'muted' }
                     return (
                       <Fragment key={key}>
                         <tr className={open ? 'is-open' : ''}>
-                          <td className="fw-semibold">{row.name}</td>
-                          <td className="date-cell">{formatAttendanceDate(row.date)}</td>
-                          <td>{formatAttendanceTime(row.punch_in_at)}</td>
-                          <td>{punchOutLabel(row)}</td>
-                          <td>{formatHours(row.duration_minutes)}</td>
-                          <td>{row.site_count}</td>
-                          <td>{row.distance_km} km</td>
+                          <td className="fw-semibold">{user.name}</td>
+                          <td>{user.day_count || 0}</td>
+                          <td>{formatHours(user.total_minutes)}</td>
+                          <td>{user.total_sites || 0}</td>
+                          <td>{user.total_distance_km || 0} km</td>
                           <td><span className={`daily-work-badge ${status.className}`}>{status.label}</span></td>
                           <td>
-                            <button type="button" className="daily-work-view" onClick={() => openDay(row)}>
+                            <button type="button" className="daily-work-view" onClick={() => openUser(user)}>
                               <FiEye size={13} /> {open ? 'Hide' : 'View'}
                             </button>
                           </td>
                         </tr>
                         {open ? (
                           <tr>
-                            <td colSpan={9}>
-                              <DayDetail detail={detail} loading={detailLoading} error={detailError} />
+                            <td colSpan={7}>
+                              <UserDetail detail={detail} loading={detailLoading} error={detailError} />
                             </td>
                           </tr>
                         ) : null}
