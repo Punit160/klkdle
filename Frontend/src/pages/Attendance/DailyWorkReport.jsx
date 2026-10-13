@@ -119,12 +119,23 @@ const DayBlock = ({ day }) => {
   )
 }
 
-const UserDetail = ({ detail, loading, error }) => {
-  if (loading) return <div className="daily-work-empty">Loading this user’s work…</div>
+const dayStatus = (day) => {
+  if (!day.punch_in_at && day.site_count) return { label: 'Field work', className: 'hours' }
+  if (!day.punch_out_at && day.punch_in_at) {
+    return day.date === todayInput()
+      ? { label: 'In progress', className: 'open' }
+      : { label: 'No punch out', className: 'auto' }
+  }
+  if (day.punch_out_auto) return { label: 'Auto punch out', className: 'auto' }
+  if (day.punch_out_at) return { label: 'Present', className: 'done' }
+  return { label: '—', className: 'muted' }
+}
+
+const DayDetail = ({ detail, loading, error }) => {
+  if (loading) return <div className="daily-work-empty">Loading this day’s work…</div>
   if (error) return <div className="alert alert-warning mb-0">{error}</div>
-  const days = detail?.days || []
-  if (!days.length) return <p className="daily-work-empty">No punch-in or field work in this month.</p>
-  return days.map((day) => <DayBlock key={day.date} day={day} />)
+  if (!detail) return null
+  return <DayBlock day={detail} />
 }
 
 const blankUser = (person) => ({
@@ -220,42 +231,55 @@ const DailyWorkReport = () => {
     [roster, isAdmin, userId]
   )
 
-  const totals = useMemo(() => {
-    const working = visibleUsers.filter((user) => user.day_count > 0)
-    return {
-      people: working.length,
-      days: working.reduce((sum, user) => sum + Number(user.day_count || 0), 0),
-      sites: working.reduce((sum, user) => sum + Number(user.total_sites || 0), 0),
-      distance: Math.round(working.reduce((sum, user) => sum + Number(user.total_distance_km || 0), 0) * 100) / 100,
-    }
-  }, [visibleUsers])
+  const rows = useMemo(
+    () =>
+      visibleUsers
+        .flatMap((user) =>
+          (user.days || []).map((day) => ({
+            ...day,
+            user_id: user.user_id,
+            name: user.name,
+          }))
+        )
+        .sort((a, b) => {
+          const byDate = String(b.date).localeCompare(String(a.date))
+          if (byDate) return byDate
+          return String(a.name || '').localeCompare(String(b.name || ''))
+        }),
+    [visibleUsers]
+  )
 
-  const openUser = (user) => {
-    const key = String(user.user_id)
+  const totals = useMemo(() => {
+    const people = new Set(rows.map((row) => String(row.user_id)))
+    return {
+      people: people.size,
+      days: rows.length,
+      sites: rows.reduce((sum, row) => sum + Number(row.site_count || 0), 0),
+      distance: Math.round(rows.reduce((sum, row) => sum + Number(row.distance_km || 0), 0) * 100) / 100,
+    }
+  }, [rows])
+
+  const openDay = (row) => {
+    const key = `${row.user_id}|${row.date}`
     if (openKey === key) {
       setOpenKey('')
       setDetail(null)
       return
     }
     setOpenKey(key)
-    setDetailError('')
-    if (!user.day_count) {
-      setDetail({ days: [] })
-      setDetailLoading(false)
-      return
-    }
     setDetail(null)
+    setDetailError('')
     setDetailLoading(true)
-    const params = { month, detail: 1 }
-    if (isAdmin) params.user_id = user.user_id
+    const params = { date: row.date }
+    if (isAdmin) params.user_id = row.user_id
     localApi
       .get(app.attendance.workReport, { params })
       .then((res) => {
-        const match = (res.data?.users || []).find((row) => String(row.user_id) === String(user.user_id))
-        setDetail(match || { days: [] })
+        const match = (res.data?.users || []).find((user) => String(user.user_id) === String(row.user_id))
+        setDetail(match || res.data?.users?.[0] || null)
       })
       .catch((err) => {
-        setDetailError(err.response?.data?.message || 'Could not load this user’s work.')
+        setDetailError(err.response?.data?.message || 'Could not load this day’s work.')
       })
       .finally(() => setDetailLoading(false))
   }
@@ -269,8 +293,8 @@ const DailyWorkReport = () => {
             <h4 className="fw-bold text-dark mb-1">Daily work</h4>
             <p className="fs-13 text-muted mb-0">
               {isAdmin
-                ? 'Working days for every user. Open a day to see the full route.'
-                : 'Your working days. Open a day to see the full route.'}
+                ? 'Each working day of the month, for every user. Open a day to see the sites.'
+                : 'Each of your working days this month. Open a day to see the sites.'}
             </p>
           </div>
           <div className="daily-work-tools">
@@ -331,16 +355,18 @@ const DailyWorkReport = () => {
           <div className="card-body p-0">
         {error ? <div className="daily-work-note is-error">{error}</div> : null}
         {loading ? <p className="p-4 text-muted fs-13 mb-0">Loading working days…</p> : null}
-        {!loading && !error && visibleUsers.length === 0 ? (
-          <p className="p-4 text-muted fs-13 mb-0">No users to show.</p>
+        {!loading && !error && rows.length === 0 ? (
+          <p className="p-4 text-muted fs-13 mb-0">No punch-in or field work in this month.</p>
         ) : null}
-        {!loading && visibleUsers.length > 0 ? (
+        {!loading && rows.length > 0 ? (
             <div className="table-responsive">
               <table className="table daily-work-table mb-0">
                 <thead>
                   <tr>
                     <th>User</th>
-                    <th>Working days</th>
+                    <th>Working day</th>
+                    <th><FiLogIn size={14} /> Punch in</th>
+                    <th><FiLogOut size={14} /> Punch out</th>
                     <th><FiClock size={14} /> Hours</th>
                     <th>Sites</th>
                     <th>Distance</th>
@@ -349,32 +375,31 @@ const DailyWorkReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleUsers.map((user) => {
-                    const key = String(user.user_id)
+                  {rows.map((row) => {
+                    const key = `${row.user_id}|${row.date}`
                     const open = openKey === key
-                    const worked = user.day_count > 0
-                    const status = worked
-                      ? { label: `${user.day_count} day${user.day_count === 1 ? '' : 's'}`, className: 'done' }
-                      : { label: 'No work', className: 'muted' }
+                    const status = dayStatus(row)
                     return (
                       <Fragment key={key}>
                         <tr className={open ? 'is-open' : ''}>
-                          <td className="fw-semibold">{user.name}</td>
-                          <td>{user.day_count || 0}</td>
-                          <td>{formatHours(user.total_minutes)}</td>
-                          <td>{user.total_sites || 0}</td>
-                          <td>{user.total_distance_km || 0} km</td>
+                          <td className="fw-semibold">{row.name}</td>
+                          <td className="date-cell">{formatAttendanceDate(row.date)}</td>
+                          <td>{formatAttendanceTime(row.punch_in_at)}</td>
+                          <td>{punchOutLabel(row)}</td>
+                          <td>{formatHours(row.duration_minutes)}</td>
+                          <td>{row.site_count}</td>
+                          <td>{row.distance_km} km</td>
                           <td><span className={`daily-work-badge ${status.className}`}>{status.label}</span></td>
                           <td>
-                            <button type="button" className="daily-work-view" onClick={() => openUser(user)}>
+                            <button type="button" className="daily-work-view" onClick={() => openDay(row)}>
                               <FiEye size={13} /> {open ? 'Hide' : 'View'}
                             </button>
                           </td>
                         </tr>
                         {open ? (
                           <tr>
-                            <td colSpan={7}>
-                              <UserDetail detail={detail} loading={detailLoading} error={detailError} />
+                            <td colSpan={9}>
+                              <DayDetail detail={detail} loading={detailLoading} error={detailError} />
                             </td>
                           </tr>
                         ) : null}
