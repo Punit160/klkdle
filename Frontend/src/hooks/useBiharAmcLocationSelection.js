@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCompanyId } from '../utils/auth'
 import { getDleAmcUserId } from '../utils/externalApiUser'
 import {
@@ -29,10 +29,10 @@ export function useBiharAmcLocationSelection({
     panchayat: false,
   })
 
-  const readSaved = () => {
+  const readSaved = useCallback(() => {
     if (!enabled) return null
     return loadBiharAmcLocationPrefs(userId, companyId)
-  }
+  }, [enabled, userId, companyId])
 
   const resetRestoreState = () => {
     restoreDoneRef.current = {
@@ -66,7 +66,7 @@ export function useBiharAmcLocationSelection({
       setSelectedDistrict(option)
     }
     restoreDoneRef.current.district = true
-  }, [enabled, districtOptions, selectedDistrict, userId, companyId])
+  }, [enabled, districtOptions, selectedDistrict, userId, companyId, readSaved])
 
   useEffect(() => {
     if (!enabled || selectedBlock || restoreDoneRef.current.block) return
@@ -92,6 +92,7 @@ export function useBiharAmcLocationSelection({
     selectedBlock,
     userId,
     companyId,
+    readSaved,
   ])
 
   useEffect(() => {
@@ -124,6 +125,7 @@ export function useBiharAmcLocationSelection({
     selectedPanchayat,
     userId,
     companyId,
+    readSaved,
   ])
 
   const persistSnapshot = (district, block, panchayat, { clearWard = false } = {}) => {

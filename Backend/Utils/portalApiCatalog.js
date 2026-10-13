@@ -280,6 +280,79 @@ export const PORTAL_API_ROUTE_CATALOG = [
     path: "/api/portal/integration/me",
     description: "Who am I — company_id, scopes, allowed endpoints",
   },
+  {
+    module: "dle_dashboard",
+    scope: "read",
+    method: "GET",
+    path: "/api/portal/integration/dle-dashboard",
+    description:
+      "Major DLE dashboard for this company: Bihar and UP documentation, field AMC, ULA, attendance, and the day's user work. Optional ?date=YYYY-MM-DD.",
+  },
+  {
+    module: "bihar_ssl_amc",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/amc/dashboard/district",
+    description: "Bihar AMC documentation dashboard — districts, lights, completed and pending localities",
+  },
+  {
+    module: "up_ssl_amc",
+    scope: "read",
+    method: "GET",
+    path: "/api/up/amc/dashboard/district",
+    description: "UP AMC documentation dashboard — districts, lights, completed and pending localities",
+  },
+  {
+    module: "bihar_ula",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/ula/report",
+    description: "Bihar ULA dashboard data for every survey in the company",
+  },
+  {
+    module: "bihar_ula",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/ula/approval/list",
+    description: "ULA surveys for approval. Optional ?approval_status=0 pending, 1 approved, 2 rejected.",
+  },
+  {
+    module: "bihar_ula",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/ula/approval/pending",
+    description: "ULA surveys waiting for approve or reject",
+  },
+  {
+    module: "bihar_ula",
+    scope: "approve",
+    method: "POST",
+    path: "/api/bihar/ula/approval/status",
+    description:
+      "Approve or reject a ULA survey. Body: id, approval_status 1 (approve) or 2 (reject). Remarks are required when rejecting. Approve only when both visits are done, or the first visit already has the solar meter photo.",
+  },
+  {
+    module: "bihar_ula",
+    scope: "approve",
+    method: "POST",
+    path: "/api/bihar/ula/:id/approval",
+    description: "Same approve/reject as /approval/status, with the survey id in the URL.",
+  },
+  {
+    module: "bihar_ula",
+    scope: "approve",
+    method: "PATCH",
+    path: "/api/bihar/ula/:id/approval",
+    description: "Same approve/reject call the DLE admin screen uses.",
+  },
+  {
+    module: "attendance",
+    scope: "read",
+    method: "GET",
+    path: "/api/attendance/integration/work-report",
+    description:
+      "User-wise day report: punch in/out, GPS, sites, and distance. Optional ?date=YYYY-MM-DD and ?user_id=",
+  },
 ];
 
 export const credentialAllowsScope = (scopes, requiredScope) => {

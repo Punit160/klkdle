@@ -8,9 +8,9 @@ import {
 
 } from "../../Controller/DLE-Controller/amc-approval-controller.js";
 
-import { getAmcDocuments as getBiharAmcDocuments } from "../../Controller/DLE-Controller/Bihar-SSL/Bihar_amc_controller.js";
+import { getAllDistricts as getBiharDistricts, getAmcDocuments as getBiharAmcDocuments } from "../../Controller/DLE-Controller/Bihar-SSL/Bihar_amc_controller.js";
 
-import { getAmcDocuments as getUpAmcDocuments } from "../../Controller/DLE-Controller/UP-SSL/UP_amc_controller.js";
+import { getAllDistricts as getUpDistricts, getAmcDocuments as getUpAmcDocuments } from "../../Controller/DLE-Controller/UP-SSL/UP_amc_controller.js";
 
 import { attachPortalCompanyOrSkipRouter } from "../../Utils/portalCompany.js";
 
@@ -33,6 +33,7 @@ export const createAmcApprovalRouter = (region) => {
   const router = express.Router();
 
   const getAmcDocuments = region === "up" ? getUpAmcDocuments : getBiharAmcDocuments;
+  const getAllDistricts = region === "up" ? getUpDistricts : getBiharDistricts;
 
 
 
@@ -51,6 +52,8 @@ export const createAmcApprovalRouter = (region) => {
   router.get("/get", ...readStack, getAmcDocuments);
 
   router.get("/view", ...readStack, getAmcDocuments);
+
+  router.get("/dashboard/district", ...readStack, getAllDistricts);
 
 
 

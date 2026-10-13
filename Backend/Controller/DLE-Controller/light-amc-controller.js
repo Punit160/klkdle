@@ -38,8 +38,7 @@ const resolveLightAmcReadScope = (req) => {
   }
 
   if (jwtUserId || userId) {
-    const adminAll =
-      String(req.query.scope || "") === "all" && isUserMasterAdmin(req.user);
+    const adminAll = isUserMasterAdmin(req.user);
     return {
       ok: true,
       companyId: adminAll ? null : req.query.company_id,
@@ -145,14 +144,25 @@ export const getLightAmcs = async (req, res) => {
       userId: scope.userId,
     });
 
+    const working = String(req.query.working || "").trim();
+    const district = String(req.query.district || "").trim().toLowerCase();
+    const data = rows.map(serializeLightAmc).filter((row) => {
+      if (working === "Yes" && row.light_working !== "Yes") return false;
+      if (working === "No" && row.light_working === "Yes") return false;
+      if (district && String(row.district || "").trim().toLowerCase() !== district) return false;
+      return true;
+    });
+
     return res.status(200).json({
       success: true,
       meta: {
         state: scope.state || "all",
         company_id: scope.companyId ? String(scope.companyId) : null,
         scope: scope.scope || (scope.userId ? "mine" : "company"),
+        working: working || null,
+        district: district || null,
       },
-      data: rows.map(serializeLightAmc),
+      data,
     });
   } catch (error) {
     console.error("GET LIGHT AMCS ERROR:", error);

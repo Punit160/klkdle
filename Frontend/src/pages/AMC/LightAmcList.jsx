@@ -1,6 +1,6 @@
  
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FiEye } from 'react-icons/fi'
 import CardHeader from '@/components/shared/CardHeader'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
@@ -32,6 +32,8 @@ const LightAmcList = ({ region = 'bihar' }) => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
+    const [searchParams] = useSearchParams()
+    const workingFilter = searchParams.get('working') || ''
 
     const fetchRows = async () => {
         setLoading(true)
@@ -53,10 +55,20 @@ const LightAmcList = ({ region = 'bihar' }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refreshKey, stateName])
 
+    const visibleRows = useMemo(() => {
+        if (workingFilter === 'Yes') return rows.filter((row) => row.light_working === 'Yes')
+        if (workingFilter === 'No') return rows.filter((row) => row.light_working !== 'Yes')
+        return rows
+    }, [rows, workingFilter])
+
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [workingFilter])
+
     const paged = useMemo(() => {
         const start = (currentPage - 1) * PER_PAGE
-        return rows.slice(start, start + PER_PAGE)
-    }, [rows, currentPage])
+        return visibleRows.slice(start, start + PER_PAGE)
+    }, [visibleRows, currentPage])
 
     if (isRemoved) return null
 
@@ -69,6 +81,11 @@ const LightAmcList = ({ region = 'bihar' }) => {
                         <div className={`card stretch stretch-full ${isExpanded ? 'card-fullscreen' : ''}`}>
                             <CardHeader title={`${amcConfig.moduleTitle} — Field AMC`} refresh={handleRefresh} remove={handleDelete} expanded={handleExpand} />
                             <div className="card-body custom-card-action p-0">
+                                {workingFilter ? (
+                                    <div className="px-3 pt-3 fs-12 text-muted">
+                                        Showing {workingFilter === 'Yes' ? 'working' : 'not working'} visits.
+                                    </div>
+                                ) : null}
                                 <div className="d-flex justify-content-end p-3 pb-0">
                                     <button type="button" className="btn btn-sm btn-primary" onClick={() => navigate(addPath)}>
                                         Do AMC
@@ -96,7 +113,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                             {!loading && error && (
                                                 <tr><td colSpan={9} className="text-center py-4 text-danger">{error}</td></tr>
                                             )}
-                                            {!loading && !error && rows.length === 0 && (
+                                            {!loading && !error && visibleRows.length === 0 && (
                                                 <tr><td colSpan={9} className="text-center py-4 text-muted">No AMC records yet.</td></tr>
                                             )}
                                             {!loading && !error && paged.map((row, index) => (
@@ -138,11 +155,11 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                 </div>
                                 <CardLoader refreshKey={refreshKey} />
                             </div>
-                            {rows.length > PER_PAGE && (
+                            {visibleRows.length > PER_PAGE && (
                                 <div className="card-footer">
                                     <Pagination
                                         currentPage={currentPage}
-                                        totalPages={Math.ceil(rows.length / PER_PAGE)}
+                                        totalPages={Math.ceil(visibleRows.length / PER_PAGE)}
                                         onPageChange={setCurrentPage}
                                     />
                                 </div>

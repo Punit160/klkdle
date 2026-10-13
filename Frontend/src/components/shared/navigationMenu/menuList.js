@@ -26,6 +26,13 @@ export const menuList = [
                 icon: "feather-clock",
                 dropdownMenu: false,
             },
+            {
+                id: 4,
+                name: "Daily work",
+                path: pages.dailyWork,
+                icon: "feather-map",
+                dropdownMenu: false,
+            },
         ],
     },
     {

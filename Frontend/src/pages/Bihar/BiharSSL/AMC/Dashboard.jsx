@@ -1,6 +1,4 @@
-import SslAmcDashboard, { districtLightsChartOption } from '../../../AMC/SslAmcDashboard'
-
-export { districtLightsChartOption }
+import SslAmcDashboard from '../../../AMC/SslAmcDashboard'
 
 export default function Dashboard() {
   return <SslAmcDashboard region="bihar" />

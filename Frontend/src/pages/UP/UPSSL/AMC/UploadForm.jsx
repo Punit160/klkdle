@@ -865,7 +865,9 @@ const UploadForm = ({
 
     }, [
         selectedDistrict,
-        selectedBlock
+        selectedBlock,
+        locationConfig.extractListValue,
+        locationConfig.label
     ])
 
 
@@ -1006,7 +1008,8 @@ const UploadForm = ({
         selectedBlock,
         selectedPanchayat,
         startMonth,
-        endMonth
+        endMonth,
+        locationConfig
     ])
 
 

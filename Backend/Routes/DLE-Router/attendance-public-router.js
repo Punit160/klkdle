@@ -3,6 +3,7 @@ import {
   getAttendanceForPortal,
   listAttendanceForPortal,
 } from "../../Controller/DLE-Controller/attendance-portal-controller.js";
+import { getDailyWorkReport } from "../../Controller/DLE-Controller/daily-work-report-controller.js";
 import {
   portalExternalAuth,
   requirePortalApiScope,
@@ -19,6 +20,7 @@ const readStack = [
 ];
 
 router.get("/list", ...readStack, listAttendanceForPortal);
+router.get("/work-report", ...readStack, getDailyWorkReport);
 router.get("/view/:id", ...readStack, getAttendanceForPortal);
 
 export default router;

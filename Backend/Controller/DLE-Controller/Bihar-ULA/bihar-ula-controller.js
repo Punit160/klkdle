@@ -1324,11 +1324,23 @@ export const listBiharUlaSurveys = async (req, res) => {
 
     const rows = await prisma.biharUlaSurvey.findMany(findArgs);
 
-    const data = await enrichSurveysWithUserNames(req, rows);
+    let data = await enrichSurveysWithUserNames(req, rows);
+    const approvalFilter = req.query.approval_status;
+    if (approvalFilter != null && String(approvalFilter).trim() !== "") {
+      const status = Number(approvalFilter);
+      data = data.filter((row) => Number(row.approval_status ?? 0) === status);
+    }
 
     return res.json({
       success: true,
-      meta: { scope: adminView ? "all" : "mine" },
+      meta: {
+        scope: portalCompanyId ? "company" : adminView ? "all" : "mine",
+        approval_status_filter:
+          approvalFilter != null && String(approvalFilter).trim() !== ""
+            ? Number(approvalFilter)
+            : null,
+        total: data.length,
+      },
       data,
     });
   } catch (error) {
@@ -1343,18 +1355,23 @@ export const listBiharUlaSurveys = async (req, res) => {
 /** Admin sees every site. A field user sees only surveys they did (1st or 2nd visit). */
 export const getBiharUlaReport = async (req, res) => {
   try {
+    const portalCompanyId = req.portalCompanyId
+      ? String(req.portalCompanyId).trim()
+      : "";
     const jwtUserId = String(resolveJwtUserId(req) || "").trim();
-    if (!jwtUserId) {
+    if (!jwtUserId && !portalCompanyId) {
       return res.status(401).json({
         success: false,
         message: "Login required to open the ULA dashboard.",
       });
     }
 
-    const adminView = await requesterIsAdmin(req);
-    const where = adminView
-      ? {}
-      : { OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }] };
+    const adminView = Boolean(portalCompanyId) || (await requesterIsAdmin(req));
+    const where = portalCompanyId
+      ? { company_id: portalCompanyId }
+      : adminView
+        ? {}
+        : { OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }] };
 
     const rows = await prisma.biharUlaSurvey.findMany({
       where,
@@ -1377,7 +1394,7 @@ export const getBiharUlaReport = async (req, res) => {
 
 export const updateBiharUlaApproval = async (req, res) => {
   try {
-    const id = String(req.params.id || "");
+    const id = String(req.params.id || req.body?.id || "").trim();
     if (!/^\d+$/.test(id)) {
       return res.status(422).json({
         success: false,
@@ -1389,6 +1406,12 @@ export const updateBiharUlaApproval = async (req, res) => {
       where: { id: BigInt(id) },
     });
     if (!existing) {
+      return res.status(404).json({ success: false, message: "ULA record not found." });
+    }
+    const portalCompanyId = req.portalCompanyId
+      ? String(req.portalCompanyId).trim()
+      : "";
+    if (portalCompanyId && String(existing.company_id || "").trim() !== portalCompanyId) {
       return res.status(404).json({ success: false, message: "ULA record not found." });
     }
 
@@ -1409,7 +1432,8 @@ export const updateBiharUlaApproval = async (req, res) => {
 
     const approvalBy =
       String(req.actorUser?.name || req.actorUser?.email || "").trim() ||
-      resolveJwtUserId(req);
+      resolveJwtUserId(req) ||
+      (req.portalApiCredentialId ? `portal:${req.portalApiCredentialId}` : "external-portal");
 
     const data = buildAmcApprovalUpdateData({
       approval_status,

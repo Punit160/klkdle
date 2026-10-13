@@ -19,6 +19,7 @@ export const pages = {
   dashboard: '/dashboard',
   profile: '/profile',
   attendance: '/attendance',
+  dailyWork: '/daily-work',
   idCard: '/id-card',
   certificate: '/certificate',
   portalAccess: '/portal/access',
@@ -145,6 +146,7 @@ export const api = {
     month: '/api/attendance/month',
     punchIn: '/api/attendance/punch-in',
     punchOut: '/api/attendance/punch-out',
+    workReport: '/api/attendance/work-report',
   },
   userMaster: {
     users: '/api/user-master/users',

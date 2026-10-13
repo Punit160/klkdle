@@ -489,7 +489,10 @@ export const getAmcDocuments = async (req, res) => {
         let documentWhere
         let uploadInclude
 
-        if (jwtUserId) {
+        if (jwtUserId && isUserMasterAdmin(req.user)) {
+            documentWhere = {}
+            uploadInclude = true
+        } else if (jwtUserId) {
             documentWhere = buildCreatedByDocumentWhere(userId)
             uploadInclude = buildCreatedByUploadInclude(userId)
         } else if (portalCompanyId) {
@@ -956,9 +959,12 @@ export const getQuarterStatus = async (req, res) => {
 
 export const getAllDistricts = async (req, res) => {
     try {
+        const portalCompanyId = req.portalCompanyId
+            ? String(req.portalCompanyId).trim()
+            : ''
         const userId = resolveRequestUserId(req)
 
-        if (!userId) {
+        if (!userId && !portalCompanyId) {
             return res.status(401).json({
                 success: false,
                 message: 'User authentication required',
@@ -969,11 +975,16 @@ export const getAllDistricts = async (req, res) => {
         // FETCH ALL AMC DOCUMENTS
         // ==========================================
 
-        const adminView = isUserMasterAdmin(req.user)
+        const adminView = Boolean(portalCompanyId) || isUserMasterAdmin(req.user)
+        const documentWhere = portalCompanyId
+            ? { company_id: portalCompanyId }
+            : adminView
+                ? {}
+                : buildCreatedByDocumentWhere(userId)
 
         const documents =
             await prisma.biharSslAmcDocument.findMany({
-                where: adminView ? {} : buildCreatedByDocumentWhere(userId),
+                where: documentWhere,
                 include: {
                     uploadDocuments: adminView
                         ? true

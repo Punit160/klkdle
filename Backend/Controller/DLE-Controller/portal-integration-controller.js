@@ -46,6 +46,11 @@ export const buildPortalApiAuthManual = (baseUrl = "") => {
   -H "X-Portal-Api-Key: YOUR_API_KEY" \\
   -H "X-Portal-Api-Secret: YOUR_SECRET"`
         : null,
+      dle_dashboard_curl: base
+        ? `curl -sS -X GET "${base}/api/portal/integration/dle-dashboard" \\
+  -H "X-Portal-Api-Key: YOUR_API_KEY" \\
+  -H "X-Portal-Api-Secret: YOUR_SECRET"`
+        : null,
       attendance_list_curl: base
         ? `curl -sS -X GET "${base}/api/attendance/integration/list" \\
   -H "X-Portal-Api-Key: YOUR_API_KEY" \\
@@ -57,6 +62,13 @@ export const buildPortalApiAuthManual = (baseUrl = "") => {
   -H "X-Portal-Api-Key: YOUR_API_KEY" \\
   -H "X-Portal-Api-Secret: YOUR_SECRET" \\
   -d '{"ca_name":"Corrected name","beneficiary_contact":"9876543210","panel_one_no":"KLK3M0300526128613"}'`
+        : null,
+      ula_approve_curl: base
+        ? `curl -sS -X POST "${base}/api/bihar/ula/approval/status" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Portal-Api-Key: YOUR_API_KEY" \\
+  -H "X-Portal-Api-Secret: YOUR_SECRET" \\
+  -d '{"id":"123","approval_status":1,"approval_remarks":"OK"}'`
         : null,
       approve_curl: base
         ? `curl -sS -X POST "${base}/api/bihar/amc/approval/status" \\

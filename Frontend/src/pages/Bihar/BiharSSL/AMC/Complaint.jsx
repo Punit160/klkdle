@@ -1,5 +1,5 @@
  
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
     FiUploadCloud,
@@ -193,7 +193,10 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
     const location = useLocation()
 
     // Sites passed in from the AMC Document Details page: [{ ssl_id, pole_no, unique_id }]
-    const incomingSites = Array.isArray(location.state?.sites) ? location.state.sites : []
+    const incomingSites = useMemo(
+        () => (Array.isArray(location.state?.sites) ? location.state.sites : []),
+        [location.state?.sites]
+    )
     const [poleOptions, setPoleOptions] = useState(() => incomingSites.map(toPoleOption))
 
     // ---- Pole No (value = ssl_id) selection ----
@@ -266,11 +269,15 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
 
         enrichPoleOptions()
         return () => { cancelled = true }
-    }, [location.state])
+    }, [location.state, incomingSites])
+
+    const selectedPoleValue = selectedPole?.value || ''
+    const selectedPoleNo = selectedPole?.pole_no || ''
+    const selectedPoleUnique = selectedPole?.unique_id || ''
 
     // ---- Fetch full site details as soon as a Pole No (ssl_id) is picked ----
     useEffect(() => {
-        if (!selectedPole) {
+        if (!selectedPoleValue) {
             setSiteDetails(null)
             setDetailsError("")
             return
@@ -281,7 +288,7 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             setDetailsError("")
             try {
                 const res = await externalApi.get(external.ssl.complaintDetails('bihar'), {
-                    params: { ssl_id: selectedPole.value },
+                    params: { ssl_id: selectedPoleValue },
                 })
                 const data = res?.data?.data || res?.data || null
                 if (data && !matchesDleAmcUser(data)) {
@@ -292,12 +299,12 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
                 setSiteDetails(data)
 
                 const uniqueId = data?.unique_id || data?.uniqueId
-                const poleNo = data?.pole_no || selectedPole.pole_no
+                const poleNo = data?.pole_no || selectedPoleNo
                 if (uniqueId || poleNo) {
                     const next = toPoleOption({
-                        ssl_id: selectedPole.value,
+                        ssl_id: selectedPoleValue,
                         pole_no: poleNo,
-                        unique_id: uniqueId || selectedPole.unique_id,
+                        unique_id: uniqueId || selectedPoleUnique,
                     })
                     setPoleOptions((prev) =>
                         prev.map((opt) => (String(opt.value) === String(next.value) ? next : opt))
@@ -315,7 +322,7 @@ const Complaint = ({ isModal = false, onSuccess = null, onCancel = null }) => {
             }
         }
         fetchSiteDetails()
-    }, [selectedPole?.value])
+    }, [selectedPoleValue, selectedPoleNo, selectedPoleUnique])
 
     const handleSubmit = async (e) => {
         e.preventDefault()

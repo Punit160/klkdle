@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import ReactApexChart from 'react-apexcharts'
 import {
   FiActivity,
@@ -29,18 +29,26 @@ const formatDate = (value) => {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-const StatTile = ({ icon: Icon, title, value, subtitle, tone = 'primary' }) => (
-  <div className="bihar-amc-stat">
-    <div className="bihar-amc-stat-top">
-      <div className={`bihar-amc-stat-icon ${tone}`}>
-        <Icon size={18} />
+const StatTile = ({ icon: Icon, title, value, subtitle, tone = 'primary', to }) => {
+  const body = (
+    <>
+      <div className="bihar-amc-stat-top">
+        <div className={`bihar-amc-stat-icon ${tone}`}>
+          <Icon size={18} />
+        </div>
+        <strong>{value?.toLocaleString?.() ?? value ?? '—'}</strong>
       </div>
-      <strong>{value?.toLocaleString?.() ?? value ?? '—'}</strong>
-    </div>
-    <span>{title}</span>
-    {subtitle && <small>{subtitle}</small>}
-  </div>
-)
+      <span>{title}</span>
+      {subtitle && <small>{subtitle}</small>}
+    </>
+  )
+  if (!to) return <div className="bihar-amc-stat">{body}</div>
+  return (
+    <Link to={to} className="bihar-amc-stat bihar-amc-stat-link">
+      {body}
+    </Link>
+  )
+}
 
 const SectionBlock = ({ tone, icon: Icon, title, subtitle, actionTo, actionLabel, children }) => (
   <div className="col-12 bihar-amc-section">
@@ -75,8 +83,17 @@ const buildFieldAmcStats = (rows) => {
   return { total: rows.length, working, notWorking, districts, uniqueLights }
 }
 
-const fieldAmcChartOptions = (working, notWorking) => ({
-  chart: { type: 'donut', toolbar: { show: false } },
+const fieldAmcChartOptions = (working, notWorking, onSlice) => ({
+  chart: {
+    type: 'donut',
+    toolbar: { show: false },
+    events: {
+      dataPointSelection: (_event, _chart, config) => {
+        if (!onSlice || config.dataPointIndex == null || config.dataPointIndex < 0) return
+        onSlice(config.dataPointIndex === 0 ? 'Yes' : 'No')
+      },
+    },
+  },
   labels: ['Working', 'Not Working'],
   colors: ['#25b865', '#ea4d4d'],
   legend: { position: 'bottom', fontSize: '12px' },
@@ -99,14 +116,24 @@ const fieldAmcChartOptions = (working, notWorking) => ({
   },
 })
 
-export const districtLightsChartOption = (districts, completedLabel, pendingLabel) => {
+const districtLightsChartOption = (districts, completedLabel, pendingLabel, onDistrict) => {
   const categories = districts.map((d) => d.district.trim())
   const lights = districts.map((d) => d.total_lights)
   const completed = districts.map((d) => d.completed)
   const pending = districts.map((d) => d.pending)
 
   return {
-    chart: { width: '100%', stacked: false, toolbar: { show: false } },
+    chart: {
+      width: '100%',
+      stacked: false,
+      toolbar: { show: false },
+      events: {
+        dataPointSelection: (_event, _chart, config) => {
+          const district = categories[config.dataPointIndex]
+          if (district && onDistrict && config.dataPointIndex >= 0) onDistrict(district)
+        },
+      },
+    },
     stroke: { width: [1, 0], curve: 'smooth', lineCap: 'round' },
     plotOptions: { bar: { borderRadius: 6, borderRadiusApplication: 'end', columnWidth: '48%' } },
     colors: ['#3454d1', '#25b865', '#ea4d4d'],
@@ -130,9 +157,13 @@ export const districtLightsChartOption = (districts, completedLabel, pendingLabe
 }
 
 const FieldAmcSection = ({ amcRows, amcConfig }) => {
+  const navigate = useNavigate()
   const stats = useMemo(() => buildFieldAmcStats(amcRows), [amcRows])
   const recentRows = amcRows.slice(0, 8)
-  const chartOptions = fieldAmcChartOptions(stats.working, stats.notWorking)
+  const listPath = amcConfig.pages.lightAmcList
+  const chartOptions = fieldAmcChartOptions(stats.working, stats.notWorking, (working) => {
+    navigate(`${listPath}?working=${working}`)
+  })
 
   return (
     <SectionBlock
@@ -144,10 +175,10 @@ const FieldAmcSection = ({ amcRows, amcConfig }) => {
       actionLabel="View all field AMC"
     >
       <div className="bihar-amc-stat-grid">
-        <StatTile icon={FiActivity} title="Field AMC Records" value={stats.total} subtitle="Total visits submitted" tone="primary" />
-        <StatTile icon={FiSun} title="Unique Lights" value={stats.uniqueLights} subtitle="Distinct poles serviced" tone="info" />
-        <StatTile icon={FiCheckCircle} title="Lights Working" value={stats.working} subtitle="Marked working in AMC" tone="success" />
-        <StatTile icon={FiMapPin} title="Districts Covered" value={stats.districts} subtitle="Districts with AMC data" tone="warning" />
+        <StatTile icon={FiActivity} title="Field AMC Records" value={stats.total} subtitle="Open the field AMC table" tone="primary" to={listPath} />
+        <StatTile icon={FiSun} title="Unique Lights" value={stats.uniqueLights} subtitle="Open the field AMC table" tone="info" to={listPath} />
+        <StatTile icon={FiCheckCircle} title="Lights Working" value={stats.working} subtitle="Open working visits" tone="success" to={`${listPath}?working=Yes`} />
+        <StatTile icon={FiMapPin} title="Districts Covered" value={stats.districts} subtitle="Open the field AMC table" tone="warning" to={listPath} />
       </div>
 
       <div className="bihar-amc-panel-grid">
@@ -171,7 +202,11 @@ const FieldAmcSection = ({ amcRows, amcConfig }) => {
                   <tr><td colSpan={4}><div className="bihar-amc-empty">No field AMC records yet. Start with Do Field AMC.</div></td></tr>
                 ) : (
                   recentRows.map((row) => (
-                    <tr key={row.id}>
+                    <tr
+                      key={row.id}
+                      className="bihar-amc-row-link"
+                      onClick={() => navigate(`${amcConfig.pages.lightAmcDetails}?id=${row.id}`, { state: { row } })}
+                    >
                       <td>{formatDate(row.amc_date)}</td>
                       <td>
                         <div className="fw-semibold">{row.unique_id || row.ssl_id || '—'}</div>
@@ -208,8 +243,8 @@ const FieldAmcSection = ({ amcRows, amcConfig }) => {
             )}
           </div>
           <div className="bihar-amc-footer-stats">
-            <div className="bihar-amc-footer-stat"><span>Working</span><strong>{stats.working}</strong></div>
-            <div className="bihar-amc-footer-stat"><span>Not Working</span><strong>{stats.notWorking}</strong></div>
+            <Link to={`${listPath}?working=Yes`} className="bihar-amc-footer-stat bihar-amc-stat-link"><span>Working</span><strong>{stats.working}</strong></Link>
+            <Link to={`${listPath}?working=No`} className="bihar-amc-footer-stat bihar-amc-stat-link"><span>Not Working</span><strong>{stats.notWorking}</strong></Link>
           </div>
         </div>
       </div>
@@ -218,12 +253,22 @@ const FieldAmcSection = ({ amcRows, amcConfig }) => {
 }
 
 const DocumentationSection = ({ docData, amcConfig }) => {
+  const navigate = useNavigate()
   const summary = docData.summary
   const districts = docData.districts
   const localityPlural = amcConfig.key === 'up' ? 'Villages' : 'Panchayats'
   const completedLabel = `${localityPlural} Completed`
   const pendingLabel = `${localityPlural} Pending`
-  const chartOptions = districtLightsChartOption(districts, completedLabel, pendingLabel)
+  const docList = amcConfig.pages.amcList
+  const openDistrict = (district) => {
+    navigate(`${docList}?district=${encodeURIComponent(String(district).trim())}`)
+  }
+  const chartOptions = districtLightsChartOption(
+    districts,
+    completedLabel,
+    pendingLabel,
+    openDistrict
+  )
 
   const totalLocalities = summary.completed_panchayats + summary.pending_panchayats
   const completionPct = totalLocalities
@@ -240,10 +285,10 @@ const DocumentationSection = ({ docData, amcConfig }) => {
       actionLabel="View all documentation"
     >
       <div className="bihar-amc-stat-grid">
-        <StatTile icon={FiLayers} title="Total Districts" value={summary.total_district} subtitle="Documentation coverage" tone="primary" />
-        <StatTile icon={FiSun} title="Total SSL Lights" value={summary.total_lights} subtitle="Installed base" tone="info" />
-        <StatTile icon={FiCheckCircle} title={`${localityPlural} Completed`} value={summary.completed_panchayats} subtitle={`${completionPct}% completion`} tone="success" />
-        <StatTile icon={FiXCircle} title={`${localityPlural} Pending`} value={summary.pending_panchayats} subtitle={`${100 - completionPct}% pending`} tone="danger" />
+        <StatTile icon={FiLayers} title="Total Districts" value={summary.total_district} subtitle="Open the documentation table" tone="primary" to={docList} />
+        <StatTile icon={FiSun} title="Total SSL Lights" value={summary.total_lights} subtitle="Open the documentation table" tone="info" to={docList} />
+        <StatTile icon={FiCheckCircle} title={`${localityPlural} Completed`} value={summary.completed_panchayats} subtitle="Open completed localities" tone="success" to={`${docList}?status=completed`} />
+        <StatTile icon={FiXCircle} title={`${localityPlural} Pending`} value={summary.pending_panchayats} subtitle="Open pending localities" tone="danger" to={`${docList}?status=pending`} />
       </div>
 
       <div className="bihar-amc-panel mb-3">
@@ -255,10 +300,10 @@ const DocumentationSection = ({ docData, amcConfig }) => {
           <ReactApexChart options={chartOptions} series={chartOptions.series} height={340} />
         </div>
         <div className="bihar-amc-footer-stats">
-          <div className="bihar-amc-footer-stat"><span>Total Lights</span><strong>{summary.total_lights?.toLocaleString?.() ?? '—'}</strong></div>
-          <div className="bihar-amc-footer-stat"><span>Completed</span><strong>{summary.completed_panchayats}</strong></div>
-          <div className="bihar-amc-footer-stat"><span>Pending</span><strong>{summary.pending_panchayats}</strong></div>
-          <div className="bihar-amc-footer-stat"><span>Completion</span><strong>{completionPct}%</strong></div>
+          <Link to={docList} className="bihar-amc-footer-stat bihar-amc-stat-link"><span>Total Lights</span><strong>{summary.total_lights?.toLocaleString?.() ?? '—'}</strong></Link>
+          <Link to={`${docList}?status=completed`} className="bihar-amc-footer-stat bihar-amc-stat-link"><span>Completed</span><strong>{summary.completed_panchayats}</strong></Link>
+          <Link to={`${docList}?status=pending`} className="bihar-amc-footer-stat bihar-amc-stat-link"><span>Pending</span><strong>{summary.pending_panchayats}</strong></Link>
+          <Link to={docList} className="bihar-amc-footer-stat bihar-amc-stat-link"><span>Completion</span><strong>{completionPct}%</strong></Link>
         </div>
       </div>
 
@@ -285,7 +330,11 @@ const DocumentationSection = ({ docData, amcConfig }) => {
                 const color = pct >= 50 ? 'success' : pct > 0 ? 'warning' : 'danger'
 
                 return (
-                  <tr key={`${d.district}-${idx}`}>
+                  <tr
+                    key={`${d.district}-${idx}`}
+                    className="bihar-amc-row-link"
+                    onClick={() => openDistrict(d.district)}
+                  >
                     <td>
                       <div className="bihar-amc-district-cell">
                         <span className="bihar-amc-district-avatar">{d.district.trim().substring(0, 1)}</span>
@@ -325,7 +374,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
   const [error, setError] = useState(null)
   const isAdmin = userIsAdmin()
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -358,11 +407,11 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [amcConfig.sslState, amcConfig.stateName, isAdmin])
 
   useEffect(() => {
     fetchDashboard()
-  }, [amcConfig.sslState, amcConfig.stateName, isAdmin])
+  }, [fetchDashboard])
 
   return (
     <div>

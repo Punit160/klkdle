@@ -460,7 +460,7 @@ const BiharUlaForm = () => {
         )
       })
       .finally(() => setIsLoadingRecord(false))
-  }, [isSecondVisitMode, effectiveRecordId])
+  }, [isSecondVisitMode, effectiveRecordId, loadedSurvey?.id])
 
   const handleDetectGps = () => {
     if (!navigator.geolocation) {

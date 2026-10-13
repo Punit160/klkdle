@@ -199,7 +199,7 @@ const CameraCapture = ({
         void attachStreamToVideo(streamRef.current)
       }
     },
-    [isOpen, attachStreamToVideo, streamVersion]
+    [isOpen, attachStreamToVideo]
   )
 
   return (

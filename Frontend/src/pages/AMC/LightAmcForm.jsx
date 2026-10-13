@@ -355,7 +355,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
         }
         fetchPanchayats()
-    }, [selectedDistrict, selectedBlock, autoVolume, amcConfig.requiresVolume, sslState, region])
+    }, [selectedDistrict, selectedBlock, autoVolume, amcConfig.requiresVolume, sslState, region, locationConfig.extractListValue, locationConfig.label])
 
     useEffect(() => {
         if (
@@ -464,6 +464,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         sslState,
         region,
         stateName,
+        locationConfig,
     ])
 
     useEffect(() => {
@@ -585,7 +586,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         }
 
         loadLight()
-    }, [selectedLight?.value, sslState, region])
+    }, [selectedLight, sslState, region, stateName])
 
     useEffect(() => {
         if (!selectedLight) {
@@ -613,7 +614,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         return () => {
             cancelled = true
         }
-    }, [selectedLight?.value])
+    }, [selectedLight])
 
     useEffect(() => {
         if (!amcDate || !periodStart) return

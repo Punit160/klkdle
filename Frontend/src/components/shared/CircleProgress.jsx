@@ -21,7 +21,7 @@ const CircleProgress = ({ value, text_first_sym="", text_sym, path_color, path_w
             setPercentage(calculatedPercentage.toFixed(2));
         }
 
-    }, [value])
+    }, [value, text_sym])
 
     useEffect(() => {
         const interval = setInterval(() => {

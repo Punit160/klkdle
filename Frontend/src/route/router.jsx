@@ -27,6 +27,7 @@ import LightAmcForm from "../pages/AMC/LightAmcForm"
 import LightAmcList from "../pages/AMC/LightAmcList"
 import LightAmcDetails from "../pages/AMC/LightAmcDetails"
 import AttendanceReport from "../pages/Attendance/AttendanceReport"
+import DailyWorkReport from "../pages/Attendance/DailyWorkReport"
 import { legacyPages, pages } from "../api/routes"
 
 
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
       { path: pages.dashboard.slice(1), element: <DLEDashboard /> },
       { path: pages.profile.slice(1), element: <DLEProfile /> },
       { path: pages.attendance.slice(1), element: <AttendanceReport /> },
+      { path: pages.dailyWork.slice(1), element: <DailyWorkReport /> },
       { path: pages.portalAccess.slice(1), element: <PortalAccessAdmin /> },
       { path: pages.userMaster.slice(1), element: <UserMaster /> },
       { path: pages.idCard.slice(1), element: <DLECard /> },
