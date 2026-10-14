@@ -5,6 +5,7 @@ import { objectUploadFields } from "./objectUploadMiddleware.js";
 export const lightAmcUploadFields = objectUploadFields([
   { name: "image_1", maxCount: 1, prefix: R2_PREFIX.LIGHT_AMC },
   { name: "image_2", maxCount: 1, prefix: R2_PREFIX.LIGHT_AMC },
+  { name: "image_3", maxCount: 1, prefix: R2_PREFIX.LIGHT_AMC },
 ]);
 
 export const persistLightAmcUploads = async (req, res, next) => {
@@ -15,6 +16,10 @@ export const persistLightAmcUploads = async (req, res, next) => {
         local: LOCAL_UPLOAD_PREFIX.LIGHT_AMC,
       },
       image_2: {
+        r2: R2_PREFIX.LIGHT_AMC,
+        local: LOCAL_UPLOAD_PREFIX.LIGHT_AMC,
+      },
+      image_3: {
         r2: R2_PREFIX.LIGHT_AMC,
         local: LOCAL_UPLOAD_PREFIX.LIGHT_AMC,
       },

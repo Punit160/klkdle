@@ -1,7 +1,7 @@
  
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { FiAlertCircle, FiArrowLeft, FiCalendar, FiImage, FiLoader, FiMapPin, FiUser, FiZap } from 'react-icons/fi'
+import { FiAlertCircle, FiArrowLeft, FiCalendar, FiHelpCircle, FiImage, FiLoader, FiMapPin, FiTool, FiUser, FiZap } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { getCompanyId } from '../../utils/auth'
 import localApi from '../../api/localApi'
@@ -38,6 +38,27 @@ const DetailGroup = ({ title, items }) => (
                     </div>
                 ))}
             </div>
+        </div>
+    </div>
+)
+
+const parseVisitAnswers = (value) => {
+    if (!value) return null
+    if (typeof value === 'object') return value
+    try {
+        const parsed = JSON.parse(value)
+        return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {
+        return null
+    }
+}
+
+const QuestionAnswer = ({ number, en, hi, value }) => (
+    <div className="col-lg-6 col-12">
+        <div className="border rounded-3 p-3 h-100 bg-white">
+            <div className="fs-13 fw-semibold text-dark">{number}. {en}</div>
+            <div className="fs-12 text-muted mt-1">{hi}</div>
+            <div className="fs-13 fw-semibold text-primary mt-2">{value || '—'}</div>
         </div>
     </div>
 )
@@ -96,7 +117,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
             setError('')
             try {
                 const res = await localApi.get(app.lightAmc.view(recordId), {
-                    params: { company_id: getCompanyId(), state: stateName },
+                    params: { company_id: getCompanyId(), state: stateName, region },
                 })
                 const data = res?.data?.data
                 if (!data) {
@@ -113,7 +134,10 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
         }
 
         fetchRow()
-    }, [recordId, stateName])
+    }, [recordId, stateName, region])
+
+    const answers = parseVisitAnswers(row?.visit_answers)
+    const lightIsFunctional = answers?.plant_status === 'Functional'
 
     return (
         <>
@@ -198,6 +222,99 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                     ]}
                                 />
 
+                                {region === 'up' ? (
+                                    <>
+                                        <SectionHeading
+                                            icon={<FiHelpCircle size={16} />}
+                                            title="Questions to Ask Beneficiary"
+                                            subtitle="लाभार्थी से पूछे जाने वाले प्रश्न"
+                                        />
+                                        <div className="row g-3 mb-4">
+                                            <QuestionAnswer
+                                                number="1"
+                                                en="Is the light currently Functional / Non-Functional / Stolen / Missing from designated place?"
+                                                hi="क्या लाइट वर्तमान में कार्यरत / अकार्यरत / चोरी हो गई / निर्धारित स्थान से गायब है?"
+                                                value={answers?.plant_status}
+                                            />
+                                            {lightIsFunctional ? (
+                                                <>
+                                                    <QuestionAnswer
+                                                        number="2"
+                                                        en="How long has the light been operating satisfactorily and continuously?"
+                                                        hi="लाइट कितने समय से संतोषजनक और निरंतर चल रही है?"
+                                                        value={[answers?.functional_duration_value, answers?.functional_duration_unit].filter(Boolean).join(' ')}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="3"
+                                                        en="How many hours of backup are being obtained from the light?"
+                                                        hi="लाइट से प्रतिदिन कितने घंटे का बैकअप मिल रहा है?"
+                                                        value={answers?.backup_hours_per_day}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="4"
+                                                        en="How many times has the light become non-functional after installation?"
+                                                        hi="स्थापना के बाद लाइट कितनी बार अकार्यरत हुई?"
+                                                        value={answers?.breakdown_count}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="4.1"
+                                                        en="Was petroleum jelly applied to the battery terminals?"
+                                                        hi="क्या बैटरी टर्मिनल पर पेट्रोलियम जेली लगाई गई?"
+                                                        value={answers?.battery_petroleum_jelly_applied}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="5"
+                                                        en="When was the light previously repaired?"
+                                                        hi="लाइट की पिछली मरम्मत कब हुई थी?"
+                                                        value={answers?.last_repair_date ? formatDate(answers.last_repair_date) : ''}
+                                                    />
+                                                </>
+                                            ) : null}
+                                        </div>
+                                        {lightIsFunctional ? (
+                                            <>
+                                                <SectionHeading
+                                                    icon={<FiTool size={16} />}
+                                                    title="Service Details Performed by Firm Representative"
+                                                    subtitle="फर्म प्रतिनिधि द्वारा किया गया सर्विस विवरण"
+                                                />
+                                                <div className="row g-3 mb-4">
+                                                    <QuestionAnswer
+                                                        number="1"
+                                                        en="Was cleaning of the solar panel(s) carried out?"
+                                                        hi="क्या सोलर पैनल की सफाई की गई?"
+                                                        value={answers?.panel_cleaning_done}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="2"
+                                                        en="Battery bank condition"
+                                                        hi="बैटरी बैंक की स्थिति"
+                                                        value={answers?.battery_bank_condition}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="3"
+                                                        en="Were the battery terminals cleaned?"
+                                                        hi="क्या बैटरी टर्मिनल साफ किए गए?"
+                                                        value={answers?.battery_terminal_cleaned}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="4"
+                                                        en="Were all luminaires cleaned and wires properly arranged?"
+                                                        hi="क्या सभी ल्यूमिनेयर साफ किए गए और तार ठीक से व्यवस्थित किए गए?"
+                                                        value={answers?.luminaires_cleaned_wiring}
+                                                    />
+                                                    <QuestionAnswer
+                                                        number="5"
+                                                        en="Was the light wiring checked and loose/exposed wires properly fixed?"
+                                                        hi="क्या लाइट की वायरिंग जाँची गई और ढीले / खुले तार ठीक किए गए?"
+                                                        value={answers?.wiring_checked_loose_wires}
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : null}
+                                    </>
+                                ) : null}
+
                                 <SectionHeading icon={<FiAlertCircle size={16} />} title="Light Status" />
                                 <DetailGroup
                                     title="Working status"
@@ -211,11 +328,16 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
 
                                 <SectionHeading icon={<FiImage size={16} />} title="AMC Photos" subtitle="Click a photo to open it" />
                                 <div className="row g-3">
-                                    <div className="col-md-6">
-                                        <PhotoCard label="Photo 1" src={fileUrl(row.image_1)} />
+                                    {region === 'up' ? (
+                                        <div className="col-md-4">
+                                            <PhotoCard label="Visit slip" src={fileUrl(row.image_3)} />
+                                        </div>
+                                    ) : null}
+                                    <div className={region === 'up' ? 'col-md-4' : 'col-md-6'}>
+                                        <PhotoCard label={region === 'up' ? 'Light Photo 1' : 'Photo 1'} src={fileUrl(row.image_1)} />
                                     </div>
-                                    <div className="col-md-6">
-                                        <PhotoCard label="Photo 2" src={fileUrl(row.image_2)} />
+                                    <div className={region === 'up' ? 'col-md-4' : 'col-md-6'}>
+                                        <PhotoCard label={region === 'up' ? 'Light Photo 2' : 'Photo 2'} src={fileUrl(row.image_2)} />
                                     </div>
                                 </div>
                             </>

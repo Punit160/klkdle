@@ -158,28 +158,33 @@ const migrateUpAmc = async (options) => {
   }
 };
 
-const migrateLightAmc = async (options) => {
-  const rows = await prisma.biharLightAmc.findMany({
-    select: { id: true, image_1: true, image_2: true },
+const migrateLightAmcTable = async (table, label, fields, options) => {
+  const rows = await table.findMany({
+    select: { id: true, ...Object.fromEntries(fields.map((field) => [field, true])) },
   });
-  console.log(`\nLight AMC (${rows.length} rows)`);
+  console.log(`\n${label} (${rows.length} rows)`);
   for (const row of rows) {
     stats.rows_scanned += 1;
     const data = {};
-    for (const field of ["image_1", "image_2"]) {
+    for (const field of fields) {
       const current = row[field];
       if (!isLocalUploadReference(current)) continue;
       const { value, changed } = await processField(
-        `light_amc#${row.id}.${field}`,
+        `${label}#${row.id}.${field}`,
         current,
         options
       );
       if (changed) data[field] = value;
     }
     if (Object.keys(data).length && !dryRun) {
-      await prisma.biharLightAmc.update({ where: { id: row.id }, data });
+      await table.update({ where: { id: row.id }, data });
     }
   }
+};
+
+const migrateLightAmc = async (options) => {
+  await migrateLightAmcTable(prisma.biharLightAmc, "Bihar light AMC", ["image_1", "image_2"], options);
+  await migrateLightAmcTable(prisma.upLightAmc, "UP light AMC", ["image_1", "image_2", "image_3"], options);
 };
 
 const migrateBiharUla = async (options) => {

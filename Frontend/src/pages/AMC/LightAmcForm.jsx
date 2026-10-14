@@ -4,10 +4,12 @@ import {
     FiAlertCircle,
     FiCalendar,
     FiCheckCircle,
+    FiHelpCircle,
     FiLoader,
     FiMapPin,
     FiPaperclip,
     FiSend,
+    FiTool,
     FiUser,
     FiZap,
 } from 'react-icons/fi'
@@ -129,14 +131,77 @@ const DetailGroup = ({ title, items }) => (
     </div>
 )
 
-const SectionHeading = ({ icon, title, subtitle }) => (
+const OPTION_HI = {
+    Yes: 'हाँ',
+    No: 'नहीं',
+    'Not Applicable': 'लागू नहीं',
+    Functional: 'कार्यरत',
+    'Non-Functional': 'अकार्यरत',
+    'Stolen / Missing from Designated Place': 'चोरी / निर्धारित स्थान से गायब',
+    Months: 'महीने',
+    Years: 'वर्ष',
+    'Satisfactory (Full backup received)': 'संतोषजनक (पूरा बैकअप मिला)',
+    Unsatisfactory: 'असंतोषजनक',
+}
+
+const QuestionText = ({ number, en, hi, required = false }) => (
+    <label className="form-label fw-semibold text-dark fs-13 mb-2 d-block">
+        <span>
+            {number}. {en}
+            {required ? <span className="text-danger"> *</span> : null}
+        </span>
+        {hi ? <span className="d-block fw-normal text-muted mt-1">{hi}</span> : null}
+    </label>
+)
+
+const RadioQuestion = ({ number, question, questionHi, options, value, onChange }) => (
+    <div className="col-lg-6 col-12">
+        <div className="card border shadow-none mb-0 h-100">
+            <div className="card-body p-3">
+                <QuestionText number={number} en={question} hi={questionHi} />
+                <div className="d-flex flex-wrap align-items-center gap-3">
+                    {options.map((opt) => {
+                        const group = `q-${number}-${question}`.replace(/[^a-zA-Z0-9]/g, '_')
+                        const id = `${group}-${opt}`.replace(/[^a-zA-Z0-9]/g, '_')
+                        return (
+                            <div className="form-check" key={opt}>
+                                <input
+                                    className="form-check-input"
+                                    type="radio"
+                                    id={id}
+                                    name={group}
+                                    checked={value === opt}
+                                    onChange={() => onChange(opt)}
+                                />
+                                <label className="form-check-label fs-13 text-secondary" htmlFor={id} style={{ cursor: 'pointer' }}>
+                                    {opt}
+                                    {OPTION_HI[opt] ? <span className="d-block fs-12 text-muted">{OPTION_HI[opt]}</span> : null}
+                                </label>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+    </div>
+)
+
+const SectionHeading = ({ icon, title, titleHi, subtitle, subtitleHi }) => (
     <div className="d-flex align-items-center gap-3 mb-4">
         <div className="avatar-text avatar-md bg-soft-primary text-primary icon flex-shrink-0">
             {icon}
         </div>
         <div>
-            <h6 className="fw-bold text-dark mb-0">{title}</h6>
-            {subtitle && <p className="fs-12 text-muted mb-0">{subtitle}</p>}
+            <h6 className="fw-bold text-dark mb-0">
+                {title}
+                {titleHi ? <span className="d-block fs-12 fw-normal text-muted mt-1">{titleHi}</span> : null}
+            </h6>
+            {subtitle && (
+                <p className="fs-12 text-muted mb-0">
+                    {subtitle}
+                    {subtitleHi ? <span className="d-block">{subtitleHi}</span> : null}
+                </p>
+            )}
         </div>
     </div>
 )
@@ -193,12 +258,12 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
     const siteDetails = useMemo(() => {
         if (!allPanchayatSites.length) return []
-        if (!wardsInData) return allPanchayatSites
+        if (region !== 'bihar' || !wardsInData) return allPanchayatSites
         if (!selectedWard?.value) return []
         return allPanchayatSites.filter(
             (site) => getSiteWardNo(site) === selectedWard.value
         )
-    }, [allPanchayatSites, selectedWard, wardsInData])
+    }, [allPanchayatSites, selectedWard, wardsInData, region])
     const [lightInfo, setLightInfo] = useState(null)
     const [isLightLoading, setIsLightLoading] = useState(false)
     const [detailsError, setDetailsError] = useState('')
@@ -214,8 +279,21 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [beneficiaryContact, setBeneficiaryContact] = useState('')
     const [image1, setImage1] = useState(null)
     const [image2, setImage2] = useState(null)
+    const [formImage, setFormImage] = useState(null)
     const [image1Coords, setImage1Coords] = useState(null)
     const [image2Coords, setImage2Coords] = useState(null)
+    const [plantStatus, setPlantStatus] = useState('')
+    const [functionalDurationValue, setFunctionalDurationValue] = useState('')
+    const [functionalDurationUnit, setFunctionalDurationUnit] = useState('Months')
+    const [backupHoursPerDay, setBackupHoursPerDay] = useState('')
+    const [breakdownCount, setBreakdownCount] = useState('')
+    const [lastRepairDate, setLastRepairDate] = useState('')
+    const [panelCleaningDone, setPanelCleaningDone] = useState('')
+    const [batteryBankCondition, setBatteryBankCondition] = useState('')
+    const [batteryTerminalCleaned, setBatteryTerminalCleaned] = useState('')
+    const [batteryPetroleumJellyApplied, setBatteryPetroleumJellyApplied] = useState('')
+    const [luminairesCleanedWiring, setLuminairesCleanedWiring] = useState('')
+    const [wiringCheckedLooseWires, setWiringCheckedLooseWires] = useState('')
     const [lightWorking, setLightWorking] = useState('Yes')
     const [complaintIssue, setComplaintIssue] = useState(null)
     const [complaintText, setComplaintText] = useState('')
@@ -589,12 +667,25 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     }, [selectedLight, sslState, region, stateName])
 
     useEffect(() => {
+        setAmcCoords(null)
+        setImage1(null)
+        setImage2(null)
+        setFormImage(null)
+        setImage1Coords(null)
+        setImage2Coords(null)
+        setPlantStatus('')
+        setFunctionalDurationValue('')
+        setFunctionalDurationUnit('Months')
+        setBackupHoursPerDay('')
+        setBreakdownCount('')
+        setLastRepairDate('')
+        setPanelCleaningDone('')
+        setBatteryBankCondition('')
+        setBatteryTerminalCleaned('')
+        setBatteryPetroleumJellyApplied('')
+        setLuminairesCleanedWiring('')
+        setWiringCheckedLooseWires('')
         if (!selectedLight) {
-            setAmcCoords(null)
-            setImage1(null)
-            setImage2(null)
-            setImage1Coords(null)
-            setImage2Coords(null)
             return
         }
 
@@ -679,8 +770,20 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             setSubmitError('Please select ward, then choose a light.')
             return
         }
-        if (!selectedLight || !lightInfo || !amcDate || !beneficiaryName || !beneficiaryContact || !image1 || !image2) {
-            setSubmitError('Select a light, fill beneficiary details, and capture 2 camera photos.')
+        if (!selectedLight || !lightInfo || !amcDate || !beneficiaryName || !beneficiaryContact) {
+            setSubmitError('Select a light and fill beneficiary details.')
+            return
+        }
+        if (region === 'up' && !plantStatus) {
+            setSubmitError('Please select whether the light is functional.')
+            return
+        }
+        if (region === 'up' && (!formImage || !image1 || !image2)) {
+            setSubmitError('Capture the visit slip and both light photos.')
+            return
+        }
+        if (region !== 'up' && (!image1 || !image2)) {
+            setSubmitError('Capture 2 camera photos.')
             return
         }
         if (periodEnd && amcDate > periodEnd) {
@@ -787,11 +890,29 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('date_of_installation', lightInfo?.date_of_installation || '')
             formData.append('image_1', image1)
             formData.append('image_2', image2)
+            if (region === 'up') {
+                formData.append('image_3', formImage)
+                const lightIsFunctional = plantStatus === 'Functional'
+                formData.append('visit_answers', JSON.stringify({
+                    plant_status: plantStatus,
+                    functional_duration_value: lightIsFunctional ? functionalDurationValue : '',
+                    functional_duration_unit: lightIsFunctional ? functionalDurationUnit : '',
+                    backup_hours_per_day: lightIsFunctional ? backupHoursPerDay : '',
+                    breakdown_count: lightIsFunctional ? breakdownCount : '',
+                    last_repair_date: lightIsFunctional ? lastRepairDate : '',
+                    panel_cleaning_done: lightIsFunctional ? panelCleaningDone : '',
+                    battery_bank_condition: lightIsFunctional ? batteryBankCondition : '',
+                    battery_terminal_cleaned: lightIsFunctional ? batteryTerminalCleaned : '',
+                    battery_petroleum_jelly_applied: lightIsFunctional ? batteryPetroleumJellyApplied : '',
+                    luminaires_cleaned_wiring: lightIsFunctional ? luminairesCleanedWiring : '',
+                    wiring_checked_loose_wires: lightIsFunctional ? wiringCheckedLooseWires : '',
+                }))
+            }
             formData.append('latitude', coords.latitude)
             formData.append('longitude', coords.longitude)
 
             const res = await localApi.post(app.lightAmc.store, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+                params: { state: stateName, region },
             })
 
             setSubmitSuccess(true)
@@ -1013,42 +1134,332 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         </div>
                                     </div>
 
+                                    {region === 'up' && (
+                                        <>
+                                            <hr className="border-dashed" />
+                                            <SectionHeading
+                                                icon={<FiHelpCircle size={16} />}
+                                                title="Questions to Ask Beneficiary"
+                                                titleHi="लाभार्थी से पूछे जाने वाले प्रश्न"
+                                                subtitle="Feedback and operational history from the beneficiary"
+                                                subtitleHi="लाभार्थी से प्रतिक्रिया और संचालन का विवरण"
+                                            />
+                                            <div className="row g-3 mb-4">
+                                                <div className={plantStatus === 'Functional' ? 'col-lg-6 col-12' : 'col-12'}>
+                                                    <div className="card border shadow-none mb-0 h-100">
+                                                        <div className="card-body p-3">
+                                                            <QuestionText
+                                                                number="1"
+                                                                en="Is the light currently Functional / Non-Functional / Stolen / Missing from designated place?"
+                                                                hi="क्या लाइट वर्तमान में कार्यरत / अकार्यरत / चोरी हो गई / निर्धारित स्थान से गायब है?"
+                                                                required
+                                                            />
+                                                            <div className="d-flex flex-wrap align-items-center gap-3">
+                                                                {['Functional', 'Non-Functional', 'Stolen / Missing from Designated Place'].map((opt) => (
+                                                                    <div className="form-check" key={opt}>
+                                                                        <input
+                                                                            className="form-check-input"
+                                                                            type="radio"
+                                                                            id={`plant-status-${opt.replace(/[^a-zA-Z0-9]/g, '_')}`}
+                                                                            name="plant-status"
+                                                                            checked={plantStatus === opt}
+                                                                            onChange={() => {
+                                                                                setPlantStatus(opt)
+                                                                                if (opt === 'Functional') return
+                                                                                setFunctionalDurationValue('')
+                                                                                setFunctionalDurationUnit('Months')
+                                                                                setBackupHoursPerDay('')
+                                                                                setBreakdownCount('')
+                                                                                setLastRepairDate('')
+                                                                                setPanelCleaningDone('')
+                                                                                setBatteryBankCondition('')
+                                                                                setBatteryTerminalCleaned('')
+                                                                                setBatteryPetroleumJellyApplied('')
+                                                                                setLuminairesCleanedWiring('')
+                                                                                setWiringCheckedLooseWires('')
+                                                                            }}
+                                                                        />
+                                                                        <label className="form-check-label fs-13 text-secondary" htmlFor={`plant-status-${opt.replace(/[^a-zA-Z0-9]/g, '_')}`} style={{ cursor: 'pointer' }}>
+                                                                            {opt}
+                                                                            {OPTION_HI[opt] ? <span className="d-block fs-12 text-muted">{OPTION_HI[opt]}</span> : null}
+                                                                        </label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {plantStatus === 'Functional' && (
+                                                <>
+                                                <div className="col-lg-6 col-12">
+                                                    <div className="card border shadow-none mb-0 h-100">
+                                                        <div className="card-body p-3">
+                                                            <QuestionText
+                                                                number="2"
+                                                                en="How long has the light been operating satisfactorily and continuously? (Months / Years)"
+                                                                hi="लाइट कितने समय से संतोषजनक और निरंतर चल रही है? (महीने / वर्ष)"
+                                                            />
+                                                            <div className="row g-2 align-items-center">
+                                                                <div className="col-sm-5 col-12">
+                                                                    <input
+                                                                        type="number"
+                                                                        className="form-control"
+                                                                        placeholder="जैसे 12"
+                                                                        value={functionalDurationValue}
+                                                                        onChange={(e) => setFunctionalDurationValue(e.target.value)}
+                                                                    />
+                                                                </div>
+                                                                <div className="col-sm-7 col-12 d-flex align-items-center gap-3">
+                                                                    {['Months', 'Years'].map((unit) => (
+                                                                        <div className="form-check" key={unit}>
+                                                                            <input
+                                                                                className="form-check-input"
+                                                                                type="radio"
+                                                                                id={`duration-unit-${unit}`}
+                                                                                name="duration-unit"
+                                                                                checked={functionalDurationUnit === unit}
+                                                                                onChange={() => setFunctionalDurationUnit(unit)}
+                                                                            />
+                                                                            <label className="form-check-label fs-13 text-secondary" htmlFor={`duration-unit-${unit}`} style={{ cursor: 'pointer' }}>
+                                                                                {unit}
+                                                                                <span className="d-block fs-12 text-muted">{OPTION_HI[unit]}</span>
+                                                                            </label>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="col-lg-6 col-12">
+                                                    <div className="card border shadow-none mb-0 h-100">
+                                                        <div className="card-body p-3">
+                                                            <QuestionText
+                                                                number="3"
+                                                                en="How many hours of backup are being obtained from the light? (Hours / Day)"
+                                                                hi="लाइट से प्रतिदिन कितने घंटे का बैकअप मिल रहा है?"
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                step="any"
+                                                                className="form-control"
+                                                                placeholder="घंटे / दिन (जैसे 6)"
+                                                                value={backupHoursPerDay}
+                                                                onChange={(e) => setBackupHoursPerDay(e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="col-lg-6 col-12">
+                                                    <div className="card border shadow-none mb-0 h-100">
+                                                        <div className="card-body p-3">
+                                                            <QuestionText
+                                                                number="4"
+                                                                en="How many times has the light become non-functional after installation?"
+                                                                hi="स्थापना के बाद लाइट कितनी बार अकार्यरत हुई?"
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                className="form-control"
+                                                                placeholder="खराबी की संख्या (जैसे 0)"
+                                                                value={breakdownCount}
+                                                                onChange={(e) => setBreakdownCount(e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <RadioQuestion
+                                                    number="4.1"
+                                                    question="Was petroleum jelly applied to the battery terminals?"
+                                                    questionHi="क्या बैटरी टर्मिनल पर पेट्रोलियम जेली लगाई गई?"
+                                                    options={['Yes', 'No', 'Not Applicable']}
+                                                    value={batteryPetroleumJellyApplied}
+                                                    onChange={setBatteryPetroleumJellyApplied}
+                                                />
+
+                                                <div className="col-lg-6 col-12">
+                                                    <div className="card border shadow-none mb-0 h-100">
+                                                        <div className="card-body p-3">
+                                                            <QuestionText
+                                                                number="5"
+                                                                en="When was the light previously repaired?"
+                                                                hi="लाइट की पिछली मरम्मत कब हुई थी?"
+                                                            />
+                                                            <input
+                                                                type="date"
+                                                                className="form-control"
+                                                                value={lastRepairDate}
+                                                                onChange={(e) => setLastRepairDate(e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                </>
+                                                )}
+                                            </div>
+
+                                            {plantStatus === 'Functional' && (
+                                            <>
+                                            <hr className="border-dashed" />
+                                            <SectionHeading
+                                                icon={<FiTool size={16} />}
+                                                title="Service Details Performed by Firm Representative"
+                                                titleHi="फर्म प्रतिनिधि द्वारा किया गया सर्विस विवरण"
+                                                subtitle="Maintenance and technical checks carried out on site"
+                                                subtitleHi="साइट पर किया गया रखरखाव और तकनीकी जाँच"
+                                            />
+                                            <div className="row g-3 mb-4">
+                                                <RadioQuestion
+                                                    number="1"
+                                                    question="Was cleaning of the solar panel(s) carried out?"
+                                                    questionHi="क्या सोलर पैनल की सफाई की गई?"
+                                                    options={['Yes', 'No']}
+                                                    value={panelCleaningDone}
+                                                    onChange={setPanelCleaningDone}
+                                                />
+                                                <RadioQuestion
+                                                    number="2"
+                                                    question="Battery bank condition"
+                                                    questionHi="बैटरी बैंक की स्थिति"
+                                                    options={[
+                                                        'Satisfactory (Full backup received)',
+                                                        'Unsatisfactory',
+                                                        'Not Applicable',
+                                                    ]}
+                                                    value={batteryBankCondition}
+                                                    onChange={setBatteryBankCondition}
+                                                />
+                                                <RadioQuestion
+                                                    number="3"
+                                                    question="Were the battery terminals cleaned?"
+                                                    questionHi="क्या बैटरी टर्मिनल साफ किए गए?"
+                                                    options={['Yes', 'No', 'Not Applicable']}
+                                                    value={batteryTerminalCleaned}
+                                                    onChange={setBatteryTerminalCleaned}
+                                                />
+                                                <RadioQuestion
+                                                    number="4"
+                                                    question="Were all luminaires cleaned and wires properly arranged?"
+                                                    questionHi="क्या सभी ल्यूमिनेयर साफ किए गए और तार ठीक से व्यवस्थित किए गए?"
+                                                    options={['Yes', 'No']}
+                                                    value={luminairesCleanedWiring}
+                                                    onChange={setLuminairesCleanedWiring}
+                                                />
+                                                <RadioQuestion
+                                                    number="5"
+                                                    question="Was the light wiring checked and loose/exposed wires properly fixed?"
+                                                    questionHi="क्या लाइट की वायरिंग जाँची गई और ढीले / खुले तार ठीक किए गए?"
+                                                    options={['Yes', 'No']}
+                                                    value={wiringCheckedLooseWires}
+                                                    onChange={setWiringCheckedLooseWires}
+                                                />
+                                            </div>
+                                            </>
+                                            )}
+                                        </>
+                                    )}
+
                                     <hr className="border-dashed" />
-                                    <SectionHeading icon={<FiPaperclip size={16} />} title="Documentation" subtitle="Capture 2 photos from camera — latitude and longitude will be printed on each image" />
-                                    <div className="row g-3 mb-3">
-                                        <div className="col-lg-6">
-                                            <CameraCapture
-                                                label="Photo 1"
-                                                hint="Open camera and capture"
-                                                file={image1}
-                                                onCapture={(file, coords) => {
-                                                    setImage1(file)
-                                                    setImage1Coords(coords)
-                                                    if (submitError.startsWith('Lat long issue')) setSubmitError('')
-                                                }}
-                                                onClear={() => {
-                                                    setImage1(null)
-                                                    setImage1Coords(null)
-                                                }}
+                                    {region === 'up' ? (
+                                        <>
+                                            <SectionHeading
+                                                icon={<FiPaperclip size={16} />}
+                                                title="Documentation & Photos"
+                                                titleHi="दस्तावेज़ और फोटो"
+                                                subtitle="Capture or upload the signed visit sheet and light photos"
+                                                subtitleHi="हस्ताक्षरित विजिट शीट और लाइट की फोटो लें"
                                             />
-                                        </div>
-                                        <div className="col-lg-6">
-                                            <CameraCapture
-                                                label="Photo 2"
-                                                hint="Open camera and capture"
-                                                file={image2}
-                                                onCapture={(file, coords) => {
-                                                    setImage2(file)
-                                                    setImage2Coords(coords)
-                                                    if (submitError.startsWith('Lat long issue')) setSubmitError('')
-                                                }}
-                                                onClear={() => {
-                                                    setImage2(null)
-                                                    setImage2Coords(null)
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
+                                            <div className="row g-3 mb-4">
+                                                <div className="col-lg-4 col-md-6 col-12">
+                                                    <CameraCapture
+                                                        label="Upload Form (Visit Slip)"
+                                                        labelHi="विजिट स्लिप अपलोड करें"
+                                                        hint="Capture photo of the signed visit slip / हस्ताक्षरित विजिट स्लिप की फोटो लें"
+                                                        file={formImage}
+                                                        onCapture={(file) => setFormImage(file)}
+                                                        onClear={() => setFormImage(null)}
+                                                    />
+                                                </div>
+                                                <div className="col-lg-4 col-md-6 col-12">
+                                                    <CameraCapture
+                                                        label="Light Photo 1"
+                                                        labelHi="लाइट फोटो 1"
+                                                        hint="Capture first photo of the light / लाइट की पहली फोटो लें"
+                                                        file={image1}
+                                                        onCapture={(file, coords) => {
+                                                            setImage1(file)
+                                                            setImage1Coords(coords)
+                                                            if (submitError.startsWith('Lat long issue')) setSubmitError('')
+                                                        }}
+                                                        onClear={() => {
+                                                            setImage1(null)
+                                                            setImage1Coords(null)
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="col-lg-4 col-md-6 col-12">
+                                                    <CameraCapture
+                                                        label="Light Photo 2"
+                                                        labelHi="लाइट फोटो 2"
+                                                        hint="Capture second photo of the light / लाइट की दूसरी फोटो लें"
+                                                        file={image2}
+                                                        onCapture={(file, coords) => {
+                                                            setImage2(file)
+                                                            setImage2Coords(coords)
+                                                            if (submitError.startsWith('Lat long issue')) setSubmitError('')
+                                                        }}
+                                                        onClear={() => {
+                                                            setImage2(null)
+                                                            setImage2Coords(null)
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <SectionHeading icon={<FiPaperclip size={16} />} title="Documentation" subtitle="Capture 2 photos from camera — latitude and longitude will be printed on each image" />
+                                            <div className="row g-3 mb-3">
+                                                <div className="col-lg-6">
+                                                    <CameraCapture
+                                                        label="Photo 1"
+                                                        hint="Open camera and capture"
+                                                        file={image1}
+                                                        onCapture={(file, coords) => {
+                                                            setImage1(file)
+                                                            setImage1Coords(coords)
+                                                            if (submitError.startsWith('Lat long issue')) setSubmitError('')
+                                                        }}
+                                                        onClear={() => {
+                                                            setImage1(null)
+                                                            setImage1Coords(null)
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="col-lg-6">
+                                                    <CameraCapture
+                                                        label="Photo 2"
+                                                        hint="Open camera and capture"
+                                                        file={image2}
+                                                        onCapture={(file, coords) => {
+                                                            setImage2(file)
+                                                            setImage2Coords(coords)
+                                                            if (submitError.startsWith('Lat long issue')) setSubmitError('')
+                                                        }}
+                                                        onClear={() => {
+                                                            setImage2(null)
+                                                            setImage2Coords(null)
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
 
                                     <hr className="border-dashed" />
                                     <SectionHeading icon={<FiCalendar size={16} />} title="Light Status" subtitle="If not working, a complaint will be raised" />

@@ -33,13 +33,15 @@ const run = async () => {
 
   let totalMissing = 0;
 
-  const lightRows = await prisma.biharLightAmc.findMany({
-    select: { id: true, image_1: true, image_2: true },
-  });
+  const [biharLightRows, upLightRows] = await Promise.all([
+    prisma.biharLightAmc.findMany({ select: { id: true, image_1: true, image_2: true } }),
+    prisma.upLightAmc.findMany({ select: { id: true, image_1: true, image_2: true, image_3: true } }),
+  ]);
+  const lightRows = [...biharLightRows, ...upLightRows];
 
   totalMissing += checkPaths(
     "Light AMC images",
-    lightRows.flatMap((row) => [row.image_1, row.image_2])
+    lightRows.flatMap((row) => [row.image_1, row.image_2, row.image_3])
   );
 
   const biharRows = await prisma.biharSslAmcUploadDocument.findMany({

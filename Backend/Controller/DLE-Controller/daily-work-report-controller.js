@@ -96,7 +96,8 @@ export const getDailyWorkReport = async (req, res) => {
     const companyView = Boolean(portalCompanyId);
     const adminView = companyView || isUserMasterAdmin(req.user);
     const requestedUser = String(req.query.user_id || "").trim();
-    const targetUserId = adminView ? requestedUser : viewerId;
+    const wantsAllUsers = !requestedUser || requestedUser === "all";
+    const targetUserId = adminView ? (wantsAllUsers ? "" : requestedUser) : viewerId;
     if (targetUserId && !/^\d+$/.test(targetUserId)) {
       return res.status(422).json({ success: false, message: "User id is not valid." });
     }
@@ -112,7 +113,27 @@ export const getDailyWorkReport = async (req, res) => {
 
     const userMatch = targetUserId ? String(targetUserId) : undefined;
 
-    const [attendance, ulaFirst, ulaSecond, fieldAmc, biharDocs, upDocs] = await Promise.all([
+    const fieldAmcWhere = {
+      created_at: createdRange,
+      ...companyFilter,
+      ...(userMatch ? { user_id: userMatch } : {}),
+    };
+    const fieldAmcSelect = {
+      id: true,
+      user_id: true,
+      state: true,
+      district: true,
+      block: true,
+      panchayat: true,
+      unique_id: true,
+      ssl_id: true,
+      pole_no: true,
+      latitude: true,
+      longitude: true,
+      light_working: true,
+      created_at: true,
+    };
+    const [attendance, ulaFirst, ulaSecond, fieldAmcBihar, fieldAmcUp, biharDocs, upDocs] = await Promise.all([
       prisma.attendance.findMany({ where: attendanceWhere }),
       prisma.biharUlaSurvey.findMany({
         where: {
@@ -154,28 +175,8 @@ export const getDailyWorkReport = async (req, res) => {
           second_visit_at: true,
         },
       }),
-      prisma.biharLightAmc.findMany({
-        where: {
-          created_at: createdRange,
-          ...companyFilter,
-          ...(userMatch ? { user_id: userMatch } : {}),
-        },
-        select: {
-          id: true,
-          user_id: true,
-          state: true,
-          district: true,
-          block: true,
-          panchayat: true,
-          unique_id: true,
-          ssl_id: true,
-          pole_no: true,
-          latitude: true,
-          longitude: true,
-          light_working: true,
-          created_at: true,
-        },
-      }),
+      prisma.biharLightAmc.findMany({ where: fieldAmcWhere, select: fieldAmcSelect }),
+      prisma.upLightAmc.findMany({ where: fieldAmcWhere, select: fieldAmcSelect }),
       prisma.biharSslAmcUploadDocument.findMany({
         where: {
           created_at: createdRange,
@@ -245,6 +246,7 @@ export const getDailyWorkReport = async (req, res) => {
       });
     });
 
+    const fieldAmc = [...fieldAmcBihar, ...fieldAmcUp];
     fieldAmc.forEach((row) => {
       if (!row.user_id) return;
       const bucket = ensureBucket(buckets, row.user_id, row.created_at);

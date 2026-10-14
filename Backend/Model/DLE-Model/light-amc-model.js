@@ -1,10 +1,37 @@
 import prisma from "../../Config/Prisma.js";
 import { serializeAmcApprovalFields } from "../../Utils/amcApproval.js";
 
+export const lightAmcRegionOf = (value) => {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return null;
+  if (text === "up" || text.includes("uttar")) return "up";
+  if (text === "bihar" || text === "br" || text.includes("bihar")) return "bihar";
+  return null;
+};
+
+export const lightAmcTable = (region) =>
+  region === "up" ? prisma.upLightAmc : prisma.biharLightAmc;
+
+const tableFor = ({ region, state } = {}) =>
+  lightAmcTable(
+    region === "up" || region === "bihar" ? region : lightAmcRegionOf(state) || "bihar"
+  );
+
 const toDate = (value) => {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const parseStoredVisitAnswers = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 };
 
 export const serializeLightAmc = (row) => {
@@ -26,15 +53,18 @@ export const serializeLightAmc = (row) => {
     period_end: iso(row.period_end),
     created_at: row.created_at,
     updated_at: row.updated_at,
+    ...(Object.prototype.hasOwnProperty.call(row, "visit_answers")
+      ? { visit_answers: parseStoredVisitAnswers(row.visit_answers) }
+      : {}),
     ...serializeAmcApprovalFields(row),
   };
 };
 
-export const findLastLightAmc = async (sslId, companyId) => {
+export const findLastLightAmc = async (sslId, companyId, region = "bihar") => {
   const where = { ssl_id: String(sslId) };
   if (companyId) where.company_id = String(companyId);
 
-  const row = await prisma.biharLightAmc.findFirst({
+  const row = await lightAmcTable(region).findFirst({
     where,
     orderBy: { amc_date: "desc" },
   });
@@ -42,13 +72,13 @@ export const findLastLightAmc = async (sslId, companyId) => {
   return row;
 };
 
-export const findLightAmcs = async ({ companyId, state, userId } = {}) => {
+export const findLightAmcs = async ({ companyId, state, userId, region } = {}) => {
   const where = {};
   if (companyId) where.company_id = String(companyId);
   if (state) where.state = String(state);
   if (userId) where.user_id = String(userId);
 
-  const rows = await prisma.biharLightAmc.findMany({
+  const rows = await tableFor({ region, state }).findMany({
     where,
     orderBy: { created_at: "desc" },
   });
@@ -56,14 +86,14 @@ export const findLightAmcs = async ({ companyId, state, userId } = {}) => {
   return rows;
 };
 
-export const findLightAmcById = async (id, companyId, userId) => {
+export const findLightAmcById = async (id, companyId, userId, region = "bihar") => {
   if (!id) return null;
 
   try {
     const where = { id: BigInt(id) };
     if (companyId) where.company_id = String(companyId);
     if (userId) where.user_id = String(userId);
-    return await prisma.biharLightAmc.findFirst({ where });
+    return await lightAmcTable(region).findFirst({ where });
   } catch {
     return null;
   }
@@ -77,6 +107,7 @@ export const findRecentLightAmcs = async ({
   block,
   panchayat,
   withinDays = 80,
+  region,
 } = {}) => {
   const days = Math.max(1, Number(withinDays) || 80);
   const cutoff = new Date();
@@ -93,7 +124,7 @@ export const findRecentLightAmcs = async ({
   if (state) where.state = String(state);
   if (userId) where.user_id = String(userId);
 
-  const rows = await prisma.biharLightAmc.findMany({
+  const rows = await tableFor({ region, state }).findMany({
     where,
     orderBy: { amc_date: "desc" },
   });
@@ -115,6 +146,8 @@ export const findLightAmcsInPeriod = async ({
   panchayat,
   startMonth,
   endMonth,
+  state,
+  region,
 } = {}) => {
   if (!startMonth) return [];
 
@@ -135,7 +168,7 @@ export const findLightAmcsInPeriod = async ({
   if (companyId) where.company_id = String(companyId);
   if (userId) where.user_id = String(userId);
 
-  const rows = await prisma.biharLightAmc.findMany({
+  const rows = await tableFor({ region, state }).findMany({
     where,
     orderBy: { amc_date: "desc" },
   });
@@ -150,7 +183,8 @@ export const findLightAmcsInPeriod = async ({
 };
 
 export const createLightAmc = async (data) => {
-  const row = await prisma.biharLightAmc.create({
+  const region = data.region === "up" || data.region === "bihar" ? data.region : lightAmcRegionOf(data.state) || "bihar";
+  const row = await lightAmcTable(region).create({
     data: {
       company_id: String(data.company_id),
       user_id: String(data.user_id),
@@ -175,6 +209,12 @@ export const createLightAmc = async (data) => {
       complaint_ref: data.complaint_ref || null,
       image_1: data.image_1 || null,
       image_2: data.image_2 || null,
+      ...(region === "up"
+        ? {
+            image_3: data.image_3 || null,
+            visit_answers: data.visit_answers || null,
+          }
+        : {}),
       latitude: data.latitude || null,
       longitude: data.longitude || null,
       remarks: data.remarks || null,

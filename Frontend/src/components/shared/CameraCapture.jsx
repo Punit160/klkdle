@@ -26,6 +26,7 @@ const cameraOpenErrorMessage = (err) => {
 
 const CameraCapture = ({
   label,
+  labelHi,
   hint,
   file,
   onCapture,
@@ -209,7 +210,10 @@ const CameraCapture = ({
           <span className="camera-capture-icon">
             <FiCamera size={18} />
           </span>
-          <span className="camera-capture-label">{label}</span>
+          <span className="camera-capture-label">
+            {label}
+            {labelHi ? <span className="d-block fw-normal text-muted mt-1">{labelHi}</span> : null}
+          </span>
           <span className="camera-capture-hint">
             {hint || 'Camera only • GPS will be printed on photo'}
           </span>

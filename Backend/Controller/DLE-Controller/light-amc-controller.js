@@ -5,6 +5,7 @@ import {
   findLightAmcs,
   findLightAmcsInPeriod,
   findRecentLightAmcs,
+  lightAmcRegionOf,
   serializeLightAmc,
 } from "../../Model/DLE-Model/light-amc-model.js";
 import { storedPathFromUploadedFile } from "../../Utils/amcStoredUploadPath.js";
@@ -17,6 +18,62 @@ const stateFilterForRegion = (region) => {
   return null;
 };
 
+const UP_VISIT_ANSWER_KEYS = [
+  "plant_status",
+  "functional_duration_value",
+  "functional_duration_unit",
+  "backup_hours_per_day",
+  "breakdown_count",
+  "last_repair_date",
+  "ro_purified_water_available",
+  "panel_cleaning_done",
+  "battery_electrolyte_topup",
+  "battery_bank_condition",
+  "battery_terminal_cleaned",
+  "battery_petroleum_jelly_applied",
+  "luminaires_cleaned_wiring",
+  "fans_oiling_greasing_done",
+  "wiring_checked_loose_wires",
+  "ro_servicing_filters_replaced",
+  "ro_storage_tank_cleaned",
+  "ro_water_tds_value",
+  "ro_solar_pump_serviced",
+  "ro_pipelines_taps_fixed",
+];
+
+const normalizeUpVisitAnswers = (value) => {
+  let source = value;
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return null;
+    try {
+      source = JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+
+  const answers = {};
+  for (const key of UP_VISIT_ANSWER_KEYS) {
+    const raw = source[key];
+    answers[key] = raw == null ? "" : String(raw).trim();
+  }
+  return answers;
+};
+
+const requestLightRegion = (req, stateValue) => {
+  if (req.lightAmcRegion === "up" || req.lightAmcRegion === "bihar") return req.lightAmcRegion;
+  return (
+    lightAmcRegionOf(req.query?.region) ||
+    lightAmcRegionOf(req.body?.region) ||
+    lightAmcRegionOf(stateValue) ||
+    lightAmcRegionOf(req.query?.state) ||
+    lightAmcRegionOf(req.body?.state) ||
+    null
+  );
+};
+
 const resolveLightAmcReadScope = (req) => {
   const portalCompanyId = req.portalCompanyId
     ? String(req.portalCompanyId).trim()
@@ -25,8 +82,8 @@ const resolveLightAmcReadScope = (req) => {
   const userId = resolveRequestUserId(req);
 
   const stateFromQuery = req.query.state?.trim();
-  const stateFromRegion = stateFilterForRegion(req.lightAmcRegion);
-  const state = stateFromQuery || stateFromRegion || undefined;
+  const regionHint = requestLightRegion(req, stateFromQuery);
+  const state = stateFromQuery || stateFilterForRegion(regionHint) || undefined;
 
   if (portalCompanyId && !jwtUserId) {
     return {
@@ -97,7 +154,15 @@ export const getLastLightAmc = async (req, res) => {
       });
     }
 
-    const last = await findLastLightAmc(sslId, companyId);
+    const region = requestLightRegion(req);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: "region or state is required (bihar or up).",
+      });
+    }
+
+    const last = await findLastLightAmc(sslId, companyId, region);
     const serialized = serializeLightAmc(last);
 
     let nextAmcDate = null;
@@ -138,10 +203,19 @@ export const getLightAmcs = async (req, res) => {
       });
     }
 
+    const region = requestLightRegion(req, scope.state);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: "region or state is required (bihar or up).",
+      });
+    }
+
     const rows = await findLightAmcs({
       companyId: scope.companyId,
       state: scope.state,
       userId: scope.userId,
+      region,
     });
 
     const working = String(req.query.working || "").trim();
@@ -194,6 +268,13 @@ export const getRecentLightAmcs = async (req, res) => {
     }
 
     const withinDays = Math.max(1, Number(within_days) || 80);
+    const region = requestLightRegion(req, state);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: "region or state is required (bihar or up).",
+      });
+    }
     const rows = await findRecentLightAmcs({
       companyId: company_id,
       state,
@@ -202,6 +283,7 @@ export const getRecentLightAmcs = async (req, res) => {
       block,
       panchayat,
       withinDays,
+      region,
     });
 
     return res.status(200).json({
@@ -254,6 +336,14 @@ export const getLightAmcsInPeriod = async (req, res) => {
       });
     }
 
+    const region = requestLightRegion(req, req.query.state);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: "region or state is required (bihar or up).",
+      });
+    }
+
     const rows = await findLightAmcsInPeriod({
       companyId: company_id,
       userId,
@@ -262,6 +352,8 @@ export const getLightAmcsInPeriod = async (req, res) => {
       panchayat,
       startMonth: start_month_year,
       endMonth: end_month_year,
+      state: req.query.state,
+      region,
     });
 
     return res.status(200).json({
@@ -307,7 +399,20 @@ export const getLightAmcById = async (req, res) => {
       });
     }
 
-    const row = await findLightAmcById(id, scope.companyId, scope.userId);
+    const region = requestLightRegion(req, scope.state);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: "region or state is required (bihar or up).",
+      });
+    }
+
+    const row = await findLightAmcById(
+      id,
+      scope.companyId,
+      scope.userId,
+      region
+    );
     if (!row) {
       return res.status(404).json({
         success: false,
@@ -315,7 +420,7 @@ export const getLightAmcById = async (req, res) => {
       });
     }
 
-    const regionState = stateFilterForRegion(req.lightAmcRegion);
+    const regionState = stateFilterForRegion(region);
     if (
       regionState &&
       String(row.state || "").trim() !== regionState
@@ -372,13 +477,32 @@ export const storeLightAmc = async (req, res) => {
       });
     }
 
+    const region = requestLightRegion(req, state);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: "region or state is required (bihar or up).",
+      });
+    }
+
     const image1 = req.files?.image_1?.[0];
     const image2 = req.files?.image_2?.[0];
+    const image3 = req.files?.image_3?.[0];
+    const visitAnswers = region === "up" ? normalizeUpVisitAnswers(req.body?.visit_answers) : null;
 
-    if (!image1 || !image2) {
+    if (region === "up" && !visitAnswers?.plant_status) {
       return res.status(400).json({
         success: false,
-        message: "Please upload 2 AMC images",
+        message: "Please select whether the light is functional",
+      });
+    }
+
+    if (!image1 || !image2 || (region === "up" && !image3)) {
+      return res.status(400).json({
+        success: false,
+        message: region === "up"
+          ? "Please upload the visit slip and both light photos"
+          : "Please upload 2 AMC images",
       });
     }
 
@@ -389,8 +513,7 @@ export const storeLightAmc = async (req, res) => {
         message: "Invalid AMC date",
       });
     }
-
-    const last = await findLastLightAmc(ssl_id, company_id);
+    const last = await findLastLightAmc(ssl_id, company_id, region);
     const installDate = parseInstallDate(date_of_installation);
 
     let periodStart = last?.period_start
@@ -424,7 +547,8 @@ export const storeLightAmc = async (req, res) => {
     const row = await createLightAmc({
       company_id,
       user_id,
-      state: state || "",
+      region,
+      state: region === "up" ? "Uttar Pradesh" : state || "Bihar",
       district,
       block,
       panchayat,
@@ -445,6 +569,10 @@ export const storeLightAmc = async (req, res) => {
       complaint_ref,
       image_1: storedPathFromUploadedFile(image1, (name) => `/uploads/light-amc/${name}`),
       image_2: storedPathFromUploadedFile(image2, (name) => `/uploads/light-amc/${name}`),
+      image_3: image3
+        ? storedPathFromUploadedFile(image3, (name) => `/uploads/light-amc/${name}`)
+        : null,
+      visit_answers: visitAnswers ? JSON.stringify(visitAnswers) : null,
       latitude: latitude ? String(latitude) : null,
       longitude: longitude ? String(longitude) : null,
       remarks,

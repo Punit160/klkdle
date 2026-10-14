@@ -1,4 +1,3 @@
-import prisma from "../../Config/Prisma.js";
 import {
   AMC_DOC_APPROVAL,
   buildAmcApprovalUpdateData,
@@ -6,7 +5,7 @@ import {
 } from "../../Utils/amcApproval.js";
 import { resolvePortalCompanyId } from "../../Utils/portalCompany.js";
 import { toPublicFileUrl } from "../../Utils/publicUrl.js";
-import { serializeLightAmc } from "../../Model/DLE-Model/light-amc-model.js";
+import { lightAmcRegionOf, lightAmcTable, serializeLightAmc } from "../../Model/DLE-Model/light-amc-model.js";
 import {
   applyListPaginationToFindMany,
   buildListResponseMeta,
@@ -22,12 +21,13 @@ const resolveLightAmcApprovalRegion = (req) => {
   if (req.lightAmcRegion === "up" || req.lightAmcRegion === "bihar") {
     return req.lightAmcRegion;
   }
-  const raw = String(req.query.region || req.body?.region || "")
-    .trim()
-    .toLowerCase();
-  if (raw === "up") return "up";
-  if (raw === "bihar") return "bihar";
-  return null;
+  return (
+    lightAmcRegionOf(req.query.region) ||
+    lightAmcRegionOf(req.body?.region) ||
+    lightAmcRegionOf(req.query.state) ||
+    lightAmcRegionOf(req.body?.state) ||
+    null
+  );
 };
 
 const serializeLightAmcForApproval = (req, region, row) => {
@@ -40,6 +40,7 @@ const serializeLightAmcForApproval = (req, region, row) => {
     ...serializeAmcApprovalFields(row),
     image_1_url: toPublicFileUrl(req, row.image_1),
     image_2_url: toPublicFileUrl(req, row.image_2),
+    image_3_url: toPublicFileUrl(req, row.image_3),
   };
 };
 
@@ -97,9 +98,10 @@ export const getLightAmcsForApproval = async (req, res) => {
     if (block) where.block = block;
     if (panchayat) where.panchayat = panchayat;
 
+    const table = lightAmcTable(region);
     const [total, rows] = await Promise.all([
-      prisma.biharLightAmc.count({ where }),
-      prisma.biharLightAmc.findMany(
+      table.count({ where }),
+      table.findMany(
         applyListPaginationToFindMany(
           {
             where,
@@ -169,7 +171,8 @@ export const updateLightAmcApprovalStatus = async (req, res) => {
       });
     }
 
-    const existing = await prisma.biharLightAmc.findUnique({
+    const table = lightAmcTable(region);
+    const existing = await table.findUnique({
       where: { id: BigInt(id) },
     });
 
@@ -200,7 +203,7 @@ export const updateLightAmcApprovalStatus = async (req, res) => {
       approval_by,
     });
 
-    const updated = await prisma.biharLightAmc.update({
+    const updated = await table.update({
       where: { id: BigInt(id) },
       data: updateData,
     });

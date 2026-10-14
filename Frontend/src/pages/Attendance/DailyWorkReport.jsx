@@ -180,7 +180,9 @@ const DailyWorkReport = () => {
     setOpenKey('')
     setDetail(null)
     localApi
-      .get(app.attendance.workReport, { params: { month } })
+      .get(app.attendance.workReport, {
+        params: isAdmin ? { month, user_id: 'all' } : { month },
+      })
       .then((res) => {
         if (cancelled) return
         setUsers(res.data?.users || [])
@@ -198,7 +200,7 @@ const DailyWorkReport = () => {
     return () => {
       cancelled = true
     }
-  }, [month])
+  }, [month, isAdmin])
 
   const roster = useMemo(() => {
     const worked = new Map(users.map((user) => [String(user.user_id), user]))

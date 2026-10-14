@@ -99,8 +99,8 @@ export const getDlePortalDashboard = async (req, res) => {
     const [biharDocs, upDocs, biharField, upField, ulaRows, attendance, work] = await Promise.all([
       invokeJson(getBiharDistricts, portalReq),
       invokeJson(getUpDistricts, portalReq),
-      findLightAmcs({ companyId, state: "Bihar" }),
-      findLightAmcs({ companyId, state: "Uttar Pradesh" }),
+      findLightAmcs({ companyId, state: "Bihar", region: "bihar" }),
+      findLightAmcs({ companyId, state: "Uttar Pradesh", region: "up" }),
       prisma.biharUlaSurvey.findMany({
         where: { company_id: companyId },
         select: {

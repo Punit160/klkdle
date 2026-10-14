@@ -1306,9 +1306,13 @@ const UploadForm = ({
                 )
 
 
+                const uniqueId = String(
+                    site?.unique_id || site?.pole_no || site?.id || ""
+                ).trim()
+
                 formData.append(
-                    "pole_no[]",
-                    site?.pole_no || ""
+                    "unique_id[]",
+                    uniqueId || String(site.id)
                 )
 
             }
