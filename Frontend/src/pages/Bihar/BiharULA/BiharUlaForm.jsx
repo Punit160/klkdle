@@ -1603,10 +1603,11 @@ const BiharUlaForm = () => {
                             if (!serialApiField || !v) return
                             checkUlaRegistrationUnique({
                               panelOneNo:
-                                serialApiField === 'panel_one_no' ? v : '',
+                                serialApiField === 'panel_one_no' ? v : serialNumbers.panel1_qr,
                               panelTwoNo:
-                                serialApiField === 'panel_two_no' ? v : '',
-                              inverterNo: serialApiField === 'inverter_no' ? v : '',
+                                serialApiField === 'panel_two_no' ? v : serialNumbers.panel2_qr,
+                              inverterNo:
+                                serialApiField === 'inverter_no' ? v : serialNumbers.inverter_qr,
                             }).then((result) => applyUlaUniqueCheckToFields(result))
                           }}
                           onScan={(serial) => {

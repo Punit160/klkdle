@@ -133,6 +133,9 @@ export const api = {
     periodStatus: '/api/light-amc/period-status',
     recentDone: '/api/light-amc/recent-done',
     view: (id) => `/api/light-amc/view/${id}`,
+    update: (id) => `/api/light-amc/update/${id}`,
+    import: '/api/light-amc/import',
+    importTemplate: '/api/light-amc/import-template',
     /** External portal — no JWT; requires company_id query */
     portalList: (state) => `${apiSsl(state)}/light/list`,
     portalGet: (state) => `${apiSsl(state)}/light/get`,

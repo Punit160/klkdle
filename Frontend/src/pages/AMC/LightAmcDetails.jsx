@@ -1,13 +1,14 @@
  
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { FiAlertCircle, FiArrowLeft, FiCalendar, FiHelpCircle, FiImage, FiLoader, FiMapPin, FiTool, FiUser, FiZap } from 'react-icons/fi'
+import { FiAlertCircle, FiArrowLeft, FiCalendar, FiEdit2, FiHelpCircle, FiImage, FiLoader, FiMapPin, FiTool, FiUser, FiZap } from 'react-icons/fi'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { getCompanyId } from '../../utils/auth'
 import localApi from '../../api/localApi'
 import { app } from '../../api/routes'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
 import { resolveUploadUrl } from '../../utils/uploadUrl'
+import { userIsAdmin } from '../../utils/userRoles'
 
 const formatDate = (value) => {
     if (!value) return '—'
@@ -99,11 +100,13 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
     const amcConfig = getSslAmcConfig(region)
     const stateName = amcConfig.stateName
     const listPath = amcConfig.pages.lightAmcList
+    const formPath = amcConfig.pages.lightAmc
     const recordId = searchParams.get('id')
 
     const [row, setRow] = useState(location.state?.row || null)
     const [loading, setLoading] = useState(!location.state?.row)
     const [error, setError] = useState('')
+    const isAdmin = userIsAdmin()
 
     useEffect(() => {
         const fetchRow = async () => {
@@ -151,9 +154,16 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                 title="AMC Details"
                                 subtitle={row?.unique_id || row?.ssl_id ? `Light ${row.unique_id || row.ssl_id}` : 'Full AMC record'}
                             />
-                            <button type="button" className="btn btn-sm btn-light" onClick={() => navigate(listPath)}>
-                                <FiArrowLeft className="me-1" size={14} /> Back to AMC
-                            </button>
+                            <div className="d-flex gap-2">
+                                {isAdmin && row && (
+                                    <button type="button" className="btn btn-sm btn-primary" onClick={() => navigate(`${formPath}?id=${recordId}`)}>
+                                        <FiEdit2 className="me-1" size={14} /> Edit
+                                    </button>
+                                )}
+                                <button type="button" className="btn btn-sm btn-light" onClick={() => navigate(listPath)}>
+                                    <FiArrowLeft className="me-1" size={14} /> Back to AMC
+                                </button>
+                            </div>
                         </div>
 
                         {loading && (
@@ -175,6 +185,9 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                     title="Dates"
                                     items={[
                                         { label: 'AMC Date', value: formatDate(row.amc_date) },
+                                        ...(region === 'up'
+                                            ? [{ label: 'Visit Time', value: row.amc_time }]
+                                            : []),
                                         { label: 'Next AMC Date', value: formatDate(row.next_amc_date) },
                                         { label: 'Period Start', value: formatDate(row.period_start) },
                                         { label: 'Period End', value: formatDate(row.period_end) },
@@ -210,6 +223,12 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                         { label: 'Unique ID', value: row.unique_id },
                                         { label: 'Pole No', value: row.pole_no },
                                         { label: 'SSL ID', value: row.ssl_id },
+                                        ...(region === 'up'
+                                            ? [
+                                                { label: 'UID', value: row.uid },
+                                                { label: 'Financial Year', value: row.fy_year },
+                                            ]
+                                            : []),
                                     ]}
                                 />
 

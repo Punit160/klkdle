@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
     FiAlertCircle,
     FiCalendar,
@@ -20,6 +20,7 @@ import externalApi from '../../api/externalApi'
 import localApi from '../../api/localApi'
 import { app, external, pages } from '../../api/routes'
 import { getCompanyId, getUser } from '../../utils/auth'
+import { userIsAdmin } from '../../utils/userRoles'
 import {
     areCoordinatesNear,
     captureCurrentLocation,
@@ -48,6 +49,7 @@ import {
   mapDistinctFieldOptions,
   matchesDleAmcUser,
 } from '../../utils/externalApiUser'
+import { resolveUploadUrl } from '../../utils/uploadUrl'
 import '../../styles/camera-capture.css'
 
 const COMPLAINT_ISSUE_OPTIONS = [
@@ -83,6 +85,24 @@ const getErrorMessage = (err, fallback = 'Something went wrong. Please try again
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+const localTodayISO = () => {
+    const date = new Date()
+    const pad = (value) => String(value).padStart(2, '0')
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+const nowTimeValue = () => {
+    const date = new Date()
+    const pad = (value) => String(value).padStart(2, '0')
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const isValidCoordinate = (latitude, longitude) => {
+    const lat = Number(latitude)
+    const lng = Number(longitude)
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
 const addMonthsISO = (value, months) => {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return ''
@@ -97,6 +117,17 @@ const formatDisplayDate = (value) => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+/** Same Indian financial year label the API stores, for example 2026-10-14 -> 2026-27. */
+const financialYearLabel = (isoDate) => {
+    const match = String(isoDate || '').match(/^(\d{4})-(\d{2})/)
+    if (!match) return ''
+    const year = Number(match[1])
+    const month = Number(match[2])
+    if (!year || !month) return ''
+    const startYear = month >= 4 ? year : year - 1
+    return `${startYear}-${String(startYear + 1).slice(-2)}`
+}
+
 const unwrapDetails = (payload) => {
     if (!payload || typeof payload !== 'object') return null
     if (payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
@@ -105,6 +136,63 @@ const unwrapDetails = (payload) => {
     if (payload.site && typeof payload.site === 'object') return payload.site
     if (payload.details && typeof payload.details === 'object') return payload.details
     return payload
+}
+
+const SourceChoice = ({ name, value, onChange, options }) => (
+    <div className="d-flex flex-wrap gap-3 mb-2">
+        {options.map((option) => (
+            <div className="form-check mb-0" key={option.value}>
+                <input
+                    className="form-check-input"
+                    type="radio"
+                    name={name}
+                    id={`${name}-${option.value}`}
+                    checked={value === option.value}
+                    onChange={() => onChange(option.value)}
+                />
+                <label className="form-check-label" htmlFor={`${name}-${option.value}`}>{option.label}</label>
+            </div>
+        ))}
+    </div>
+)
+
+const AdminPhotoUpload = ({ label, labelHi, file, existingUrl, onFile, onClear }) => {
+    const [objectUrl, setObjectUrl] = useState('')
+
+    useEffect(() => {
+        if (!file) {
+            setObjectUrl('')
+            return undefined
+        }
+        const url = URL.createObjectURL(file)
+        setObjectUrl(url)
+        return () => URL.revokeObjectURL(url)
+    }, [file])
+
+    const src = objectUrl || existingUrl || ''
+
+    return (
+        <div className="h-100">
+            <div className="fs-13 fw-semibold text-dark">{label}</div>
+            {labelHi ? <div className="fs-12 text-muted">{labelHi}</div> : null}
+            {src ? (
+                <div className="mt-2">
+                    <img src={src} alt={label} className="w-100 rounded-3 border" style={{ maxHeight: 220, objectFit: 'cover' }} />
+                    <button type="button" className="btn btn-sm btn-light mt-2" onClick={onClear}>Remove</button>
+                </div>
+            ) : null}
+            <input
+                type="file"
+                accept="image/*"
+                className="form-control mt-2"
+                onChange={(event) => {
+                    const next = event.target.files?.[0]
+                    if (next) onFile(next)
+                    event.target.value = ''
+                }}
+            />
+        </div>
+    )
 }
 
 const DetailItem = ({ label, value }) => (
@@ -212,7 +300,11 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const locationConfig = amcConfig.location
     const sslState = amcConfig.sslState
     const viewPath = amcConfig.pages.lightAmcList
+    const detailsPath = amcConfig.pages.lightAmcDetails
     const stateName = amcConfig.stateName
+    const [searchParams] = useSearchParams()
+    const editId = searchParams.get('id') || ''
+    const isEdit = Boolean(editId)
 
     const [autoVolume, setAutoVolume] = useState(null)
     const [isVolumeResolving, setIsVolumeResolving] = useState(amcConfig.requiresVolume)
@@ -242,6 +334,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [allPanchayatSites, setAllPanchayatSites] = useState([])
     const [selectedWard, setSelectedWard] = useState(null)
     const wardRestoreDoneRef = useRef(false)
+    const locationEditedRef = useRef(false)
     const lastSitesFetchKeyRef = useRef('')
     const lastSitesCountRef = useRef(0)
     const [isSitesLoading, setIsSitesLoading] = useState(false)
@@ -280,6 +373,12 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [image1, setImage1] = useState(null)
     const [image2, setImage2] = useState(null)
     const [formImage, setFormImage] = useState(null)
+    const [keptPhotos, setKeptPhotos] = useState({ slip: '', photo1: '', photo2: '' })
+    const [locationSource, setLocationSource] = useState('gps')
+    const [dateTimeSource, setDateTimeSource] = useState('manual')
+    const [photoSource, setPhotoSource] = useState('camera')
+    const [uidInput, setUidInput] = useState('')
+    const [remarks, setRemarks] = useState('')
     const [image1Coords, setImage1Coords] = useState(null)
     const [image2Coords, setImage2Coords] = useState(null)
     const [plantStatus, setPlantStatus] = useState('')
@@ -298,6 +397,9 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [complaintIssue, setComplaintIssue] = useState(null)
     const [complaintText, setComplaintText] = useState('')
     const [amcCoords, setAmcCoords] = useState(null)
+    const [latitudeInput, setLatitudeInput] = useState('')
+    const [longitudeInput, setLongitudeInput] = useState('')
+    const [amcTime, setAmcTime] = useState('')
     const [isLocating, setIsLocating] = useState(false)
 
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -561,6 +663,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     }, [region, wardOptions, selectedWard])
 
     useEffect(() => {
+        if (editId) return
         if (!selectedLight) {
             setLightInfo(null)
             setDetailsError('')
@@ -664,10 +767,18 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         }
 
         loadLight()
-    }, [selectedLight, sslState, region, stateName])
+    }, [selectedLight, sslState, region, stateName, editId])
 
     useEffect(() => {
+        if (editId) return
+        locationEditedRef.current = false
         setAmcCoords(null)
+        setLatitudeInput('')
+        setLongitudeInput('')
+        setAmcTime(userIsAdmin() ? nowTimeValue() : '')
+        setLocationSource('gps')
+        setDateTimeSource('manual')
+        setPhotoSource('camera')
         setImage1(null)
         setImage2(null)
         setFormImage(null)
@@ -693,10 +804,15 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         setIsLocating(true)
         captureCurrentLocation()
             .then((coords) => {
-                if (!cancelled) setAmcCoords(coords)
+                if (cancelled || locationEditedRef.current) return
+                setAmcCoords(coords)
+                if (region === 'up' && userIsAdmin()) {
+                    setLatitudeInput(coords.latitude)
+                    setLongitudeInput(coords.longitude)
+                }
             })
             .catch(() => {
-                if (!cancelled) setAmcCoords(null)
+                if (!cancelled && !locationEditedRef.current) setAmcCoords(null)
             })
             .finally(() => {
                 if (!cancelled) setIsLocating(false)
@@ -705,7 +821,95 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         return () => {
             cancelled = true
         }
-    }, [selectedLight])
+    }, [selectedLight, region, editId])
+
+    useEffect(() => {
+        if (!editId) return undefined
+        if (!userIsAdmin()) {
+            setSubmitError('Only an admin can edit an AMC visit.')
+            return undefined
+        }
+
+        let cancelled = false
+        const loadVisit = async () => {
+            setIsLightLoading(true)
+            setDetailsError('')
+            try {
+                const res = await localApi.get(app.lightAmc.view(editId), {
+                    params: { state: stateName, region },
+                })
+                const row = res?.data?.data
+                if (cancelled) return
+                if (!row) {
+                    setDetailsError('AMC record not found.')
+                    return
+                }
+                const answers = row.visit_answers && typeof row.visit_answers === 'object' ? row.visit_answers : {}
+                locationEditedRef.current = true
+                setLightInfo({
+                    district: row.district,
+                    block: row.block,
+                    panchayat: row.panchayat,
+                    ward_no: row.ward_no,
+                    unique_id: row.unique_id,
+                    uid: row.uid,
+                    pole_no: row.pole_no,
+                    ssl_id: row.ssl_id,
+                    beneficiary_name: row.beneficiary_name,
+                    date_of_installation: row.date_of_installation,
+                })
+                setSelectedLight({
+                    value: String(row.ssl_id || ''),
+                    label: row.unique_id || row.ssl_id || 'Saved visit',
+                    site: row,
+                })
+                setBeneficiaryName(row.beneficiary_name || '')
+                setBeneficiaryContact(row.beneficiary_contact || '')
+                setAmcDate(row.amc_date || '')
+                setNextAmcDate(row.next_amc_date || '')
+                setPeriodStart(row.period_start || '')
+                setPeriodEnd(row.period_end || '')
+                setQuarterNo(Number(row.quarter_no) || 1)
+                setAmcTime(row.amc_time || '')
+                setLatitudeInput(row.latitude || '')
+                setLongitudeInput(row.longitude || '')
+                setAmcCoords(row.latitude && row.longitude ? { latitude: String(row.latitude), longitude: String(row.longitude) } : null)
+                setUidInput(row.uid || '')
+                setRemarks(row.remarks || '')
+                setLightWorking(row.light_working === 'No' ? 'No' : 'Yes')
+                setPlantStatus(answers.plant_status || '')
+                setFunctionalDurationValue(answers.functional_duration_value || '')
+                setFunctionalDurationUnit(answers.functional_duration_unit || 'Months')
+                setBackupHoursPerDay(answers.backup_hours_per_day || '')
+                setBreakdownCount(answers.breakdown_count || '')
+                setLastRepairDate(answers.last_repair_date || '')
+                setPanelCleaningDone(answers.panel_cleaning_done || '')
+                setBatteryBankCondition(answers.battery_bank_condition || '')
+                setBatteryTerminalCleaned(answers.battery_terminal_cleaned || '')
+                setBatteryPetroleumJellyApplied(answers.battery_petroleum_jelly_applied || '')
+                setLuminairesCleanedWiring(answers.luminaires_cleaned_wiring || '')
+                setWiringCheckedLooseWires(answers.wiring_checked_loose_wires || '')
+                setKeptPhotos({
+                    slip: row.image_3 || '',
+                    photo1: row.image_1 || '',
+                    photo2: row.image_2 || '',
+                })
+                setLocationSource('manual')
+                setDateTimeSource('manual')
+                setPhotoSource('camera')
+                setScheduleNote('Saved photos stay until you capture a replacement.')
+            } catch (err) {
+                if (!cancelled) setDetailsError(getErrorMessage(err, 'Failed to load this AMC visit.'))
+            } finally {
+                if (!cancelled) setIsLightLoading(false)
+            }
+        }
+
+        loadVisit()
+        return () => {
+            cancelled = true
+        }
+    }, [editId, region, stateName])
 
     useEffect(() => {
         if (!amcDate || !periodStart) return
@@ -754,6 +958,69 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         }
     }
 
+    const savedUid = isEdit
+        ? uidInput.trim()
+        : String(lightInfo?.uid || selectedLight?.site?.uid || '').trim()
+    const savedFinancialYear = financialYearLabel(amcDate)
+    const adminChoices = userIsAdmin()
+    const photoPreview = (file, storedPath) => (!file && storedPath ? resolveUploadUrl(storedPath) : '')
+
+    const applyAdminLatitude = (value) => {
+        locationEditedRef.current = true
+        setLatitudeInput(value)
+        setAmcCoords((current) => ({
+            latitude: value,
+            longitude: current?.longitude || longitudeInput,
+        }))
+    }
+
+    const applyAdminLongitude = (value) => {
+        locationEditedRef.current = true
+        setLongitudeInput(value)
+        setAmcCoords((current) => ({
+            latitude: current?.latitude || latitudeInput,
+            longitude: value,
+        }))
+    }
+
+    const chooseManualLocation = () => {
+        locationEditedRef.current = true
+        setLocationSource('manual')
+    }
+
+    const chooseGpsLocation = async () => {
+        locationEditedRef.current = false
+        setLocationSource('gps')
+        setIsLocating(true)
+        setSubmitError('')
+        try {
+            const coords = await captureCurrentLocation()
+            if (locationEditedRef.current) return
+            setAmcCoords(coords)
+            setLatitudeInput(coords.latitude)
+            setLongitudeInput(coords.longitude)
+        } catch (err) {
+            setSubmitError(getErrorMessage(err, 'Could not read GPS. You can enter latitude and longitude instead.'))
+            locationEditedRef.current = true
+            setLocationSource('manual')
+        } finally {
+            setIsLocating(false)
+        }
+    }
+
+    const chooseCurrentDateTime = () => {
+        setDateTimeSource('current')
+        setAmcDate(localTodayISO())
+        setAmcTime(nowTimeValue())
+    }
+
+    const chooseManualDateTime = (value) => {
+        setDateTimeSource('manual')
+        const [date, time] = String(value || '').split('T')
+        if (date) setAmcDate(date)
+        if (time) setAmcTime(time.slice(0, 5))
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
         setSubmitError('')
@@ -766,7 +1033,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             setSubmitError('Please login again.')
             return
         }
-        if (region === 'bihar' && wardsInData && !selectedWard) {
+        if (!isEdit && region === 'bihar' && wardsInData && !selectedWard) {
             setSubmitError('Please select ward, then choose a light.')
             return
         }
@@ -778,30 +1045,51 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             setSubmitError('Please select whether the light is functional.')
             return
         }
-        if (region === 'up' && (!formImage || !image1 || !image2)) {
+        const slipReady = Boolean(formImage || keptPhotos.slip)
+        const photo1Ready = Boolean(image1 || keptPhotos.photo1)
+        const photo2Ready = Boolean(image2 || keptPhotos.photo2)
+        if (region === 'up' && (!slipReady || !photo1Ready || !photo2Ready)) {
             setSubmitError('Capture the visit slip and both light photos.')
             return
         }
-        if (region !== 'up' && (!image1 || !image2)) {
+        if (region !== 'up' && (!photo1Ready || !photo2Ready)) {
             setSubmitError('Capture 2 camera photos.')
             return
         }
-        if (periodEnd && amcDate > periodEnd) {
+        const visitDate = adminChoices && dateTimeSource === 'current' ? localTodayISO() : amcDate
+        const visitTime = adminChoices && dateTimeSource === 'current' ? nowTimeValue() : (amcTime || nowTimeValue())
+        if (adminChoices && dateTimeSource === 'manual' && (!amcDate || !amcTime)) {
+            setSubmitError('Enter the visit date and time.')
+            return
+        }
+        if (periodEnd && visitDate > periodEnd) {
             setSubmitError('AMC period of 5 years has ended for this light.')
             return
         }
-        if (lightWorking === 'No' && (!complaintIssue || !complaintText.trim())) {
+        if (!isEdit && lightWorking === 'No' && (!complaintIssue || !complaintText.trim())) {
             setSubmitError('Light is not working. Please fill complaint issue and details.')
             return
         }
 
         setIsSubmitting(true)
         try {
-            setIsLocating(true)
-            const coords = await captureCurrentLocation()
-            setAmcCoords(coords)
+            let coords
+            if (adminChoices && locationSource === 'manual') {
+                const latitude = latitudeInput.trim()
+                const longitude = longitudeInput.trim()
+                if (!isValidCoordinate(latitude, longitude)) {
+                    setSubmitError('Enter a valid latitude and longitude, or choose Use GPS.')
+                    return
+                }
+                coords = { latitude, longitude }
+                setAmcCoords(coords)
+            } else {
+                setIsLocating(true)
+                coords = await captureCurrentLocation()
+                setAmcCoords(coords)
+            }
 
-            if (region === 'bihar') {
+            if (region === 'bihar' && !(adminChoices && (locationSource === 'manual' || photoSource === 'upload'))) {
                 if (amcCoords && !areCoordinatesNear(amcCoords, coords)) {
                     setSubmitError(
                         'Lat long issue: current GPS differs from form GPS. Please recapture photos at the same location.'
@@ -820,7 +1108,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             }
 
             let complaintRef = ''
-            if (lightWorking === 'No' && region === 'bihar') {
+            if (!isEdit && lightWorking === 'No' && region === 'bihar') {
                 try {
                     const complaintData = new FormData()
                     complaintData.append('ssl_id', selectedLight.value)
@@ -871,27 +1159,33 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('company_id', companyId)
             formData.append('user_id', user.id)
             formData.append('state', stateName)
-            formData.append('district', selectedDistrict?.value || '')
-            formData.append('block', selectedBlock?.value || '')
-            formData.append('panchayat', selectedPanchayat?.value || '')
+            formData.append('district', selectedDistrict?.value || lightInfo?.district || '')
+            formData.append('block', selectedBlock?.value || lightInfo?.block || '')
+            formData.append('panchayat', selectedPanchayat?.value || lightInfo?.panchayat || '')
             formData.append('ward_no', lightInfo?.ward_no || '')
             if (amcConfig.requiresVolume && autoVolume) {
                 formData.append('volume', autoVolume)
             }
             formData.append('ssl_id', selectedLight.value)
             formData.append('unique_id', lightInfo?.unique_id || selectedLight.site?.unique_id || '')
+            if (region === 'up') {
+                formData.append('uid', savedUid)
+                formData.append('fy_year', savedFinancialYear)
+                if (adminChoices) formData.append('amc_time', visitTime)
+            }
             formData.append('pole_no', lightInfo?.pole_no || selectedLight.site?.pole_no || '')
-            formData.append('amc_date', amcDate)
+            formData.append('amc_date', visitDate)
             formData.append('beneficiary_name', beneficiaryName)
             formData.append('beneficiary_contact', beneficiaryContact)
             formData.append('light_working', lightWorking)
             formData.append('complaint_raised', lightWorking === 'No' ? '1' : '0')
             formData.append('complaint_ref', complaintRef)
             formData.append('date_of_installation', lightInfo?.date_of_installation || '')
-            formData.append('image_1', image1)
-            formData.append('image_2', image2)
+            formData.append('remarks', remarks)
+            if (image1) formData.append('image_1', image1)
+            if (image2) formData.append('image_2', image2)
             if (region === 'up') {
-                formData.append('image_3', formImage)
+                if (formImage) formData.append('image_3', formImage)
                 const lightIsFunctional = plantStatus === 'Functional'
                 formData.append('visit_answers', JSON.stringify({
                     plant_status: plantStatus,
@@ -911,9 +1205,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('latitude', coords.latitude)
             formData.append('longitude', coords.longitude)
 
-            const res = await localApi.post(app.lightAmc.store, formData, {
-                params: { state: stateName, region },
-            })
+            const request = isEdit
+                ? localApi.patch(app.lightAmc.update(editId), formData, { params: { state: stateName, region } })
+                : localApi.post(app.lightAmc.store, formData, { params: { state: stateName, region } })
+            const res = await request
 
             setSubmitSuccess(true)
             setSuccessMessage(res?.data?.message || 'Light AMC saved successfully.')
@@ -926,7 +1221,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                     ward: selectedWard?.value || getSiteWardNo(lightInfo),
                 })
             }
-            setTimeout(() => navigate(viewPath), 1200)
+            setTimeout(() => navigate(isEdit ? `${detailsPath}?id=${editId}` : viewPath), 1200)
         } catch (err) {
             setSubmitError(getErrorMessage(err, 'Failed to save AMC.'))
         } finally {
@@ -934,6 +1229,29 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             setIsSubmitting(false)
         }
     }
+
+    const photoControl = ({ label, labelHi, hint, file, storedPath, onFile, onClear, onCapture }) => (
+        adminChoices && photoSource === 'upload' ? (
+            <AdminPhotoUpload
+                label={label}
+                labelHi={labelHi}
+                file={file}
+                existingUrl={photoPreview(file, storedPath)}
+                onFile={onFile}
+                onClear={onClear}
+            />
+        ) : (
+            <CameraCapture
+                label={label}
+                labelHi={labelHi}
+                hint={hint}
+                file={file}
+                previewDataUrl={photoPreview(file, storedPath)}
+                onCapture={onCapture}
+                onClear={onClear}
+            />
+        )
+    )
 
     return (
         <>
@@ -944,8 +1262,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                         <div className="card-body" style={{ overflow: 'visible' }}>
                             <SectionHeading
                                 icon={<FiZap size={16} />}
-                                title={`${amcConfig.moduleTitle} — Do Field AMC`}
-                                subtitle={`${stateName}: find a light, complete this quarter’s AMC, and raise a complaint if it is not working`}
+                                title={isEdit ? `${amcConfig.moduleTitle} — Edit AMC` : `${amcConfig.moduleTitle} — Do Field AMC`}
+                                subtitle={isEdit
+                                    ? `${stateName}: update this visit, including answers and photos`
+                                    : `${stateName}: find a light, complete this quarter’s AMC, and raise a complaint if it is not working`}
                             />
 
                             {submitSuccess && (
@@ -959,6 +1279,13 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                 </div>
                             )}
 
+                            {isEdit && (
+                                <div className="alert alert-light border fs-13">
+                                    Editing {lightInfo?.unique_id || lightInfo?.ssl_id || 'this visit'}. Change any answer, location, date, or photo, then update.
+                                </div>
+                            )}
+                            {!isEdit && (
+                            <>
                             <SectionHeading
                                 icon={<FiMapPin size={16} />}
                                 title="Find Light"
@@ -1079,6 +1406,8 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                 <div className="alert alert-info fs-13 py-2 mb-2">{lightsCooldownNote}</div>
                             )}
                             {sitesError && <div className="alert alert-warning fs-13 py-2">{sitesError}</div>}
+                            </>
+                            )}
 
                             {isLightLoading && (
                                 <div className="d-flex align-items-center gap-2 text-muted fs-13 mb-3">
@@ -1119,7 +1448,91 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         <div className="col-lg-3 col-md-6"><DetailItem label="5 Year Period" value={`${formatDisplayDate(periodStart)} – ${formatDisplayDate(periodEnd)}`} /></div>
                                         <div className="col-lg-3 col-md-6"><DetailItem label="Quarter" value={`${quarterNo} / 20`} /></div>
                                     </div>
+                                    {adminChoices && (
+                                        <div className="border rounded-3 p-3 mb-3">
+                                            <div className="fw-semibold mb-2">Date and time</div>
+                                            <SourceChoice
+                                                name="amc-datetime-source"
+                                                value={dateTimeSource}
+                                                onChange={(value) => {
+                                                    if (value === 'current') chooseCurrentDateTime()
+                                                    else setDateTimeSource('manual')
+                                                }}
+                                                options={[
+                                                    { value: 'current', label: 'Use current date and time' },
+                                                    { value: 'manual', label: 'Enter date and time' },
+                                                ]}
+                                            />
+                                            {dateTimeSource === 'current' ? (
+                                                <DetailItem label="Saved as" value={`${formatDisplayDate(localTodayISO())}, ${nowTimeValue()}`} />
+                                            ) : (
+                                                <div className="col-lg-4 col-md-6 px-0">
+                                                    <label className="form-label">Visit date and time <span className="text-danger">*</span></label>
+                                                    <input
+                                                        type="datetime-local"
+                                                        className="form-control"
+                                                        value={amcDate && amcTime ? `${amcDate}T${amcTime}` : ''}
+                                                        onChange={(event) => chooseManualDateTime(event.target.value)}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="fw-semibold mt-3 mb-2">Latitude and longitude</div>
+                                            <SourceChoice
+                                                name="amc-location-source"
+                                                value={locationSource}
+                                                onChange={(value) => {
+                                                    if (value === 'gps') chooseGpsLocation()
+                                                    else chooseManualLocation()
+                                                }}
+                                                options={[
+                                                    { value: 'gps', label: 'Use GPS' },
+                                                    { value: 'manual', label: 'Enter latitude and longitude' },
+                                                ]}
+                                            />
+                                            {locationSource === 'manual' ? (
+                                                <div className="row g-3">
+                                                    <div className="col-lg-4 col-md-6">
+                                                        <label className="form-label">Latitude <span className="text-danger">*</span></label>
+                                                        <input className="form-control" inputMode="decimal" value={latitudeInput} onChange={(event) => applyAdminLatitude(event.target.value)} />
+                                                    </div>
+                                                    <div className="col-lg-4 col-md-6">
+                                                        <label className="form-label">Longitude <span className="text-danger">*</span></label>
+                                                        <input className="form-control" inputMode="decimal" value={longitudeInput} onChange={(event) => applyAdminLongitude(event.target.value)} />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <DetailItem
+                                                    label="GPS location"
+                                                    value={isLocating ? 'Reading GPS...' : (latitudeInput && longitudeInput ? `${latitudeInput}, ${longitudeInput}` : 'GPS will be read when you save')}
+                                                />
+                                            )}
+                                        </div>
+                                    )}
                                     {scheduleNote && <div className="alert alert-light border fs-12">{scheduleNote}</div>}
+                                    {region === 'up' && (
+                                        <div className="row g-2 mb-3">
+                                            <div className="col-lg-3 col-md-6">
+                                                {isEdit ? (
+                                                    <>
+                                                        <label className="form-label">UID</label>
+                                                        <input className="form-control" value={uidInput} onChange={(event) => setUidInput(event.target.value)} />
+                                                    </>
+                                                ) : (
+                                                    <DetailItem
+                                                        label={<>UID <span className="d-block">यूआईडी · saved with this visit</span></>}
+                                                        value={savedUid}
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="col-lg-3 col-md-6">
+                                                <DetailItem
+                                                    label={<>Financial Year <span className="d-block">वित्तीय वर्ष · saved with this visit</span></>}
+                                                    value={savedFinancialYear}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <hr className="border-dashed" />
                                     <SectionHeading icon={<FiUser size={16} />} title="Beneficiary" subtitle="Confirm name and number for this AMC" />
@@ -1374,88 +1787,127 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                                 subtitle="Capture or upload the signed visit sheet and light photos"
                                                 subtitleHi="हस्ताक्षरित विजिट शीट और लाइट की फोटो लें"
                                             />
+                                            {adminChoices && (
+                                                <SourceChoice
+                                                    name="amc-photo-source"
+                                                    value={photoSource}
+                                                    onChange={setPhotoSource}
+                                                    options={[
+                                                        { value: 'camera', label: 'Camera with GPS' },
+                                                        { value: 'upload', label: 'Upload photos' },
+                                                    ]}
+                                                />
+                                            )}
                                             <div className="row g-3 mb-4">
                                                 <div className="col-lg-4 col-md-6 col-12">
-                                                    <CameraCapture
-                                                        label="Upload Form (Visit Slip)"
-                                                        labelHi="विजिट स्लिप अपलोड करें"
-                                                        hint="Capture photo of the signed visit slip / हस्ताक्षरित विजिट स्लिप की फोटो लें"
-                                                        file={formImage}
-                                                        onCapture={(file) => setFormImage(file)}
-                                                        onClear={() => setFormImage(null)}
-                                                    />
+                                                    {photoControl({
+                                                        label: 'Upload Form (Visit Slip)',
+                                                        labelHi: 'विजिट स्लिप अपलोड करें',
+                                                        hint: 'Capture photo of the signed visit slip / हस्ताक्षरित विजिट स्लिप की फोटो लें',
+                                                        file: formImage,
+                                                        storedPath: keptPhotos.slip,
+                                                        onFile: setFormImage,
+                                                        onCapture: (file) => setFormImage(file),
+                                                        onClear: () => {
+                                                            setFormImage(null)
+                                                            setKeptPhotos((current) => ({ ...current, slip: '' }))
+                                                        },
+                                                    })}
                                                 </div>
                                                 <div className="col-lg-4 col-md-6 col-12">
-                                                    <CameraCapture
-                                                        label="Light Photo 1"
-                                                        labelHi="लाइट फोटो 1"
-                                                        hint="Capture first photo of the light / लाइट की पहली फोटो लें"
-                                                        file={image1}
-                                                        onCapture={(file, coords) => {
+                                                    {photoControl({
+                                                        label: 'Light Photo 1',
+                                                        labelHi: 'लाइट फोटो 1',
+                                                        hint: 'Capture first photo of the light / लाइट की पहली फोटो लें',
+                                                        file: image1,
+                                                        storedPath: keptPhotos.photo1,
+                                                        onFile: setImage1,
+                                                        onCapture: (file, coords) => {
                                                             setImage1(file)
                                                             setImage1Coords(coords)
                                                             if (submitError.startsWith('Lat long issue')) setSubmitError('')
-                                                        }}
-                                                        onClear={() => {
+                                                        },
+                                                        onClear: () => {
                                                             setImage1(null)
                                                             setImage1Coords(null)
-                                                        }}
-                                                    />
+                                                            setKeptPhotos((current) => ({ ...current, photo1: '' }))
+                                                        },
+                                                    })}
                                                 </div>
                                                 <div className="col-lg-4 col-md-6 col-12">
-                                                    <CameraCapture
-                                                        label="Light Photo 2"
-                                                        labelHi="लाइट फोटो 2"
-                                                        hint="Capture second photo of the light / लाइट की दूसरी फोटो लें"
-                                                        file={image2}
-                                                        onCapture={(file, coords) => {
+                                                    {photoControl({
+                                                        label: 'Light Photo 2',
+                                                        labelHi: 'लाइट फोटो 2',
+                                                        hint: 'Capture second photo of the light / लाइट की दूसरी फोटो लें',
+                                                        file: image2,
+                                                        storedPath: keptPhotos.photo2,
+                                                        onFile: setImage2,
+                                                        onCapture: (file, coords) => {
                                                             setImage2(file)
                                                             setImage2Coords(coords)
                                                             if (submitError.startsWith('Lat long issue')) setSubmitError('')
-                                                        }}
-                                                        onClear={() => {
+                                                        },
+                                                        onClear: () => {
                                                             setImage2(null)
                                                             setImage2Coords(null)
-                                                        }}
-                                                    />
+                                                            setKeptPhotos((current) => ({ ...current, photo2: '' }))
+                                                        },
+                                                    })}
                                                 </div>
                                             </div>
                                         </>
                                     ) : (
                                         <>
                                             <SectionHeading icon={<FiPaperclip size={16} />} title="Documentation" subtitle="Capture 2 photos from camera — latitude and longitude will be printed on each image" />
+                                            {adminChoices && (
+                                                <SourceChoice
+                                                    name="amc-photo-source-bihar"
+                                                    value={photoSource}
+                                                    onChange={setPhotoSource}
+                                                    options={[
+                                                        { value: 'camera', label: 'Camera with GPS' },
+                                                        { value: 'upload', label: 'Upload photos' },
+                                                    ]}
+                                                />
+                                            )}
                                             <div className="row g-3 mb-3">
                                                 <div className="col-lg-6">
-                                                    <CameraCapture
-                                                        label="Photo 1"
-                                                        hint="Open camera and capture"
-                                                        file={image1}
-                                                        onCapture={(file, coords) => {
+                                                    {photoControl({
+                                                        label: 'Photo 1',
+                                                        hint: 'Open camera and capture',
+                                                        file: image1,
+                                                        storedPath: keptPhotos.photo1,
+                                                        onFile: setImage1,
+                                                        onCapture: (file, coords) => {
                                                             setImage1(file)
                                                             setImage1Coords(coords)
                                                             if (submitError.startsWith('Lat long issue')) setSubmitError('')
-                                                        }}
-                                                        onClear={() => {
+                                                        },
+                                                        onClear: () => {
                                                             setImage1(null)
                                                             setImage1Coords(null)
-                                                        }}
-                                                    />
+                                                            setKeptPhotos((current) => ({ ...current, photo1: '' }))
+                                                        },
+                                                    })}
                                                 </div>
                                                 <div className="col-lg-6">
-                                                    <CameraCapture
-                                                        label="Photo 2"
-                                                        hint="Open camera and capture"
-                                                        file={image2}
-                                                        onCapture={(file, coords) => {
+                                                    {photoControl({
+                                                        label: 'Photo 2',
+                                                        hint: 'Open camera and capture',
+                                                        file: image2,
+                                                        storedPath: keptPhotos.photo2,
+                                                        onFile: setImage2,
+                                                        onCapture: (file, coords) => {
                                                             setImage2(file)
                                                             setImage2Coords(coords)
                                                             if (submitError.startsWith('Lat long issue')) setSubmitError('')
-                                                        }}
-                                                        onClear={() => {
+                                                        },
+                                                        onClear: () => {
                                                             setImage2(null)
                                                             setImage2Coords(null)
-                                                        }}
-                                                    />
+                                                            setKeptPhotos((current) => ({ ...current, photo2: '' }))
+                                                        },
+                                                    })}
                                                 </div>
                                             </div>
                                         </>
@@ -1491,16 +1943,22 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                             </div>
                                         </div>
                                     )}
+                                    {isEdit && (
+                                        <div className="mb-3">
+                                            <label className="form-label">Remarks</label>
+                                            <textarea className="form-control" rows={2} value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+                                        </div>
+                                    )}
                                 </>
                             )}
 
                             <div className="d-flex justify-content-end gap-2 pt-4 border-top">
-                                <button type="button" className="btn btn-light mt-4" onClick={() => navigate(viewPath)} disabled={isSubmitting}>
+                                <button type="button" className="btn btn-light mt-4" onClick={() => navigate(isEdit ? `${detailsPath}?id=${editId}` : viewPath)} disabled={isSubmitting}>
                                     Cancel
                                 </button>
                                 <button type="submit" className="btn btn-primary mt-4 d-inline-flex align-items-center gap-2" disabled={isSubmitting}>
                                     {isSubmitting ? <FiLoader className="spin" size={14} /> : <FiSend size={14} />}
-                                    {isSubmitting ? 'Saving...' : 'Submit AMC'}
+                                    {isSubmitting ? 'Saving...' : (isEdit ? 'Update AMC' : 'Submit AMC')}
                                 </button>
                             </div>
                         </div>

@@ -130,6 +130,25 @@ const startOfDay = (value) => {
   return date;
 };
 
+/** Indian financial year label for an AMC date, for example 2026-10-14 -> 2026-27. */
+const financialYearLabel = (isoDate) => {
+  const match = String(isoDate || "").match(/^(\d{4})-(\d{2})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!year || !month) return null;
+  const startYear = month >= 4 ? year : year - 1;
+  return `${startYear}-${String(startYear + 1).slice(-2)}`;
+};
+
+const normalizeAmcTime = (value) => {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const match = text.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  if (!match) return false;
+  return `${match[1]}:${match[2]}`;
+};
+
 const monthDiff = (from, to) => {
   const a = startOfDay(from);
   const b = startOfDay(to);
@@ -457,8 +476,10 @@ export const storeLightAmc = async (req, res) => {
       volume,
       ssl_id,
       unique_id,
+      uid,
       pole_no,
       amc_date,
+      amc_time,
       beneficiary_name,
       beneficiary_contact,
       light_working,
@@ -530,7 +551,7 @@ export const storeLightAmc = async (req, res) => {
       });
     }
 
-    if (last?.amc_date) {
+    if (last?.amc_date && !isUserMasterAdmin(req.user)) {
       const dueDate = startOfDay(addMonths(last.amc_date, 3));
       if (amcDate < dueDate) {
         return res.status(400).json({
@@ -538,6 +559,14 @@ export const storeLightAmc = async (req, res) => {
           message: `Next AMC for this light is due on ${toISODate(dueDate)}`,
         });
       }
+    }
+
+    const visitTime = region === "up" ? normalizeAmcTime(amc_time) : null;
+    if (visitTime === false) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter the visit time as HH:MM",
+      });
     }
 
     const nextAmcDate = addMonths(amcDate, 3);
@@ -556,6 +585,9 @@ export const storeLightAmc = async (req, res) => {
       volume,
       ssl_id,
       unique_id,
+      uid: region === "up" ? String(uid || "").trim() || null : null,
+      fy_year: region === "up" ? financialYearLabel(toISODate(amcDate)) : null,
+      amc_time: visitTime,
       pole_no,
       amc_date: toISODate(amcDate),
       next_amc_date: toISODate(nextAmcDate),

@@ -197,6 +197,13 @@ export const createLightAmc = async (data) => {
       ssl_id: String(data.ssl_id),
       unique_id: data.unique_id || null,
       pole_no: data.pole_no || null,
+      ...(region === "up"
+        ? {
+            uid: data.uid || null,
+            fy_year: data.fy_year || null,
+            amc_time: data.amc_time || null,
+          }
+        : {}),
       amc_date: toDate(data.amc_date),
       next_amc_date: toDate(data.next_amc_date),
       period_start: toDate(data.period_start),
@@ -222,4 +229,11 @@ export const createLightAmc = async (data) => {
   });
 
   return row;
+};
+
+export const updateLightAmcById = async (id, region, data) => {
+  return lightAmcTable(region).update({
+    where: { id: BigInt(id) },
+    data,
+  });
 };

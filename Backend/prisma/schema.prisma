@@ -240,10 +240,13 @@ model UpLightAmc {
   panchayat           String?   @db.VarChar(255)
   ward_no             String?   @db.VarChar(50)
   volume              String?   @db.VarChar(100)
+  uid                 String?   @db.VarChar(100)
   ssl_id              String    @db.VarChar(100)
   unique_id           String?   @db.VarChar(255)
   pole_no             String?   @db.VarChar(255)
+  fy_year             String?   @db.VarChar(255)
   amc_date            DateTime  @db.Date
+  amc_time            String?   @db.VarChar(8)
   next_amc_date       DateTime  @db.Date
   period_start        DateTime  @db.Date
   period_end          DateTime  @db.Date

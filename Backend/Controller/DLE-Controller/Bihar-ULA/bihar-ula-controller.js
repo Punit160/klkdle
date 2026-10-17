@@ -514,6 +514,25 @@ const normalizeUlaSerialNumber = (raw) => {
   return value || null;
 };
 
+const findUlaPanelSerialConflict = async (field, serial, excludeSurveyId = null) => {
+  if (!serial) return null;
+  const existing = await prisma.biharUlaSurvey.findFirst({
+    where: {
+      OR: [{ panel_one_no: serial }, { panel_two_no: serial }],
+      ...(await notRejectedSurveyFilter()),
+      ...excludeSurveyIdFilter(excludeSurveyId),
+    },
+    select: { id: true, ca_no: true },
+  });
+  if (!existing) return null;
+  return {
+    field,
+    message: `This panel serial number is already registered for CA ${existing.ca_no}. A panel number can be used only once.`,
+    existing_id: existing.id?.toString?.() ?? String(existing.id),
+    existing_ca_no: existing.ca_no,
+  };
+};
+
 const findUlaSerialConflict = async (
   field,
   column,
@@ -779,19 +798,21 @@ const findUlaRegistrationConflicts = async ({
   }
 
   for (const entry of [
-    ["panel_one_no", "panel_one_no", panelOne, "panel 1 serial number"],
-    ["panel_two_no", "panel_two_no", panelTwo, "panel 2 serial number"],
-    ["inverter_no", "inverter_no", inverter, "inverter serial number"],
+    ["panel_one_no", panelOne],
+    ["panel_two_no", panelTwo],
   ]) {
-    const conflict = await findUlaSerialConflict(
-      entry[0],
-      entry[1],
-      entry[2],
-      entry[3],
-      excludeSurveyId
-    );
+    const conflict = await findUlaPanelSerialConflict(entry[0], entry[1], excludeSurveyId);
     if (conflict) conflicts.push(conflict);
   }
+
+  const inverterConflict = await findUlaSerialConflict(
+    "inverter_no",
+    "inverter_no",
+    inverter,
+    "inverter serial number",
+    excludeSurveyId
+  );
+  if (inverterConflict) conflicts.push(inverterConflict);
 
   if (String(latitude ?? "").trim() && String(longitude ?? "").trim()) {
     const gpsConflict = await findUlaGpsConflict(latitude, longitude, excludeSurveyId);
