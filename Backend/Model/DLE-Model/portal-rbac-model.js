@@ -5,18 +5,42 @@ import {
   roleHasSoftwareRestrictedPermissions,
 } from "../../Utils/portalPermissionCatalog.js";
 
-export const ensurePortalPermissionCatalog = async () => {
-  for (const row of PORTAL_PERMISSION_CATALOG) {
+const permissionFields = (row) => ({
+  label: row.label,
+  module: row.module,
+  description: row.description,
+});
+
+const upsertPortalPermission = async (row) => {
+  try {
     await prisma.portalPermission.upsert({
       where: { key: row.key },
       create: row,
-      update: {
-        label: row.label,
-        module: row.module,
-        description: row.description,
-      },
+      update: permissionFields(row),
+    });
+  } catch (error) {
+    if (error?.code !== "P2002") throw error;
+    await prisma.portalPermission.update({
+      where: { key: row.key },
+      data: permissionFields(row),
     });
   }
+};
+
+let catalogSync = null;
+
+export const ensurePortalPermissionCatalog = () => {
+  if (!catalogSync) {
+    catalogSync = (async () => {
+      for (const row of PORTAL_PERMISSION_CATALOG) {
+        await upsertPortalPermission(row);
+      }
+    })().catch((error) => {
+      catalogSync = null;
+      throw error;
+    });
+  }
+  return catalogSync;
 };
 
 const resolvePortalPermissionRows = async (permissionKeys) => {

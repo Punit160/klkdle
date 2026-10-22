@@ -12,15 +12,10 @@ import {
   resolveListPagination,
 } from "../../Utils/portalListQuery.js";
 
-const stateForRegion = (region) => {
-  if (region === "up") return "Uttar Pradesh";
-  return "Bihar";
-};
+const stateForRegion = (region) => (region === "bihar" ? "Bihar" : "Uttar Pradesh");
 
 const resolveLightAmcApprovalRegion = (req) => {
-  if (req.lightAmcRegion === "up" || req.lightAmcRegion === "bihar") {
-    return req.lightAmcRegion;
-  }
+  if (lightAmcRegionOf(req.lightAmcRegion)) return lightAmcRegionOf(req.lightAmcRegion);
   return (
     lightAmcRegionOf(req.query.region) ||
     lightAmcRegionOf(req.body?.region) ||

@@ -23,6 +23,7 @@ import UPDocumentDetails from "../pages/UP/UPSSL/AMC/DocumentDetails"
 import Complaint from "../pages/Bihar/BiharSSL/AMC/Complaint"
 import ViewComplaint from "../pages/Bihar/BiharSSL/AMC/ViewComplaint"
 import AssignAmc from "../pages/Bihar/BiharSSL/AMC/AssignAmc"
+import FieldVisitDashboard from "../pages/AMC/FieldVisitDashboard"
 import LightAmcForm from "../pages/AMC/LightAmcForm"
 import LightAmcList from "../pages/AMC/LightAmcList"
 import LightAmcDetails from "../pages/AMC/LightAmcDetails"
@@ -95,6 +96,22 @@ export const router = createBrowserRouter([
       moduleRoute("up", pages.up.lightAmc, <LightAmcForm region="up" />),
       moduleRoute("up", pages.up.lightAmcList, <LightAmcList region="up" />),
       moduleRoute("up", pages.up.lightAmcDetails, <LightAmcDetails region="up" />),
+      moduleRoute("up", pages.up.kusumcDashboard, <FieldVisitDashboard region="kusumc" />),
+      moduleRoute("up", pages.up.kusumcAmc, <LightAmcForm region="kusumc" />),
+      moduleRoute("up", pages.up.kusumcAmcList, <LightAmcList region="kusumc" />),
+      moduleRoute("up", pages.up.kusumcAmcDetails, <LightAmcDetails region="kusumc" />),
+      moduleRoute("up", pages.up.powerpackDashboard, <FieldVisitDashboard region="powerpack" />),
+      moduleRoute("up", pages.up.powerpackAmc, <LightAmcForm region="powerpack" />),
+      moduleRoute("up", pages.up.powerpackAmcList, <LightAmcList region="powerpack" />),
+      moduleRoute("up", pages.up.powerpackAmcDetails, <LightAmcDetails region="powerpack" />),
+      moduleRoute("up", pages.up.offgridDashboard, <FieldVisitDashboard region="offgrid" />),
+      moduleRoute("up", pages.up.offgridAmc, <LightAmcForm region="offgrid" />),
+      moduleRoute("up", pages.up.offgridAmcList, <LightAmcList region="offgrid" />),
+      moduleRoute("up", pages.up.offgridAmcDetails, <LightAmcDetails region="offgrid" />),
+      moduleRoute("up", pages.up.ongridDashboard, <FieldVisitDashboard region="ongrid" />),
+      moduleRoute("up", pages.up.ongridAmc, <LightAmcForm region="ongrid" />),
+      moduleRoute("up", pages.up.ongridAmcList, <LightAmcList region="ongrid" />),
+      moduleRoute("up", pages.up.ongridAmcDetails, <LightAmcDetails region="ongrid" />),
     ],
   },
 

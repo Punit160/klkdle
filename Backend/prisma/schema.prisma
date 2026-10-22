@@ -275,6 +275,10 @@ model UpLightAmc {
   @@map("up_light_amcs")
 }
 
+
+
+
+
 model Attendance {
   id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
   user_id             BigInt    @db.UnsignedBigInt
@@ -295,8 +299,6 @@ model Attendance {
   @@index([attendance_date])
   @@map("attendance_records")
 }
-
-
 
 model BiharUlaSurvey {
   id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
@@ -346,4 +348,195 @@ model BiharUlaSurvey {
   @@index([panel_two_no])
   @@index([inverter_no])
   @@map("bihar_ula_site_survey")
+}
+
+
+model UpKusmcAmc {
+  id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id          String    @db.VarChar(100)
+  user_id             String    @db.VarChar(100)
+  state               String    @db.VarChar(100)
+  district            String?   @db.VarChar(255)
+  block               String?   @db.VarChar(255)
+  village             String?     @db.VarChar(255)
+  work_order_no       String?     @db.VarChar(255)
+  capacity            String?     @db.VarChar(255)
+  volume              String?   @db.VarChar(100)
+  uid                 String?   @db.VarChar(100)
+  pump_id             String    @db.VarChar(100)
+  fy_year             String?   @db.VarChar(255)
+  amc_date            DateTime  @db.Date
+  amc_time            String?   @db.VarChar(8)
+  next_amc_date       DateTime  @db.Date
+  period_start        DateTime  @db.Date
+  period_end          DateTime  @db.Date
+  quarter_no          Int       @default(1)
+  beneficiary_name    String    @db.VarChar(255)
+  beneficiary_contact String    @db.VarChar(20)
+  pump_working       String    @db.VarChar(10)
+  complaint_raised    Int       @default(0) @db.TinyInt
+  complaint_ref       String?   @db.VarChar(255)
+  image_1             String?   @db.VarChar(255)
+  image_2             String?   @db.VarChar(255)
+  image_3             String?   @db.VarChar(255)
+  visit_answers       String?   @db.Text
+  latitude            String?   @db.VarChar(50)
+  longitude           String?   @db.VarChar(50)
+  remarks             String?   @db.Text
+  approval_status     Int       @default(0) @db.TinyInt
+  approval_date       DateTime? @db.Timestamp(0)
+  approval_remarks    String?   @db.Text
+  approval_by         String?   @db.VarChar(255)
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  updated_at          DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([pump_id])
+  @@index([company_id])
+  @@map("up_kusumc_amcs")
+}
+
+
+model UpPowerPackAmc {
+  id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id          String    @db.VarChar(100)
+  user_id             String    @db.VarChar(100)
+  state               String    @db.VarChar(100)
+  district            String?   @db.VarChar(255)
+  block               String?   @db.VarChar(255)
+  village             String?     @db.VarChar(255)
+  work_order_no       String?     @db.VarChar(255)
+  capacity            String?     @db.VarChar(255)
+  volume              String?   @db.VarChar(100)
+  uid                 String?   @db.VarChar(100)
+  uid_date            String?   @db.VarChar(100)
+  powerpack_id        String    @db.VarChar(100)
+  scheme_name         String    @db.VarChar(255)
+  order_no            String    @db.VarChar(255)
+  fy_year             String?   @db.VarChar(255)
+  amc_date            DateTime  @db.Date
+  amc_time            String?   @db.VarChar(8)
+  next_amc_date       DateTime  @db.Date
+  period_start        DateTime  @db.Date
+  period_end          DateTime  @db.Date
+  quarter_no          Int       @default(1)
+  beneficiary_name    String    @db.VarChar(255)
+  beneficiary_contact String    @db.VarChar(20)
+  powerpack_working   String    @db.VarChar(10)
+  complaint_raised    Int       @default(0) @db.TinyInt
+  complaint_ref       String?   @db.VarChar(255)
+  image_1             String?   @db.VarChar(255)
+  image_2             String?   @db.VarChar(255)
+  image_3             String?   @db.VarChar(255)
+  visit_answers       String?   @db.Text
+  latitude            String?   @db.VarChar(50)
+  longitude           String?   @db.VarChar(50)
+  remarks             String?   @db.Text
+  approval_status     Int       @default(0) @db.TinyInt
+  approval_date       DateTime? @db.Timestamp(0)
+  approval_remarks    String?   @db.Text
+  approval_by         String?   @db.VarChar(255)
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  updated_at          DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([powerpack_id])
+  @@index([company_id])
+  @@map("up_powerpack_amcs")
+}
+
+
+model UpOffgridAmc {
+  id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id          String    @db.VarChar(100)
+  user_id             String    @db.VarChar(100)
+  state               String    @db.VarChar(100)
+  district            String?   @db.VarChar(255)
+  block               String?   @db.VarChar(255)
+  village             String?   @db.VarChar(255)
+  installed_place     String?   @db.VarChar(255)
+  work_order_no       String?   @db.VarChar(255)
+  capacity            String?   @db.VarChar(255)
+  volume              String?   @db.VarChar(100)
+  uid                 String?   @db.VarChar(100)
+  uid_date            String?   @db.VarChar(100)
+  offgrid_id          String    @db.VarChar(100)
+  scheme_name         String    @db.VarChar(255)
+  order_no            String    @db.VarChar(255)
+  fy_year             String?   @db.VarChar(255)
+  amc_date            DateTime  @db.Date
+  amc_time            String?   @db.VarChar(8)
+  next_amc_date       DateTime  @db.Date
+  period_start        DateTime  @db.Date
+  period_end          DateTime  @db.Date
+  quarter_no          Int       @default(1)
+  beneficiary_name    String    @db.VarChar(255)
+  beneficiary_contact String    @db.VarChar(20)
+  working_status   String    @db.VarChar(10)
+  complaint_raised    Int       @default(0) @db.TinyInt
+  complaint_ref       String?   @db.VarChar(255)
+  image_1             String?   @db.VarChar(255)
+  image_2             String?   @db.VarChar(255)
+  image_3             String?   @db.VarChar(255)
+  visit_answers       String?   @db.Text
+  latitude            String?   @db.VarChar(50)
+  longitude           String?   @db.VarChar(50)
+  remarks             String?   @db.Text
+  approval_status     Int       @default(0) @db.TinyInt
+  approval_date       DateTime? @db.Timestamp(0)
+  approval_remarks    String?   @db.Text
+  approval_by         String?   @db.VarChar(255)
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  updated_at          DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([offgrid_id])
+  @@index([company_id])
+  @@map("up_off_grid_amcs")
+}
+
+
+model UpOngridAmc {
+  id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id          String    @db.VarChar(100)
+  user_id             String    @db.VarChar(100)
+  state               String    @db.VarChar(100)
+  district            String?   @db.VarChar(255)
+  block               String?   @db.VarChar(255)
+  village             String?   @db.VarChar(255)
+  installed_place     String?   @db.VarChar(255)
+  work_order_no       String?   @db.VarChar(255)
+  capacity            String?   @db.VarChar(255)
+  volume              String?   @db.VarChar(100)
+  uid                 String?   @db.VarChar(100)
+  uid_date            String?   @db.VarChar(100)
+  ongrid_id          String    @db.VarChar(100)
+  scheme_name         String    @db.VarChar(255)
+  order_no            String    @db.VarChar(255)
+  fy_year             String?   @db.VarChar(255)
+  amc_date            DateTime  @db.Date
+  amc_time            String?   @db.VarChar(8)
+  next_amc_date       DateTime  @db.Date
+  period_start        DateTime  @db.Date
+  period_end          DateTime  @db.Date
+  quarter_no          Int       @default(1)
+  beneficiary_name    String    @db.VarChar(255)
+  beneficiary_contact String    @db.VarChar(20)
+  working_status   String    @db.VarChar(10)
+  complaint_raised    Int       @default(0) @db.TinyInt
+  complaint_ref       String?   @db.VarChar(255)
+  image_1             String?   @db.VarChar(255)
+  image_2             String?   @db.VarChar(255)
+  image_3             String?   @db.VarChar(255)
+  visit_answers       String?   @db.Text
+  latitude            String?   @db.VarChar(50)
+  longitude           String?   @db.VarChar(50)
+  remarks             String?   @db.Text
+  approval_status     Int       @default(0) @db.TinyInt
+  approval_date       DateTime? @db.Timestamp(0)
+  approval_remarks    String?   @db.Text
+  approval_by         String?   @db.VarChar(255)
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  updated_at          DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([ongrid_id])
+  @@index([company_id])
+  @@map("up_on_grid_amcs")
 }

@@ -25,6 +25,10 @@ const MODULE_LABELS = {
   up_amc: 'UP SSL AMC',
   bihar_light_amc: 'Bihar field AMC',
   up_light_amc: 'UP field AMC',
+  up_kusumc_amc: 'UP KUSUM-C AMC',
+  up_powerpack_amc: 'UP power pack AMC',
+  up_offgrid_amc: 'UP off grid AMC',
+  up_ongrid_amc: 'UP on grid AMC',
   bihar_ula: 'Bihar ULA',
   other: 'Other',
 }

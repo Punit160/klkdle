@@ -200,6 +200,60 @@ export const buildSiteDeviceGroups = (region, details = {}, extras = {}) =>
     : buildBiharSiteDeviceGroups(details, extras)
 
 export const buildLightSelectLabel = (region, site = {}) => {
+  if (region === 'offgrid' || region === 'ongrid') {
+    const siteId = region === 'offgrid'
+      ? site?.offgrid_id || site?.id || site?.ssl_id || ''
+      : site?.ongrid_id || site?.id || site?.ssl_id || ''
+    const place = site?.installed_place || ''
+    const scheme = site?.scheme_name || ''
+    const beneficiary =
+      site?.beneficiary_name ||
+      site?.beneficiary ||
+      site?.beneficiaryName ||
+      site?.name ||
+      ''
+    const parts = []
+    if (siteId) parts.push(siteId)
+    if (place) parts.push(place)
+    if (scheme) parts.push(scheme)
+    if (beneficiary) parts.push(beneficiary)
+    return parts.length ? parts.join(' / ') : (region === 'offgrid' ? 'Off grid' : 'On grid')
+  }
+
+  if (region === 'powerpack') {
+    const packId = site?.powerpack_id || site?.id || site?.ssl_id || ''
+    const scheme = site?.scheme_name || ''
+    const beneficiary =
+      site?.beneficiary_name ||
+      site?.beneficiary ||
+      site?.beneficiaryName ||
+      site?.name ||
+      ''
+    const parts = []
+    if (packId) parts.push(`Power pack ${packId}`)
+    if (scheme) parts.push(scheme)
+    if (beneficiary) parts.push(beneficiary)
+    return parts.length ? parts.join(' / ') : 'Power pack'
+  }
+
+  if (region === 'kusumc') {
+    const pumpId = site?.pump_id || site?.id || site?.ssl_id || ''
+    const workOrder = site?.work_order_no || ''
+    const capacity = site?.capacity || ''
+    const beneficiary =
+      site?.beneficiary_name ||
+      site?.beneficiary ||
+      site?.beneficiaryName ||
+      site?.name ||
+      ''
+    const parts = []
+    if (pumpId) parts.push(`Pump ${pumpId}`)
+    if (workOrder) parts.push(workOrder)
+    if (capacity) parts.push(capacity)
+    if (beneficiary) parts.push(beneficiary)
+    return parts.length ? parts.join(' / ') : 'Pump'
+  }
+
   if (region === 'up') {
     const sslId = site?.id ?? site?.ssl_id ?? ''
     const uniqueId = site?.unique_id || site?.uniqueId || ''

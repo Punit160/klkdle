@@ -3,15 +3,19 @@ import {
   createLightAmc,
   findLastLightAmc,
   findLightAmcById,
+  isUpStyleAmcRegion,
   lightAmcRegionOf,
   serializeLightAmc,
   updateLightAmcById,
+  visitRegionProfile,
 } from "../../Model/DLE-Model/light-amc-model.js";
 import { storedPathFromUploadedFile } from "../../Utils/amcStoredUploadPath.js";
 import { resolveJwtUserId } from "../../Utils/requestUser.js";
 import { isUserMasterAdmin } from "../../Utils/userRoles.js";
 
-const stateForRegion = (region) => (region === "up" ? "Uttar Pradesh" : "Bihar");
+const stateForRegion = (region) => (region === "bihar" ? "Bihar" : "Uttar Pradesh");
+
+const REGION_REQUIRED = "region or state is required (bihar, up, kusumc, powerpack, offgrid, or ongrid).";
 
 const requestRegion = (req) =>
   lightAmcRegionOf(req.lightAmcRegion) ||
@@ -137,6 +141,114 @@ const UP_HEADERS = [
   ...UP_SAVED_ANSWER_KEYS,
 ];
 
+const KUSUMC_HEADERS = [
+  "pump_id",
+  "work_order_no",
+  "capacity",
+  "uid",
+  "district",
+  "block",
+  "village",
+  "beneficiary_name",
+  "beneficiary_contact",
+  "amc_date",
+  "amc_time",
+  "fy_year",
+  "latitude",
+  "longitude",
+  "light_working",
+  "remarks",
+  "date_of_installation",
+  ...UP_SAVED_ANSWER_KEYS,
+];
+
+const POWERPACK_HEADERS = [
+  "powerpack_id",
+  "scheme_name",
+  "order_no",
+  "work_order_no",
+  "capacity",
+  "uid",
+  "uid_date",
+  "district",
+  "block",
+  "village",
+  "beneficiary_name",
+  "beneficiary_contact",
+  "amc_date",
+  "amc_time",
+  "fy_year",
+  "latitude",
+  "longitude",
+  "light_working",
+  "remarks",
+  "date_of_installation",
+  ...UP_SAVED_ANSWER_KEYS,
+];
+
+const gridHeaders = (idKey) => [
+  idKey,
+  "scheme_name",
+  "order_no",
+  "installed_place",
+  "work_order_no",
+  "capacity",
+  "uid",
+  "uid_date",
+  "district",
+  "block",
+  "village",
+  "beneficiary_name",
+  "beneficiary_contact",
+  "amc_date",
+  "amc_time",
+  "fy_year",
+  "latitude",
+  "longitude",
+  "light_working",
+  "remarks",
+  "date_of_installation",
+  ...UP_SAVED_ANSWER_KEYS,
+];
+
+const OFFGRID_HEADERS = gridHeaders("offgrid_id");
+const ONGRID_HEADERS = gridHeaders("ongrid_id");
+
+const GRID_SAMPLE = {
+  scheme_name: "UP Solar Grid",
+  order_no: "ORD-2024-118",
+  installed_place: "Primary school",
+  work_order_no: "UP/GRID/2024/118",
+  capacity: "5 kW",
+  uid: "GRID-118",
+  uid_date: "2024-04-01",
+  district: "Sitapur",
+  block: "Biswa",
+  village: "Baldevnagar",
+  beneficiary_name: "Ramesh Kumar",
+  beneficiary_contact: "9876543210",
+  amc_date: "2026-10-13",
+  amc_time: "16:11",
+  fy_year: "2026-27",
+  latitude: "28.60346510708853",
+  longitude: "77.35730601490813",
+  light_working: "Yes",
+  remarks: "",
+  date_of_installation: "2024-04-01",
+  plant_status: "Functional",
+  functional_duration_value: "12",
+  functional_duration_unit: "Months",
+  backup_hours_per_day: "7",
+  breakdown_count: "4",
+  last_repair_date: "2026-10-14",
+  panel_cleaning_done: "Yes",
+  battery_bank_condition: "Satisfactory (Full backup received)",
+  battery_terminal_cleaned: "Yes",
+  battery_petroleum_jelly_applied: "Yes",
+  luminaires_cleaned_wiring: "No",
+  wiring_checked_loose_wires: "Yes",
+};
+
 const BIHAR_HEADERS = [
   "ssl_id",
   "unique_id",
@@ -156,6 +268,73 @@ const BIHAR_HEADERS = [
 ];
 
 const SAMPLE_BY_REGION = {
+  offgrid: { offgrid_id: "OG-118", ...GRID_SAMPLE },
+  ongrid: { ongrid_id: "NG-118", ...GRID_SAMPLE },
+  powerpack: {
+    powerpack_id: "PP-118",
+    scheme_name: "UP Solar Power Pack",
+    order_no: "ORD-2024-118",
+    work_order_no: "UP/PP/2024/118",
+    capacity: "1 kW",
+    uid: "PP-118",
+    uid_date: "2024-04-01",
+    district: "Sitapur",
+    block: "Biswa",
+    village: "Baldevnagar",
+    beneficiary_name: "Ramesh Kumar",
+    beneficiary_contact: "9876543210",
+    amc_date: "2026-10-13",
+    amc_time: "16:11",
+    fy_year: "2026-27",
+    latitude: "28.60346510708853",
+    longitude: "77.35730601490813",
+    light_working: "Yes",
+    remarks: "",
+    date_of_installation: "2024-04-01",
+    plant_status: "Functional",
+    functional_duration_value: "12",
+    functional_duration_unit: "Months",
+    backup_hours_per_day: "7",
+    breakdown_count: "4",
+    last_repair_date: "2026-10-14",
+    panel_cleaning_done: "Yes",
+    battery_bank_condition: "Satisfactory (Full backup received)",
+    battery_terminal_cleaned: "Yes",
+    battery_petroleum_jelly_applied: "Yes",
+    luminaires_cleaned_wiring: "No",
+    wiring_checked_loose_wires: "Yes",
+  },
+  kusumc: {
+    pump_id: "65252",
+    work_order_no: "UP/KUSUM/2024/118",
+    capacity: "3 HP",
+    uid: "65252",
+    district: "Sitapur",
+    block: "Biswa",
+    village: "Baldevnagar",
+    beneficiary_name: "Ramesh Kumar",
+    beneficiary_contact: "9876543210",
+    amc_date: "2026-10-13",
+    amc_time: "16:11",
+    fy_year: "2026-27",
+    latitude: "28.60346510708853",
+    longitude: "77.35730601490813",
+    light_working: "Yes",
+    remarks: "",
+    date_of_installation: "2024-04-01",
+    plant_status: "Functional",
+    functional_duration_value: "12",
+    functional_duration_unit: "Months",
+    backup_hours_per_day: "7",
+    breakdown_count: "4",
+    last_repair_date: "2026-10-14",
+    panel_cleaning_done: "Yes",
+    battery_bank_condition: "Satisfactory (Full backup received)",
+    battery_terminal_cleaned: "Yes",
+    battery_petroleum_jelly_applied: "Yes",
+    luminaires_cleaned_wiring: "No",
+    wiring_checked_loose_wires: "Yes",
+  },
   up: {
     ssl_id: "65252",
     unique_id: "65252",
@@ -216,7 +395,7 @@ export const updateLightAmcRecord = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
 
@@ -246,7 +425,9 @@ export const updateLightAmcRecord = async (req, res) => {
       });
     }
 
-    const lightWorking = String(body.light_working || existing.light_working || "Yes").trim();
+    const lightWorking = String(
+      body.light_working || existing.light_working || existing.pump_working || existing.powerpack_working || existing.working_status || "Yes"
+    ).trim();
     if (lightWorking !== "Yes" && lightWorking !== "No") {
       return res.status(400).json({
         success: false,
@@ -289,7 +470,27 @@ export const updateLightAmcRecord = async (req, res) => {
       updated_at: new Date(),
     };
 
-    if (region === "up") {
+    const profile = visitRegionProfile(region);
+    if (profile) {
+      delete data.panchayat;
+      delete data.ward_no;
+      delete data.unique_id;
+      delete data.pole_no;
+      data.village = textOrNull(body.village ?? body.panchayat ?? existing.village);
+      data.work_order_no = textOrNull(body.work_order_no ?? existing.work_order_no);
+      data.capacity = textOrNull(body.capacity ?? existing.capacity);
+      data[profile.site] = textOrNull(body[profile.site] ?? body.ssl_id ?? existing[profile.site]);
+      if (profile.scheme) {
+        data.uid_date = textOrNull(body.uid_date ?? existing.uid_date);
+        data.scheme_name = textOrNull(body.scheme_name ?? existing.scheme_name) || "";
+        data.order_no = textOrNull(body.order_no ?? existing.order_no) || "";
+      }
+      if (profile.place) {
+        data.installed_place = textOrNull(body.installed_place ?? existing.installed_place);
+      }
+    }
+
+    if (isUpStyleAmcRegion(region)) {
       const visitTime = normalizeTime(body.amc_time ?? existing.amc_time);
       if (visitTime === false) {
         return res.status(400).json({ success: false, message: "Enter the visit time as HH:MM" });
@@ -319,7 +520,7 @@ export const updateLightAmcRecord = async (req, res) => {
     const image3 = req.files?.image_3?.[0];
     if (image1) data.image_1 = storedImage(image1);
     if (image2) data.image_2 = storedImage(image2);
-    if (region === "up" && image3) data.image_3 = storedImage(image3);
+    if (isUpStyleAmcRegion(region) && image3) data.image_3 = storedImage(image3);
 
     const row = await updateLightAmcById(existing.id, region, data);
     return res.status(200).json({
@@ -340,11 +541,21 @@ export const downloadLightAmcTemplate = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
 
-    const headers = region === "up" ? UP_HEADERS : BIHAR_HEADERS;
+    const headers = region === "offgrid"
+      ? OFFGRID_HEADERS
+      : region === "ongrid"
+        ? ONGRID_HEADERS
+        : region === "powerpack"
+          ? POWERPACK_HEADERS
+          : region === "kusumc"
+            ? KUSUMC_HEADERS
+            : region === "up"
+              ? UP_HEADERS
+              : BIHAR_HEADERS;
     const sample = SAMPLE_BY_REGION[region];
     const sheet = XLSX.utils.aoa_to_sheet([
       headers,
@@ -366,7 +577,13 @@ export const downloadLightAmcTemplate = async (req, res) => {
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "AMC");
     const buffer = XLSX.write(book, { type: "buffer", bookType: "xlsx" });
-    const filename = region === "up" ? "up-amc-import.xlsx" : "bihar-amc-import.xlsx";
+    const filename = {
+      offgrid: "up-offgrid-amc-import.xlsx",
+      ongrid: "up-ongrid-amc-import.xlsx",
+      powerpack: "up-powerpack-amc-import.xlsx",
+      kusumc: "up-kusumc-amc-import.xlsx",
+      up: "up-amc-import.xlsx",
+    }[region] || "bihar-amc-import.xlsx";
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     return res.send(buffer);
@@ -385,12 +602,16 @@ const rowObject = (headers, values) => {
 };
 
 const buildImportRecord = async ({ record, region, companyId, userId }) => {
-  const sslId = textOrNull(record.ssl_id);
+  const profile = visitRegionProfile(region);
+  const siteKey = profile?.site || "ssl_id";
+  const sslId = textOrNull(record[siteKey] || record.ssl_id);
   const beneficiaryName = textOrNull(record.beneficiary_name);
   const beneficiaryContact = textOrNull(record.beneficiary_contact);
   const amcDate = localISODate(record.amc_date);
   if (!sslId || !beneficiaryName || !beneficiaryContact || !amcDate) {
-    return { error: "ssl_id, beneficiary_name, beneficiary_contact, and amc_date are required" };
+    return {
+      error: `${siteKey}, beneficiary_name, beneficiary_contact, and amc_date are required`,
+    };
   }
   if (beneficiaryContact.length > 20) {
     return { error: "beneficiary_contact must be 20 characters or less" };
@@ -404,7 +625,8 @@ const buildImportRecord = async ({ record, region, companyId, userId }) => {
     return { error: "latitude and longitude are not valid" };
   }
 
-  const visitTime = region === "up" ? normalizeTime(record.amc_time) : null;
+  const upStyle = isUpStyleAmcRegion(region);
+  const visitTime = upStyle ? normalizeTime(record.amc_time) : null;
   if (visitTime === false) return { error: "amc_time must be HH:MM" };
 
   const last = await findLastLightAmc(sslId, companyId, region);
@@ -432,11 +654,22 @@ const buildImportRecord = async ({ record, region, companyId, userId }) => {
       district: textOrNull(record.district),
       block: textOrNull(record.block),
       panchayat: textOrNull(record.panchayat),
+      village: textOrNull(record.village || record.panchayat),
       ward_no: textOrNull(record.ward_no),
       ssl_id: sslId,
+      pump_id: sslId,
+      powerpack_id: sslId,
+      offgrid_id: sslId,
+      ongrid_id: sslId,
+      scheme_name: textOrNull(record.scheme_name) || "",
+      order_no: textOrNull(record.order_no) || "",
+      uid_date: textOrNull(record.uid_date),
+      installed_place: textOrNull(record.installed_place),
       unique_id: textOrNull(record.unique_id),
       uid: textOrNull(record.uid),
       pole_no: textOrNull(record.pole_no),
+      work_order_no: textOrNull(record.work_order_no),
+      capacity: textOrNull(record.capacity),
       fy_year: textOrNull(record.fy_year) || financialYearLabel(amcDate),
       amc_time: visitTime,
       amc_date: amcDate,
@@ -451,7 +684,7 @@ const buildImportRecord = async ({ record, region, companyId, userId }) => {
       latitude,
       longitude,
       remarks: textOrNull(record.remarks),
-      visit_answers: region === "up" && (hasVisitAnswer || plantStatus)
+      visit_answers: upStyle && (hasVisitAnswer || plantStatus)
         ? JSON.stringify(visitAnswers)
         : null,
     },
@@ -465,7 +698,7 @@ export const importLightAmcs = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
     if (!req.file?.buffer) {
@@ -485,10 +718,11 @@ export const importLightAmcs = async (req, res) => {
     }
     const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
     const headers = (grid[0] || []).map(headerKey);
-    if (!headers.includes("ssl_id") || !headers.includes("amc_date")) {
+    const siteHeader = visitRegionProfile(region)?.site || "ssl_id";
+    if (!headers.includes(siteHeader) || !headers.includes("amc_date")) {
       return res.status(400).json({
         success: false,
-        message: "The first row must contain the template column names, including ssl_id and amc_date",
+        message: `The first row must contain the template column names, including ${siteHeader} and amc_date`,
       });
     }
 
@@ -501,14 +735,27 @@ export const importLightAmcs = async (req, res) => {
     if (!pending.length) {
       return res.status(400).json({ success: false, message: "The Excel file has no AMC rows" });
     }
-    if (pending.length > 1000) {
-      return res.status(400).json({ success: false, message: "Import up to 1000 rows at a time" });
+    if (pending.length > 10000) {
+      return res.status(400).json({ success: false, message: "Import up to 10000 rows at a time" });
     }
 
     pending.sort((a, b) => String(localISODate(a.record.amc_date) || "").localeCompare(String(localISODate(b.record.amc_date) || "")));
 
+    res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const writeEvent = (payload) => {
+      res.write(`${JSON.stringify(payload)}\n`);
+      if (typeof res.flush === "function") res.flush();
+    };
+
     const failed = [];
     let created = 0;
+    const total = pending.length;
+    writeEvent({ type: "progress", done: 0, total, created: 0, failed: 0 });
+
     for (const item of pending) {
       const built = await buildImportRecord({
         record: item.record,
@@ -518,21 +765,39 @@ export const importLightAmcs = async (req, res) => {
       });
       if (built.error) {
         failed.push({ row: item.excelRow, message: built.error });
-        continue;
+      } else {
+        await createLightAmc(built.data);
+        created += 1;
       }
-      await createLightAmc(built.data);
-      created += 1;
+      writeEvent({
+        type: "progress",
+        done: created + failed.length,
+        total,
+        created,
+        failed: failed.length,
+      });
     }
 
-    return res.status(200).json({
+    const message = created
+      ? `Imported ${created} AMC record${created === 1 ? "" : "s"}${failed.length ? `. ${failed.length} row${failed.length === 1 ? "" : "s"} skipped.` : "."}`
+      : "No AMC records were imported";
+    writeEvent({
+      type: "done",
       success: true,
-      message: created
-        ? `Imported ${created} AMC record${created === 1 ? "" : "s"}${failed.length ? `. ${failed.length} row${failed.length === 1 ? "" : "s"} skipped.` : "."}`
-        : "No AMC records were imported",
-      data: { created, failed },
+      message,
+      done: total,
+      total,
+      created,
+      failed: failed.length,
+      errors: failed.slice(0, 5),
     });
+    return res.end();
   } catch (error) {
     console.error("IMPORT LIGHT AMC ERROR:", error);
+    if (res.headersSent) {
+      res.write(`${JSON.stringify({ type: "error", message: "Failed to import the Excel file" })}\n`);
+      return res.end();
+    }
     return res.status(500).json({ success: false, message: "Failed to import the Excel file" });
   }
 };

@@ -9,27 +9,30 @@ import { requireAnyPortalPermission, requirePortalPermission } from "./requirePo
 const normalizeRegion = (raw) => {
   const value = String(raw || "").trim().toLowerCase();
   if (!value) return null;
+  const compact = value.replace(/[\s_-]/g, "");
+  if (compact.includes("powerpack")) return "powerpack";
+  if (compact.includes("offgrid")) return "offgrid";
+  if (compact.includes("ongrid")) return "ongrid";
+  if (value === "kusumc" || value.includes("kusum")) return "kusumc";
   if (value === "up" || value.includes("uttar")) return "up";
   if (value === "bihar" || value === "br" || value.includes("bihar")) return "bihar";
   return null;
 };
 
 const resolveLightAmcRegion = async (req) => {
-  const fromQuery = normalizeRegion(req.query?.state);
-  if (fromQuery) return fromQuery;
-
   const fromQueryRegion = normalizeRegion(req.query?.region);
   if (fromQueryRegion) return fromQueryRegion;
-
-  const fromBody = normalizeRegion(req.body?.state);
-  if (fromBody) return fromBody;
 
   const fromBodyRegion = normalizeRegion(req.body?.region);
   if (fromBodyRegion) return fromBodyRegion;
 
-  if (req.lightAmcRegion === "up" || req.lightAmcRegion === "bihar") {
-    return req.lightAmcRegion;
-  }
+  if (normalizeRegion(req.lightAmcRegion)) return normalizeRegion(req.lightAmcRegion);
+
+  const fromQuery = normalizeRegion(req.query?.state);
+  if (fromQuery) return fromQuery;
+
+  const fromBody = normalizeRegion(req.body?.state);
+  if (fromBody) return fromBody;
 
   return null;
 };

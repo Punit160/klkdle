@@ -305,6 +305,10 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [searchParams] = useSearchParams()
     const editId = searchParams.get('id') || ''
     const isEdit = Boolean(editId)
+    const plantKind = region === 'powerpack' || region === 'offgrid' || region === 'ongrid'
+    const upStyle = region === 'up' || region === 'kusumc' || plantKind
+    const assetTitle = region === 'kusumc' ? 'Pump' : region === 'powerpack' ? 'Power Pack' : region === 'offgrid' ? 'Off Grid' : region === 'ongrid' ? 'On Grid' : 'Light'
+    const assetNoun = assetTitle.toLowerCase()
 
     const [autoVolume, setAutoVolume] = useState(null)
     const [isVolumeResolving, setIsVolumeResolving] = useState(amcConfig.requiresVolume)
@@ -379,6 +383,12 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [photoSource, setPhotoSource] = useState('camera')
     const [uidInput, setUidInput] = useState('')
     const [remarks, setRemarks] = useState('')
+    const [workOrderNo, setWorkOrderNo] = useState('')
+    const [capacityInput, setCapacityInput] = useState('')
+    const [schemeName, setSchemeName] = useState('')
+    const [orderNo, setOrderNo] = useState('')
+    const [uidDate, setUidDate] = useState('')
+    const [installedPlace, setInstalledPlace] = useState('')
     const [image1Coords, setImage1Coords] = useState(null)
     const [image2Coords, setImage2Coords] = useState(null)
     const [plantStatus, setPlantStatus] = useState('')
@@ -408,7 +418,17 @@ const LightAmcForm = ({ region = 'bihar' }) => {
     const [successMessage, setSuccessMessage] = useState('')
 
     const lightOptions = siteDetails.map((site) => ({
-        value: String(site.id ?? site.ssl_id ?? site.unique_id ?? ''),
+        value: String(
+            region === 'kusumc'
+                ? (site.pump_id ?? site.id ?? site.ssl_id ?? '')
+                : region === 'powerpack'
+                    ? (site.powerpack_id ?? site.id ?? site.ssl_id ?? '')
+                    : region === 'offgrid'
+                        ? (site.offgrid_id ?? site.id ?? site.ssl_id ?? '')
+                        : region === 'ongrid'
+                            ? (site.ongrid_id ?? site.id ?? site.ssl_id ?? '')
+                            : (site.id ?? site.ssl_id ?? site.unique_id ?? '')
+        ),
         label: buildLightSelectLabel(region, site),
         site,
     }))
@@ -599,6 +619,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                         params: {
                             company_id: getCompanyId(),
                             state: stateName,
+                            region,
                             district: selectedDistrict.value,
                             block: selectedBlock.value,
                             panchayat: selectedPanchayat.value,
@@ -611,7 +632,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
                     if (skippedCount > 0) {
                         setLightsCooldownNote(
-                            `${skippedCount} light${skippedCount === 1 ? '' : 's'} already serviced in the last ${AMC_LIGHT_COOLDOWN_DAYS} days. Next AMC is due after 3 months.`
+                            `${skippedCount} ${assetNoun}${skippedCount === 1 ? '' : 's'} already serviced in the last ${AMC_LIGHT_COOLDOWN_DAYS} days. Next AMC is due after 3 months.`
                         )
                     }
                 } catch (recentErr) {
@@ -626,7 +647,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 if (!cancelled) {
                     setAllPanchayatSites([])
                     lastSitesCountRef.current = 0
-                    setSitesError(getErrorMessage(err, 'Failed to load lights.'))
+                    setSitesError(getErrorMessage(err, `Failed to load ${assetNoun}s.`))
                 }
             } finally {
                 if (!cancelled) setIsSitesLoading(false)
@@ -645,6 +666,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         region,
         stateName,
         locationConfig,
+        assetNoun,
     ])
 
     useEffect(() => {
@@ -722,6 +744,14 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                     details.contact ||
                     ''
                 )
+                if (region === 'kusumc' || plantKind) {
+                    setWorkOrderNo(details.work_order_no || details.workOrderNo || '')
+                    setCapacityInput(details.capacity || '')
+                    setSchemeName(details.scheme_name || '')
+                    setOrderNo(details.order_no || '')
+                    setUidDate(details.uid_date || '')
+                    setInstalledPlace(details.installed_place || '')
+                }
 
                 try {
                     const lastRes = await localApi.get(app.lightAmc.last, {
@@ -729,6 +759,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                             ssl_id: selectedLight.value,
                             company_id: getCompanyId(),
                             state: stateName,
+                            region,
                         },
                     })
                     const last = lastRes?.data?.data
@@ -767,7 +798,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         }
 
         loadLight()
-    }, [selectedLight, sslState, region, stateName, editId])
+    }, [selectedLight, sslState, region, stateName, editId, plantKind])
 
     useEffect(() => {
         if (editId) return
@@ -806,7 +837,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             .then((coords) => {
                 if (cancelled || locationEditedRef.current) return
                 setAmcCoords(coords)
-                if (region === 'up' && userIsAdmin()) {
+                if (upStyle && userIsAdmin()) {
                     setLatitudeInput(coords.latitude)
                     setLongitudeInput(coords.longitude)
                 }
@@ -821,7 +852,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
         return () => {
             cancelled = true
         }
-    }, [selectedLight, region, editId])
+    }, [selectedLight, region, editId, upStyle])
 
     useEffect(() => {
         if (!editId) return undefined
@@ -849,18 +880,35 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                 setLightInfo({
                     district: row.district,
                     block: row.block,
-                    panchayat: row.panchayat,
+                    panchayat: row.panchayat || row.village,
+                    village: row.village || row.panchayat,
                     ward_no: row.ward_no,
                     unique_id: row.unique_id,
                     uid: row.uid,
                     pole_no: row.pole_no,
-                    ssl_id: row.ssl_id,
+                    ssl_id: row.ssl_id || row.pump_id,
+                    pump_id: row.pump_id || row.ssl_id,
+                    powerpack_id: row.powerpack_id || row.ssl_id,
+                    work_order_no: row.work_order_no,
+                    capacity: row.capacity,
+                    scheme_name: row.scheme_name,
+                    order_no: row.order_no,
+                    uid_date: row.uid_date,
+                    installed_place: row.installed_place,
+                    offgrid_id: row.offgrid_id,
+                    ongrid_id: row.ongrid_id,
                     beneficiary_name: row.beneficiary_name,
                     date_of_installation: row.date_of_installation,
                 })
+                setWorkOrderNo(row.work_order_no || '')
+                setCapacityInput(row.capacity || '')
+                setSchemeName(row.scheme_name || '')
+                setOrderNo(row.order_no || '')
+                setUidDate(row.uid_date || '')
+                setInstalledPlace(row.installed_place || '')
                 setSelectedLight({
-                    value: String(row.ssl_id || ''),
-                    label: row.unique_id || row.ssl_id || 'Saved visit',
+                    value: String(row.ongrid_id || row.offgrid_id || row.powerpack_id || row.pump_id || row.ssl_id || ''),
+                    label: row.ongrid_id || row.offgrid_id || row.powerpack_id || row.pump_id || row.unique_id || row.ssl_id || 'Saved visit',
                     site: row,
                 })
                 setBeneficiaryName(row.beneficiary_name || '')
@@ -1038,21 +1086,21 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             return
         }
         if (!selectedLight || !lightInfo || !amcDate || !beneficiaryName || !beneficiaryContact) {
-            setSubmitError('Select a light and fill beneficiary details.')
+            setSubmitError(`Select a ${assetNoun} and fill beneficiary details.`)
             return
         }
-        if (region === 'up' && !plantStatus) {
+        if (upStyle && !plantStatus) {
             setSubmitError('Please select whether the light is functional.')
             return
         }
         const slipReady = Boolean(formImage || keptPhotos.slip)
         const photo1Ready = Boolean(image1 || keptPhotos.photo1)
         const photo2Ready = Boolean(image2 || keptPhotos.photo2)
-        if (region === 'up' && (!slipReady || !photo1Ready || !photo2Ready)) {
+        if (upStyle && (!slipReady || !photo1Ready || !photo2Ready)) {
             setSubmitError('Capture the visit slip and both light photos.')
             return
         }
-        if (region !== 'up' && (!photo1Ready || !photo2Ready)) {
+        if (!upStyle && (!photo1Ready || !photo2Ready)) {
             setSubmitError('Capture 2 camera photos.')
             return
         }
@@ -1161,14 +1209,31 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('state', stateName)
             formData.append('district', selectedDistrict?.value || lightInfo?.district || '')
             formData.append('block', selectedBlock?.value || lightInfo?.block || '')
-            formData.append('panchayat', selectedPanchayat?.value || lightInfo?.panchayat || '')
+            formData.append('panchayat', selectedPanchayat?.value || lightInfo?.panchayat || lightInfo?.village || '')
+            formData.append('village', selectedPanchayat?.value || lightInfo?.village || lightInfo?.panchayat || '')
             formData.append('ward_no', lightInfo?.ward_no || '')
             if (amcConfig.requiresVolume && autoVolume) {
                 formData.append('volume', autoVolume)
             }
             formData.append('ssl_id', selectedLight.value)
+            if (region === 'kusumc') {
+                formData.append('pump_id', selectedLight.value)
+                formData.append('work_order_no', workOrderNo)
+                formData.append('capacity', capacityInput)
+            }
+            if (plantKind) {
+                if (region === 'powerpack') formData.append('powerpack_id', selectedLight.value)
+                if (region === 'offgrid') formData.append('offgrid_id', selectedLight.value)
+                if (region === 'ongrid') formData.append('ongrid_id', selectedLight.value)
+                formData.append('work_order_no', workOrderNo)
+                formData.append('capacity', capacityInput)
+                formData.append('scheme_name', schemeName)
+                formData.append('order_no', orderNo)
+                formData.append('uid_date', uidDate)
+                formData.append('installed_place', installedPlace)
+            }
             formData.append('unique_id', lightInfo?.unique_id || selectedLight.site?.unique_id || '')
-            if (region === 'up') {
+            if (upStyle) {
                 formData.append('uid', savedUid)
                 formData.append('fy_year', savedFinancialYear)
                 if (adminChoices) formData.append('amc_time', visitTime)
@@ -1184,7 +1249,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
             formData.append('remarks', remarks)
             if (image1) formData.append('image_1', image1)
             if (image2) formData.append('image_2', image2)
-            if (region === 'up') {
+            if (upStyle) {
                 if (formImage) formData.append('image_3', formImage)
                 const lightIsFunctional = plantStatus === 'Functional'
                 formData.append('visit_answers', JSON.stringify({
@@ -1265,7 +1330,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                 title={isEdit ? `${amcConfig.moduleTitle} — Edit AMC` : `${amcConfig.moduleTitle} — Do Field AMC`}
                                 subtitle={isEdit
                                     ? `${stateName}: update this visit, including answers and photos`
-                                    : `${stateName}: find a light, complete this quarter’s AMC, and raise a complaint if it is not working`}
+                                    : `${stateName}: find a ${assetNoun}, complete this quarter’s AMC, and raise a complaint if it is not working`}
                             />
 
                             {submitSuccess && (
@@ -1281,18 +1346,18 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
                             {isEdit && (
                                 <div className="alert alert-light border fs-13">
-                                    Editing {lightInfo?.unique_id || lightInfo?.ssl_id || 'this visit'}. Change any answer, location, date, or photo, then update.
+                                    Editing {lightInfo?.unique_id || lightInfo?.pump_id || lightInfo?.ssl_id || 'this visit'}. Change any answer, location, date, or photo, then update.
                                 </div>
                             )}
                             {!isEdit && (
                             <>
                             <SectionHeading
                                 icon={<FiMapPin size={16} />}
-                                title="Find Light"
+                                title={region === 'bihar' || region === 'up' ? 'Find Light' : `Find ${assetTitle}`}
                                 subtitle={
                                     region === 'bihar'
                                         ? 'Location is remembered; pick ward, then select one light in that ward'
-                                        : 'Select location, then pick one light'
+                                        : `Select location, then pick one ${assetNoun}`
                                 }
                             />
                             <div
@@ -1365,7 +1430,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         </div>
                                     )}
                                     <div className="col-lg-6">
-                                        <label className="form-label">Light <span className="text-danger">*</span></label>
+                                        <label className="form-label">{assetTitle} <span className="text-danger">*</span></label>
                                         <SelectDropdown
                                             options={lightOptions}
                                             defaultSelect={
@@ -1374,12 +1439,12 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                                     : region === 'bihar' && wardsInData && !selectedWard
                                                         ? 'Select Ward First'
                                                     : isSitesLoading
-                                                        ? 'Loading lights...'
+                                                        ? `Loading ${assetNoun}s...`
                                                         : lightOptions.length
-                                                            ? 'Select Light'
+                                                            ? `Select ${assetTitle}`
                                                             : lightsCooldownNote
-                                                                ? 'No lights due for AMC yet'
-                                                                : 'No lights found'
+                                                                ? `No ${assetNoun}s due for AMC yet`
+                                                                : `No ${assetNoun}s found`
                                             }
                                             selectedOption={selectedLight}
                                             onSelectOption={setSelectedLight}
@@ -1510,7 +1575,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         </div>
                                     )}
                                     {scheduleNote && <div className="alert alert-light border fs-12">{scheduleNote}</div>}
-                                    {region === 'up' && (
+                                    {upStyle && (
                                         <div className="row g-2 mb-3">
                                             <div className="col-lg-3 col-md-6">
                                                 {isEdit ? (
@@ -1531,6 +1596,76 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                                     value={savedFinancialYear}
                                                 />
                                             </div>
+                                            {(region === 'kusumc' || plantKind) && (
+                                                <>
+                                                    {plantKind && (
+                                                        <>
+                                                            <div className="col-lg-3 col-md-6">
+                                                                {isEdit ? (
+                                                                    <>
+                                                                        <label className="form-label">Scheme name</label>
+                                                                        <input className="form-control" value={schemeName} onChange={(event) => setSchemeName(event.target.value)} />
+                                                                    </>
+                                                                ) : (
+                                                                    <DetailItem label="Scheme name" value={schemeName} />
+                                                                )}
+                                                            </div>
+                                                            <div className="col-lg-3 col-md-6">
+                                                                {isEdit ? (
+                                                                    <>
+                                                                        <label className="form-label">Order no</label>
+                                                                        <input className="form-control" value={orderNo} onChange={(event) => setOrderNo(event.target.value)} />
+                                                                    </>
+                                                                ) : (
+                                                                    <DetailItem label="Order no" value={orderNo} />
+                                                                )}
+                                                            </div>
+                                                            <div className="col-lg-3 col-md-6">
+                                                                {isEdit ? (
+                                                                    <>
+                                                                        <label className="form-label">UID date</label>
+                                                                        <input className="form-control" value={uidDate} onChange={(event) => setUidDate(event.target.value)} />
+                                                                    </>
+                                                                ) : (
+                                                                    <DetailItem label="UID date" value={uidDate} />
+                                                                )}
+                                                            </div>
+                                                            {(region === 'offgrid' || region === 'ongrid') && (
+                                                                <div className="col-lg-3 col-md-6">
+                                                                    {isEdit ? (
+                                                                        <>
+                                                                            <label className="form-label">Installed place</label>
+                                                                            <input className="form-control" value={installedPlace} onChange={(event) => setInstalledPlace(event.target.value)} />
+                                                                        </>
+                                                                    ) : (
+                                                                        <DetailItem label="Installed place" value={installedPlace} />
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    <div className="col-lg-3 col-md-6">
+                                                        {isEdit ? (
+                                                            <>
+                                                                <label className="form-label">Work order no</label>
+                                                                <input className="form-control" value={workOrderNo} onChange={(event) => setWorkOrderNo(event.target.value)} />
+                                                            </>
+                                                        ) : (
+                                                            <DetailItem label="Work order no" value={workOrderNo} />
+                                                        )}
+                                                    </div>
+                                                    <div className="col-lg-3 col-md-6">
+                                                        {isEdit ? (
+                                                            <>
+                                                                <label className="form-label">Capacity</label>
+                                                                <input className="form-control" value={capacityInput} onChange={(event) => setCapacityInput(event.target.value)} />
+                                                            </>
+                                                        ) : (
+                                                            <DetailItem label="Capacity" value={capacityInput} />
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     )}
 
@@ -1547,7 +1682,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                         </div>
                                     </div>
 
-                                    {region === 'up' && (
+                                    {upStyle && (
                                         <>
                                             <hr className="border-dashed" />
                                             <SectionHeading
@@ -1778,7 +1913,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                                     )}
 
                                     <hr className="border-dashed" />
-                                    {region === 'up' ? (
+                                    {upStyle ? (
                                         <>
                                             <SectionHeading
                                                 icon={<FiPaperclip size={16} />}

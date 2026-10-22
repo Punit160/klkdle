@@ -154,6 +154,102 @@ export const PORTAL_PERMISSION_CATALOG = [
 
   {
 
+    key: "portal.up.kusumc_amc.read",
+
+    label: "UP KUSUM-C AMC — view",
+
+    module: "up_kusumc_amc",
+
+    description: "View UP KUSUM-C field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.kusumc_amc.add",
+
+    label: "UP KUSUM-C AMC — add",
+
+    module: "up_kusumc_amc",
+
+    description: "Submit UP KUSUM-C field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.powerpack_amc.read",
+
+    label: "UP power pack AMC — view",
+
+    module: "up_powerpack_amc",
+
+    description: "View UP power pack field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.powerpack_amc.add",
+
+    label: "UP power pack AMC — add",
+
+    module: "up_powerpack_amc",
+
+    description: "Submit UP power pack field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.offgrid_amc.read",
+
+    label: "UP off grid AMC — view",
+
+    module: "up_offgrid_amc",
+
+    description: "View UP off grid field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.offgrid_amc.add",
+
+    label: "UP off grid AMC — add",
+
+    module: "up_offgrid_amc",
+
+    description: "Submit UP off grid field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.ongrid_amc.read",
+
+    label: "UP on grid AMC — view",
+
+    module: "up_ongrid_amc",
+
+    description: "View UP on grid field AMC in this app.",
+
+  },
+
+  {
+
+    key: "portal.up.ongrid_amc.add",
+
+    label: "UP on grid AMC — add",
+
+    module: "up_ongrid_amc",
+
+    description: "Submit UP on grid field AMC in this app.",
+
+  },
+
+  {
+
     key: "portal.bihar.ula.dashboard",
 
     label: "Bihar ULA — dashboard",
@@ -260,11 +356,20 @@ export const sslAmcDashboardPermission = (region) =>
 
 
 
-export const lightAmcReadPermission = (region) =>
+export const lightAmcReadPermission = (region) => {
+  if (region === "ongrid") return "portal.up.ongrid_amc.read";
+  if (region === "offgrid") return "portal.up.offgrid_amc.read";
+  if (region === "powerpack") return "portal.up.powerpack_amc.read";
+  if (region === "kusumc") return "portal.up.kusumc_amc.read";
+  return region === "up" ? "portal.up.light_amc.read" : "portal.bihar.light_amc.read";
+};
 
-  region === "up" ? "portal.up.light_amc.read" : "portal.bihar.light_amc.read";
-
-export const lightAmcAddPermission = (region) =>
-  region === "up" ? "portal.up.light_amc.add" : "portal.bihar.light_amc.add";
+export const lightAmcAddPermission = (region) => {
+  if (region === "ongrid") return "portal.up.ongrid_amc.add";
+  if (region === "offgrid") return "portal.up.offgrid_amc.add";
+  if (region === "powerpack") return "portal.up.powerpack_amc.add";
+  if (region === "kusumc") return "portal.up.kusumc_amc.add";
+  return region === "up" ? "portal.up.light_amc.add" : "portal.bihar.light_amc.add";
+};
 
 

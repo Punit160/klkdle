@@ -11,6 +11,14 @@ export const PORTAL_UP_SSL_AMC_ADD = 'portal.up.ssl_amc.add'
 export const PORTAL_UP_SSL_AMC_DASHBOARD = 'portal.up.ssl_amc.dashboard'
 export const PORTAL_UP_LIGHT_AMC_READ = 'portal.up.light_amc.read'
 export const PORTAL_UP_LIGHT_AMC_ADD = 'portal.up.light_amc.add'
+export const PORTAL_UP_KUSUMC_AMC_READ = 'portal.up.kusumc_amc.read'
+export const PORTAL_UP_KUSUMC_AMC_ADD = 'portal.up.kusumc_amc.add'
+export const PORTAL_UP_POWERPACK_AMC_READ = 'portal.up.powerpack_amc.read'
+export const PORTAL_UP_POWERPACK_AMC_ADD = 'portal.up.powerpack_amc.add'
+export const PORTAL_UP_OFFGRID_AMC_READ = 'portal.up.offgrid_amc.read'
+export const PORTAL_UP_OFFGRID_AMC_ADD = 'portal.up.offgrid_amc.add'
+export const PORTAL_UP_ONGRID_AMC_READ = 'portal.up.ongrid_amc.read'
+export const PORTAL_UP_ONGRID_AMC_ADD = 'portal.up.ongrid_amc.add'
 
 /** When SSL AMC view is toggled, keep dashboard permission in sync (matches backend). */
 export const SSL_AMC_READ_DASHBOARD_PAIRS = [

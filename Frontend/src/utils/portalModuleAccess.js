@@ -13,6 +13,14 @@ import {
   PORTAL_UP_SSL_AMC_READ,
   PORTAL_UP_LIGHT_AMC_ADD,
   PORTAL_UP_LIGHT_AMC_READ,
+  PORTAL_UP_KUSUMC_AMC_ADD,
+  PORTAL_UP_KUSUMC_AMC_READ,
+  PORTAL_UP_POWERPACK_AMC_ADD,
+  PORTAL_UP_POWERPACK_AMC_READ,
+  PORTAL_UP_OFFGRID_AMC_ADD,
+  PORTAL_UP_OFFGRID_AMC_READ,
+  PORTAL_UP_ONGRID_AMC_ADD,
+  PORTAL_UP_ONGRID_AMC_READ,
 } from '../constants/portalPermissions'
 import { userCanAccessPortalModule } from './portalAccess'
 
@@ -40,6 +48,22 @@ export const PAGE_PATH_PORTAL_PERMISSIONS = {
   [pages.up.lightAmc]: [PORTAL_UP_LIGHT_AMC_ADD],
   [pages.up.lightAmcList]: [PORTAL_UP_LIGHT_AMC_READ],
   [pages.up.lightAmcDetails]: [PORTAL_UP_LIGHT_AMC_READ],
+  [pages.up.kusumcDashboard]: [PORTAL_UP_KUSUMC_AMC_READ],
+  [pages.up.kusumcAmc]: [PORTAL_UP_KUSUMC_AMC_ADD],
+  [pages.up.kusumcAmcList]: [PORTAL_UP_KUSUMC_AMC_READ],
+  [pages.up.kusumcAmcDetails]: [PORTAL_UP_KUSUMC_AMC_READ],
+  [pages.up.powerpackDashboard]: [PORTAL_UP_POWERPACK_AMC_READ],
+  [pages.up.powerpackAmc]: [PORTAL_UP_POWERPACK_AMC_ADD],
+  [pages.up.powerpackAmcList]: [PORTAL_UP_POWERPACK_AMC_READ],
+  [pages.up.powerpackAmcDetails]: [PORTAL_UP_POWERPACK_AMC_READ],
+  [pages.up.offgridDashboard]: [PORTAL_UP_OFFGRID_AMC_READ],
+  [pages.up.offgridAmc]: [PORTAL_UP_OFFGRID_AMC_ADD],
+  [pages.up.offgridAmcList]: [PORTAL_UP_OFFGRID_AMC_READ],
+  [pages.up.offgridAmcDetails]: [PORTAL_UP_OFFGRID_AMC_READ],
+  [pages.up.ongridDashboard]: [PORTAL_UP_ONGRID_AMC_READ],
+  [pages.up.ongridAmc]: [PORTAL_UP_ONGRID_AMC_ADD],
+  [pages.up.ongridAmcList]: [PORTAL_UP_ONGRID_AMC_READ],
+  [pages.up.ongridAmcDetails]: [PORTAL_UP_ONGRID_AMC_READ],
 }
 
 export const userCanAccessPagePath = (user, path) => {

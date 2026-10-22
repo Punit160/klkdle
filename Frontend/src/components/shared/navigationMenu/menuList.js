@@ -143,6 +143,50 @@ export const menuList = [
                     { id: 2, name: "View AMC", path: pages.up.lightAmcList },
                 ],
             },
+            {
+                id: 3,
+                name: "KUSUM-C AMC",
+                path: "#",
+                icon: "feather-sun",
+                dropdownMenu: [
+                    { id: 1, name: "Dashboard", path: pages.up.kusumcDashboard },
+                    { id: 2, name: "Do AMC", path: pages.up.kusumcAmc },
+                    { id: 3, name: "View AMC", path: pages.up.kusumcAmcList },
+                ],
+            },
+            {
+                id: 4,
+                name: "Power Pack AMC",
+                path: "#",
+                icon: "feather-battery",
+                dropdownMenu: [
+                    { id: 1, name: "Dashboard", path: pages.up.powerpackDashboard },
+                    { id: 2, name: "Do AMC", path: pages.up.powerpackAmc },
+                    { id: 3, name: "View AMC", path: pages.up.powerpackAmcList },
+                ],
+            },
+            {
+                id: 5,
+                name: "Off Grid AMC",
+                path: "#",
+                icon: "feather-cloud-off",
+                dropdownMenu: [
+                    { id: 1, name: "Dashboard", path: pages.up.offgridDashboard },
+                    { id: 2, name: "Do AMC", path: pages.up.offgridAmc },
+                    { id: 3, name: "View AMC", path: pages.up.offgridAmcList },
+                ],
+            },
+            {
+                id: 6,
+                name: "On Grid AMC",
+                path: "#",
+                icon: "feather-cloud",
+                dropdownMenu: [
+                    { id: 1, name: "Dashboard", path: pages.up.ongridDashboard },
+                    { id: 2, name: "Do AMC", path: pages.up.ongridAmc },
+                    { id: 3, name: "View AMC", path: pages.up.ongridAmcList },
+                ],
+            },
         ],
     },
 ]

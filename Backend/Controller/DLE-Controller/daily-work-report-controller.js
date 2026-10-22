@@ -133,7 +133,7 @@ export const getDailyWorkReport = async (req, res) => {
       light_working: true,
       created_at: true,
     };
-    const [attendance, ulaFirst, ulaSecond, fieldAmcBihar, fieldAmcUp, biharDocs, upDocs] = await Promise.all([
+    const [attendance, ulaFirst, ulaSecond, fieldAmcBihar, fieldAmcUp, fieldAmcKusumc, fieldAmcPowerpack, fieldAmcOffgrid, fieldAmcOngrid, biharDocs, upDocs] = await Promise.all([
       prisma.attendance.findMany({ where: attendanceWhere }),
       prisma.biharUlaSurvey.findMany({
         where: {
@@ -177,6 +177,74 @@ export const getDailyWorkReport = async (req, res) => {
       }),
       prisma.biharLightAmc.findMany({ where: fieldAmcWhere, select: fieldAmcSelect }),
       prisma.upLightAmc.findMany({ where: fieldAmcWhere, select: fieldAmcSelect }),
+      prisma.upKusmcAmc.findMany({
+        where: fieldAmcWhere,
+        select: {
+          id: true,
+          user_id: true,
+          state: true,
+          district: true,
+          block: true,
+          village: true,
+          pump_id: true,
+          work_order_no: true,
+          latitude: true,
+          longitude: true,
+          pump_working: true,
+          created_at: true,
+        },
+      }),
+      prisma.upPowerPackAmc.findMany({
+        where: fieldAmcWhere,
+        select: {
+          id: true,
+          user_id: true,
+          state: true,
+          district: true,
+          block: true,
+          village: true,
+          powerpack_id: true,
+          scheme_name: true,
+          latitude: true,
+          longitude: true,
+          powerpack_working: true,
+          created_at: true,
+        },
+      }),
+      prisma.upOffgridAmc.findMany({
+        where: fieldAmcWhere,
+        select: {
+          id: true,
+          user_id: true,
+          state: true,
+          district: true,
+          block: true,
+          village: true,
+          offgrid_id: true,
+          scheme_name: true,
+          latitude: true,
+          longitude: true,
+          working_status: true,
+          created_at: true,
+        },
+      }),
+      prisma.upOngridAmc.findMany({
+        where: fieldAmcWhere,
+        select: {
+          id: true,
+          user_id: true,
+          state: true,
+          district: true,
+          block: true,
+          village: true,
+          ongrid_id: true,
+          scheme_name: true,
+          latitude: true,
+          longitude: true,
+          working_status: true,
+          created_at: true,
+        },
+      }),
       prisma.biharSslAmcUploadDocument.findMany({
         where: {
           created_at: createdRange,
@@ -260,6 +328,40 @@ export const getDailyWorkReport = async (req, res) => {
         longitude: row.longitude,
       });
     });
+
+    fieldAmcKusumc.forEach((row) => {
+      if (!row.user_id) return;
+      const bucket = ensureBucket(buckets, row.user_id, row.created_at);
+      bucket.sites.push({
+        at: row.created_at,
+        kind: "KUSUM-C AMC",
+        title: row.pump_id || `AMC ${row.id}`,
+        detail: row.pump_working === "Yes" ? "Working" : "Not working",
+        place: placeLabel(row.village, row.work_order_no, row.block, row.district, row.state),
+        latitude: row.latitude,
+        longitude: row.longitude,
+      });
+    });
+
+    const pushGridVisit = (list, kind, titleOf, workingOf) => {
+      list.forEach((row) => {
+        if (!row.user_id) return;
+        const bucket = ensureBucket(buckets, row.user_id, row.created_at);
+        bucket.sites.push({
+          at: row.created_at,
+          kind,
+          title: titleOf(row),
+          detail: workingOf(row) === "Yes" ? "Working" : "Not working",
+          place: placeLabel(row.village, row.scheme_name, row.block, row.district, row.state),
+          latitude: row.latitude,
+          longitude: row.longitude,
+        });
+      });
+    };
+
+    pushGridVisit(fieldAmcPowerpack, "Power pack AMC", (row) => row.powerpack_id || `AMC ${row.id}`, (row) => row.powerpack_working);
+    pushGridVisit(fieldAmcOffgrid, "Off grid AMC", (row) => row.offgrid_id || `AMC ${row.id}`, (row) => row.working_status);
+    pushGridVisit(fieldAmcOngrid, "On grid AMC", (row) => row.ongrid_id || `AMC ${row.id}`, (row) => row.working_status);
 
     const pushDoc = (row, parent, region) => {
       const bucket = ensureBucket(buckets, row.created_by, row.created_at);

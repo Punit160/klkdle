@@ -107,6 +107,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
     const [loading, setLoading] = useState(!location.state?.row)
     const [error, setError] = useState('')
     const isAdmin = userIsAdmin()
+    const upStyle = region === 'up' || region === 'kusumc' || region === 'powerpack' || region === 'offgrid' || region === 'ongrid'
 
     useEffect(() => {
         const fetchRow = async () => {
@@ -185,7 +186,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                     title="Dates"
                                     items={[
                                         { label: 'AMC Date', value: formatDate(row.amc_date) },
-                                        ...(region === 'up'
+                                        ...(upStyle
                                             ? [{ label: 'Visit Time', value: row.amc_time }]
                                             : []),
                                         { label: 'Next AMC Date', value: formatDate(row.next_amc_date) },
@@ -208,28 +209,61 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                         { label: 'Block', value: row.block },
                                         {
                                             label: amcConfig.location.localityLabel,
-                                            value: row.panchayat,
+                                            value: row.panchayat || row.village,
                                         },
-                                        { label: 'Ward No', value: row.ward_no },
+                                        ...(region === 'kusumc' || region === 'powerpack' || region === 'offgrid' || region === 'ongrid'
+                                            ? []
+                                            : [{ label: 'Ward No', value: row.ward_no }]),
                                         { label: 'AMC Latitude', value: row.latitude },
                                         { label: 'AMC Longitude', value: row.longitude },
                                     ]}
                                 />
 
-                                <SectionHeading icon={<FiZap size={16} />} title="Light" />
+                                <SectionHeading icon={<FiZap size={16} />} title={region === 'offgrid' ? 'Off grid' : region === 'ongrid' ? 'On grid' : region === 'powerpack' ? 'Power pack' : region === 'kusumc' ? 'Pump' : 'Light'} />
                                 <DetailGroup
-                                    title="Light details"
-                                    items={[
-                                        { label: 'Unique ID', value: row.unique_id },
-                                        { label: 'Pole No', value: row.pole_no },
-                                        { label: 'SSL ID', value: row.ssl_id },
-                                        ...(region === 'up'
-                                            ? [
-                                                { label: 'UID', value: row.uid },
-                                                { label: 'Financial Year', value: row.fy_year },
-                                            ]
-                                            : []),
-                                    ]}
+                                    title={region === 'offgrid' ? 'Off grid details' : region === 'ongrid' ? 'On grid details' : region === 'powerpack' ? 'Power pack details' : region === 'kusumc' ? 'Pump details' : 'Light details'}
+                                    items={region === 'offgrid' || region === 'ongrid'
+                                        ? [
+                                            { label: region === 'offgrid' ? 'Off grid ID' : 'On grid ID', value: row.offgrid_id || row.ongrid_id || row.ssl_id },
+                                            { label: 'Installed place', value: row.installed_place },
+                                            { label: 'Scheme name', value: row.scheme_name },
+                                            { label: 'Order no', value: row.order_no },
+                                            { label: 'Work order no', value: row.work_order_no },
+                                            { label: 'Capacity', value: row.capacity },
+                                            { label: 'UID', value: row.uid },
+                                            { label: 'UID date', value: row.uid_date },
+                                            { label: 'Financial Year', value: row.fy_year },
+                                        ]
+                                        : region === 'powerpack'
+                                        ? [
+                                            { label: 'Power pack ID', value: row.powerpack_id || row.ssl_id },
+                                            { label: 'Scheme name', value: row.scheme_name },
+                                            { label: 'Order no', value: row.order_no },
+                                            { label: 'Work order no', value: row.work_order_no },
+                                            { label: 'Capacity', value: row.capacity },
+                                            { label: 'UID', value: row.uid },
+                                            { label: 'UID date', value: row.uid_date },
+                                            { label: 'Financial Year', value: row.fy_year },
+                                        ]
+                                        : region === 'kusumc'
+                                        ? [
+                                            { label: 'Pump ID', value: row.pump_id || row.ssl_id },
+                                            { label: 'Work order no', value: row.work_order_no },
+                                            { label: 'Capacity', value: row.capacity },
+                                            { label: 'UID', value: row.uid },
+                                            { label: 'Financial Year', value: row.fy_year },
+                                        ]
+                                        : [
+                                            { label: 'Unique ID', value: row.unique_id },
+                                            { label: 'Pole No', value: row.pole_no },
+                                            { label: 'SSL ID', value: row.ssl_id },
+                                            ...(region === 'up'
+                                                ? [
+                                                    { label: 'UID', value: row.uid },
+                                                    { label: 'Financial Year', value: row.fy_year },
+                                                ]
+                                                : []),
+                                        ]}
                                 />
 
                                 <SectionHeading icon={<FiUser size={16} />} title="Beneficiary" />
@@ -241,7 +275,7 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
                                     ]}
                                 />
 
-                                {region === 'up' ? (
+                                {upStyle ? (
                                     <>
                                         <SectionHeading
                                             icon={<FiHelpCircle size={16} />}
@@ -347,16 +381,16 @@ const LightAmcDetails = ({ region = 'bihar' }) => {
 
                                 <SectionHeading icon={<FiImage size={16} />} title="AMC Photos" subtitle="Click a photo to open it" />
                                 <div className="row g-3">
-                                    {region === 'up' ? (
+                                    {upStyle ? (
                                         <div className="col-md-4">
                                             <PhotoCard label="Visit slip" src={fileUrl(row.image_3)} />
                                         </div>
                                     ) : null}
-                                    <div className={region === 'up' ? 'col-md-4' : 'col-md-6'}>
-                                        <PhotoCard label={region === 'up' ? 'Light Photo 1' : 'Photo 1'} src={fileUrl(row.image_1)} />
+                                    <div className={upStyle ? 'col-md-4' : 'col-md-6'}>
+                                        <PhotoCard label={upStyle ? 'Light Photo 1' : 'Photo 1'} src={fileUrl(row.image_1)} />
                                     </div>
-                                    <div className={region === 'up' ? 'col-md-4' : 'col-md-6'}>
-                                        <PhotoCard label={region === 'up' ? 'Light Photo 2' : 'Photo 2'} src={fileUrl(row.image_2)} />
+                                    <div className={upStyle ? 'col-md-4' : 'col-md-6'}>
+                                        <PhotoCard label={upStyle ? 'Light Photo 2' : 'Photo 2'} src={fileUrl(row.image_2)} />
                                     </div>
                                 </div>
                             </>

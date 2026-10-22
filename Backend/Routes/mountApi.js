@@ -47,6 +47,14 @@ export const mountApiRoutes = (app) => {
   mountAmcWithPublicApproval(app, "/api/up/amc", "up", upSslAmcRoutes);
   mountAmcWithPublicApproval(app, "/api/bihar/ssl-amc", "bihar", biharSslAmcRoutes);
   mountAmcWithPublicApproval(app, "/api/up/ssl-amc", "up", upSslAmcRoutes);
+  app.use("/api/up/amc", createRegionalLightAmcPortalRouter("kusumc", "kusumc"));
+  app.use("/api/up/ssl-amc", createRegionalLightAmcPortalRouter("kusumc", "kusumc"));
+  app.use("/api/up/amc", createRegionalLightAmcPortalRouter("powerpack", "powerpack"));
+  app.use("/api/up/ssl-amc", createRegionalLightAmcPortalRouter("powerpack", "powerpack"));
+  app.use("/api/up/amc", createRegionalLightAmcPortalRouter("offgrid", "offgrid"));
+  app.use("/api/up/ssl-amc", createRegionalLightAmcPortalRouter("offgrid", "offgrid"));
+  app.use("/api/up/amc", createRegionalLightAmcPortalRouter("ongrid", "ongrid"));
+  app.use("/api/up/ssl-amc", createRegionalLightAmcPortalRouter("ongrid", "ongrid"));
 
   // Light AMC (field visits) — portal reads + JWT field routes
   app.use("/api/light-amc", lightAmcPublicRoutes);

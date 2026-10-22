@@ -1,21 +1,48 @@
 import prisma from "../../Config/Prisma.js";
 import { serializeAmcApprovalFields } from "../../Utils/amcApproval.js";
 
+const VISIT_REGIONS = {
+  kusumc: { site: "pump_id", working: "pump_working" },
+  powerpack: { site: "powerpack_id", working: "powerpack_working", scheme: true },
+  offgrid: { site: "offgrid_id", working: "working_status", scheme: true, place: true },
+  ongrid: { site: "ongrid_id", working: "working_status", scheme: true, place: true },
+};
+
+export const visitRegionProfile = (region) => VISIT_REGIONS[region] || null;
+
 export const lightAmcRegionOf = (value) => {
   const text = String(value || "").trim().toLowerCase();
+  const compact = text.replace(/[\s_-]/g, "");
   if (!text) return null;
+  if (compact.includes("powerpack")) return "powerpack";
+  if (compact.includes("offgrid")) return "offgrid";
+  if (compact.includes("ongrid")) return "ongrid";
+  if (text === "kusumc" || text.includes("kusum")) return "kusumc";
   if (text === "up" || text.includes("uttar")) return "up";
   if (text === "bihar" || text === "br" || text.includes("bihar")) return "bihar";
   return null;
 };
 
-export const lightAmcTable = (region) =>
-  region === "up" ? prisma.upLightAmc : prisma.biharLightAmc;
+export const isUpStyleAmcRegion = (region) =>
+  region === "up" || Boolean(visitRegionProfile(region));
+
+const knownLightAmcRegion = (region) =>
+  region === "up" || region === "bihar" || visitRegionProfile(region) ? region : null;
+
+export const lightAmcTable = (region) => {
+  if (region === "powerpack") return prisma.upPowerPackAmc;
+  if (region === "offgrid") return prisma.upOffgridAmc;
+  if (region === "ongrid") return prisma.upOngridAmc;
+  if (region === "kusumc") return prisma.upKusmcAmc;
+  if (region === "up") return prisma.upLightAmc;
+  return prisma.biharLightAmc;
+};
+
+const workingValue = (data) =>
+  data.light_working || data.pump_working || data.powerpack_working || data.working_status || null;
 
 const tableFor = ({ region, state } = {}) =>
-  lightAmcTable(
-    region === "up" || region === "bihar" ? region : lightAmcRegionOf(state) || "bihar"
-  );
+  lightAmcTable(knownLightAmcRegion(region) || lightAmcRegionOf(state) || "bihar");
 
 const toDate = (value) => {
   if (!value) return null;
@@ -47,6 +74,15 @@ export const serializeLightAmc = (row) => {
   return {
     ...row,
     id: row.id?.toString(),
+    ...(row.ssl_id == null && (row.pump_id != null || row.powerpack_id != null || row.offgrid_id != null || row.ongrid_id != null)
+      ? {
+          ssl_id: row.ongrid_id ?? row.offgrid_id ?? row.powerpack_id ?? row.pump_id,
+          panchayat: row.village ?? null,
+        }
+      : {}),
+    ...(row.light_working == null
+      ? { light_working: row.pump_working ?? row.powerpack_working ?? row.working_status ?? null }
+      : {}),
     amc_date: iso(row.amc_date),
     next_amc_date: iso(row.next_amc_date),
     period_start: iso(row.period_start),
@@ -61,7 +97,8 @@ export const serializeLightAmc = (row) => {
 };
 
 export const findLastLightAmc = async (sslId, companyId, region = "bihar") => {
-  const where = { ssl_id: String(sslId) };
+  const profile = visitRegionProfile(region);
+  const where = profile ? { [profile.site]: String(sslId) } : { ssl_id: String(sslId) };
   if (companyId) where.company_id = String(companyId);
 
   const row = await lightAmcTable(region).findFirst({
@@ -133,7 +170,8 @@ export const findRecentLightAmcs = async ({
   return rows.filter((row) => {
     if (district && norm(row.district) && norm(row.district) !== norm(district)) return false;
     if (block && norm(row.block) && norm(row.block) !== norm(block)) return false;
-    if (panchayat && norm(row.panchayat) && norm(row.panchayat) !== norm(panchayat)) return false;
+    const locality = row.panchayat || row.village;
+    if (panchayat && norm(locality) && norm(locality) !== norm(panchayat)) return false;
     return true;
   });
 };
@@ -177,13 +215,15 @@ export const findLightAmcsInPeriod = async ({
   return rows.filter((row) => {
     if (district && norm(row.district) && norm(row.district) !== norm(district)) return false;
     if (block && norm(row.block) && norm(row.block) !== norm(block)) return false;
-    if (panchayat && norm(row.panchayat) && norm(row.panchayat) !== norm(panchayat)) return false;
+    const locality = row.panchayat || row.village;
+    if (panchayat && norm(locality) && norm(locality) !== norm(panchayat)) return false;
     return true;
   });
 };
 
 export const createLightAmc = async (data) => {
-  const region = data.region === "up" || data.region === "bihar" ? data.region : lightAmcRegionOf(data.state) || "bihar";
+  const region = knownLightAmcRegion(data.region) || lightAmcRegionOf(data.state) || "bihar";
+  const upStyle = isUpStyleAmcRegion(region);
   const row = await lightAmcTable(region).create({
     data: {
       company_id: String(data.company_id),
@@ -191,13 +231,34 @@ export const createLightAmc = async (data) => {
       state: data.state || "",
       district: data.district || null,
       block: data.block || null,
-      panchayat: data.panchayat || null,
-      ward_no: data.ward_no || null,
       volume: data.volume || null,
-      ssl_id: String(data.ssl_id),
-      unique_id: data.unique_id || null,
-      pole_no: data.pole_no || null,
-      ...(region === "up"
+      ...(visitRegionProfile(region)
+        ? {
+            village: data.village || data.panchayat || null,
+            work_order_no: data.work_order_no || null,
+            capacity: data.capacity || null,
+            [visitRegionProfile(region).site]: String(data[visitRegionProfile(region).site] || data.ssl_id),
+            [visitRegionProfile(region).working]: workingValue(data),
+            ...(visitRegionProfile(region).scheme
+              ? {
+                  uid_date: data.uid_date || null,
+                  scheme_name: data.scheme_name || "",
+                  order_no: data.order_no || "",
+                }
+              : {}),
+            ...(visitRegionProfile(region).place
+              ? { installed_place: data.installed_place || null }
+              : {}),
+          }
+        : {
+            panchayat: data.panchayat || null,
+            ward_no: data.ward_no || null,
+            ssl_id: String(data.ssl_id),
+            unique_id: data.unique_id || null,
+            pole_no: data.pole_no || null,
+            light_working: workingValue(data),
+          }),
+      ...(upStyle
         ? {
             uid: data.uid || null,
             fy_year: data.fy_year || null,
@@ -211,12 +272,11 @@ export const createLightAmc = async (data) => {
       quarter_no: Number(data.quarter_no) || 1,
       beneficiary_name: data.beneficiary_name,
       beneficiary_contact: data.beneficiary_contact,
-      light_working: data.light_working,
       complaint_raised: data.complaint_raised ? 1 : 0,
       complaint_ref: data.complaint_ref || null,
       image_1: data.image_1 || null,
       image_2: data.image_2 || null,
-      ...(region === "up"
+      ...(upStyle
         ? {
             image_3: data.image_3 || null,
             visit_answers: data.visit_answers || null,
@@ -232,8 +292,23 @@ export const createLightAmc = async (data) => {
 };
 
 export const updateLightAmcById = async (id, region, data) => {
+  const next = { ...data };
+  const profile = visitRegionProfile(region);
+  if (profile) {
+    const working = next.light_working ?? next.pump_working ?? next.powerpack_working ?? next.working_status;
+    delete next.light_working;
+    delete next.pump_working;
+    delete next.powerpack_working;
+    delete next.working_status;
+    delete next.ssl_id;
+    delete next.panchayat;
+    delete next.ward_no;
+    delete next.unique_id;
+    delete next.pole_no;
+    if (working != null) next[profile.working] = working;
+  }
   return lightAmcTable(region).update({
     where: { id: BigInt(id) },
-    data,
+    data: next,
   });
 };

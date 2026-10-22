@@ -5,18 +5,22 @@ import {
   findLightAmcs,
   findLightAmcsInPeriod,
   findRecentLightAmcs,
+  isUpStyleAmcRegion,
   lightAmcRegionOf,
   serializeLightAmc,
+  visitRegionProfile,
 } from "../../Model/DLE-Model/light-amc-model.js";
 import { storedPathFromUploadedFile } from "../../Utils/amcStoredUploadPath.js";
 import { resolveJwtUserId, resolveRequestUserId } from "../../Utils/requestUser.js";
 import { isUserMasterAdmin } from "../../Utils/userRoles.js";
 
 const stateFilterForRegion = (region) => {
-  if (region === "up") return "Uttar Pradesh";
+  if (isUpStyleAmcRegion(region)) return "Uttar Pradesh";
   if (region === "bihar") return "Bihar";
   return null;
 };
+
+const REGION_REQUIRED = "region or state is required (bihar, up, kusumc, powerpack, offgrid, or ongrid).";
 
 const UP_VISIT_ANSWER_KEYS = [
   "plant_status",
@@ -63,7 +67,7 @@ const normalizeUpVisitAnswers = (value) => {
 };
 
 const requestLightRegion = (req, stateValue) => {
-  if (req.lightAmcRegion === "up" || req.lightAmcRegion === "bihar") return req.lightAmcRegion;
+  if (lightAmcRegionOf(req.lightAmcRegion)) return lightAmcRegionOf(req.lightAmcRegion);
   return (
     lightAmcRegionOf(req.query?.region) ||
     lightAmcRegionOf(req.body?.region) ||
@@ -163,7 +167,7 @@ const parseInstallDate = (value) => {
 
 export const getLastLightAmc = async (req, res) => {
   try {
-    const sslId = req.query.ssl_id;
+    const sslId = req.query.ssl_id || req.query.pump_id;
     const companyId = req.query.company_id;
 
     if (!sslId) {
@@ -177,7 +181,7 @@ export const getLastLightAmc = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
 
@@ -226,7 +230,7 @@ export const getLightAmcs = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
 
@@ -291,7 +295,7 @@ export const getRecentLightAmcs = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
     const rows = await findRecentLightAmcs({
@@ -359,7 +363,7 @@ export const getLightAmcsInPeriod = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
 
@@ -422,7 +426,7 @@ export const getLightAmcById = async (req, res) => {
     if (!region) {
       return res.status(422).json({
         success: false,
-        message: "region or state is required (bihar or up).",
+        message: REGION_REQUIRED,
       });
     }
 
@@ -472,12 +476,23 @@ export const storeLightAmc = async (req, res) => {
       district,
       block,
       panchayat,
+      village,
       ward_no,
       volume,
       ssl_id,
+      pump_id,
+      powerpack_id,
+      offgrid_id,
+      ongrid_id,
+      scheme_name,
+      order_no,
+      uid_date,
+      installed_place,
       unique_id,
       uid,
       pole_no,
+      work_order_no,
+      capacity,
       amc_date,
       amc_time,
       beneficiary_name,
@@ -491,37 +506,40 @@ export const storeLightAmc = async (req, res) => {
       longitude,
     } = req.body;
 
-    if (!company_id || !user_id || !ssl_id || !amc_date || !beneficiary_name || !beneficiary_contact || !light_working) {
+    const region = requestLightRegion(req, state);
+    if (!region) {
+      return res.status(422).json({
+        success: false,
+        message: REGION_REQUIRED,
+      });
+    }
+
+    const profile = visitRegionProfile(region);
+    const siteId = String((profile ? req.body[profile.site] || ssl_id : ssl_id) || "").trim();
+    if (!company_id || !user_id || !siteId || !amc_date || !beneficiary_name || !beneficiary_contact || !light_working) {
       return res.status(400).json({
         success: false,
         message: "Required AMC fields are missing",
       });
     }
 
-    const region = requestLightRegion(req, state);
-    if (!region) {
-      return res.status(422).json({
-        success: false,
-        message: "region or state is required (bihar or up).",
-      });
-    }
-
+    const upStyle = isUpStyleAmcRegion(region);
     const image1 = req.files?.image_1?.[0];
     const image2 = req.files?.image_2?.[0];
     const image3 = req.files?.image_3?.[0];
-    const visitAnswers = region === "up" ? normalizeUpVisitAnswers(req.body?.visit_answers) : null;
+    const visitAnswers = upStyle ? normalizeUpVisitAnswers(req.body?.visit_answers) : null;
 
-    if (region === "up" && !visitAnswers?.plant_status) {
+    if (upStyle && !visitAnswers?.plant_status) {
       return res.status(400).json({
         success: false,
         message: "Please select whether the light is functional",
       });
     }
 
-    if (!image1 || !image2 || (region === "up" && !image3)) {
+    if (!image1 || !image2 || (upStyle && !image3)) {
       return res.status(400).json({
         success: false,
-        message: region === "up"
+        message: upStyle
           ? "Please upload the visit slip and both light photos"
           : "Please upload 2 AMC images",
       });
@@ -534,7 +552,7 @@ export const storeLightAmc = async (req, res) => {
         message: "Invalid AMC date",
       });
     }
-    const last = await findLastLightAmc(ssl_id, company_id, region);
+    const last = await findLastLightAmc(siteId, company_id, region);
     const installDate = parseInstallDate(date_of_installation);
 
     let periodStart = last?.period_start
@@ -561,7 +579,7 @@ export const storeLightAmc = async (req, res) => {
       }
     }
 
-    const visitTime = region === "up" ? normalizeAmcTime(amc_time) : null;
+    const visitTime = upStyle ? normalizeAmcTime(amc_time) : null;
     if (visitTime === false) {
       return res.status(400).json({
         success: false,
@@ -577,18 +595,29 @@ export const storeLightAmc = async (req, res) => {
       company_id,
       user_id,
       region,
-      state: region === "up" ? "Uttar Pradesh" : state || "Bihar",
+      state: region === "bihar" ? state || "Bihar" : "Uttar Pradesh",
       district,
       block,
       panchayat,
+      village: village || panchayat,
       ward_no,
       volume,
-      ssl_id,
+      ssl_id: siteId,
+      pump_id: siteId,
+      powerpack_id: powerpack_id || siteId,
+      offgrid_id: offgrid_id || siteId,
+      ongrid_id: ongrid_id || siteId,
+      scheme_name,
+      order_no,
+      uid_date,
+      installed_place,
       unique_id,
-      uid: region === "up" ? String(uid || "").trim() || null : null,
-      fy_year: region === "up" ? financialYearLabel(toISODate(amcDate)) : null,
+      uid: upStyle ? String(uid || "").trim() || null : null,
+      fy_year: upStyle ? financialYearLabel(toISODate(amcDate)) : null,
       amc_time: visitTime,
       pole_no,
+      work_order_no,
+      capacity,
       amc_date: toISODate(amcDate),
       next_amc_date: toISODate(nextAmcDate),
       period_start: toISODate(periodStart),
@@ -612,7 +641,15 @@ export const storeLightAmc = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Light AMC saved successfully",
+      message: region === "kusumc"
+        ? "KUSUM-C AMC saved successfully"
+        : region === "powerpack"
+          ? "Power pack AMC saved successfully"
+          : region === "offgrid"
+            ? "Off grid AMC saved successfully"
+            : region === "ongrid"
+              ? "On grid AMC saved successfully"
+              : "Light AMC saved successfully",
       data: serializeLightAmc(row),
     });
   } catch (error) {

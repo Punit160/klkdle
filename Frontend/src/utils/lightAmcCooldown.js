@@ -29,7 +29,7 @@ export const buildRecentAmcLookup = (doneLights = []) => {
 export const isLightRecentlyServiced = (site, doneByKey) => {
   if (!site || !doneByKey?.size) return false
 
-  const keys = [site.id, site.ssl_id, site.unique_id]
+  const keys = [site.id, site.ssl_id, site.pump_id, site.powerpack_id, site.offgrid_id, site.ongrid_id, site.unique_id]
     .filter((value) => value != null && value !== '')
     .map(String)
 
