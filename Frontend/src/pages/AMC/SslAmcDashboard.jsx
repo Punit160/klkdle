@@ -157,9 +157,14 @@ const districtLightsChartOption = (districts, completedLabel, pendingLabel, onDi
   }
 }
 
+const districtCountOf = (value) => (
+  Array.isArray(value) ? value.filter(Boolean).length : Number(value) || 0
+)
+
 const FieldAmcSection = ({ amcRows, amcConfig, summary }) => {
   const navigate = useNavigate()
   const stats = useMemo(() => summary || buildFieldAmcStats(amcRows), [amcRows, summary])
+  const districtCount = districtCountOf(stats.districts)
   const recentRows = amcRows.slice(0, 8)
   const listPath = amcConfig.pages.lightAmcList
   const chartOptions = fieldAmcChartOptions(stats.working, stats.notWorking, (working) => {
@@ -179,7 +184,7 @@ const FieldAmcSection = ({ amcRows, amcConfig, summary }) => {
         <StatTile icon={FiActivity} title="Field AMC Records" value={stats.total} subtitle="Open the field AMC table" tone="primary" to={listPath} />
         <StatTile icon={FiSun} title="Unique Lights" value={stats.uniqueAssets ?? stats.uniqueLights} subtitle="Open the field AMC table" tone="info" to={listPath} />
         <StatTile icon={FiCheckCircle} title="Lights Working" value={stats.working} subtitle="Open working visits" tone="success" to={`${listPath}?working=Yes`} />
-        <StatTile icon={FiMapPin} title="Districts Covered" value={stats.districts} subtitle="Open the field AMC table" tone="warning" to={listPath} />
+        <StatTile icon={FiMapPin} title="Districts Covered" value={districtCount} subtitle="Districts with a field visit" tone="warning" to={listPath} />
       </div>
 
       <div className="bihar-amc-panel-grid">
