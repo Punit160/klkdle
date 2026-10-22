@@ -18,9 +18,9 @@ const stateForRegion = (region) => (region === "bihar" ? "Bihar" : "Uttar Prades
 const REGION_REQUIRED = "region or state is required (bihar, up, kusumc, powerpack, offgrid, or ongrid).";
 
 const requestRegion = (req) =>
-  lightAmcRegionOf(req.lightAmcRegion) ||
   lightAmcRegionOf(req.query?.region) ||
   lightAmcRegionOf(req.body?.region) ||
+  lightAmcRegionOf(req.lightAmcRegion) ||
   lightAmcRegionOf(req.query?.state) ||
   lightAmcRegionOf(req.body?.state);
 

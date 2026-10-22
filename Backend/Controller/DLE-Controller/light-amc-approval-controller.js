@@ -14,16 +14,14 @@ import {
 
 const stateForRegion = (region) => (region === "bihar" ? "Bihar" : "Uttar Pradesh");
 
-const resolveLightAmcApprovalRegion = (req) => {
-  if (lightAmcRegionOf(req.lightAmcRegion)) return lightAmcRegionOf(req.lightAmcRegion);
-  return (
-    lightAmcRegionOf(req.query.region) ||
-    lightAmcRegionOf(req.body?.region) ||
-    lightAmcRegionOf(req.query.state) ||
-    lightAmcRegionOf(req.body?.state) ||
-    null
-  );
-};
+const resolveLightAmcApprovalRegion = (req) => (
+  lightAmcRegionOf(req.query.region) ||
+  lightAmcRegionOf(req.body?.region) ||
+  lightAmcRegionOf(req.lightAmcRegion) ||
+  lightAmcRegionOf(req.query.state) ||
+  lightAmcRegionOf(req.body?.state) ||
+  null
+);
 
 const serializeLightAmcForApproval = (req, region, row) => {
   const base = serializeLightAmc(row);

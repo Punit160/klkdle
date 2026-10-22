@@ -21,20 +21,23 @@ const readStack = [
   requirePortalApiScope("read"),
 ];
 
-const mountLightAmcApprovalRoutes = (router, pathPrefix = "") => {
+const mountLightAmcApprovalRoutes = (router, pathPrefix = "", before = []) => {
+  const lead = Array.isArray(before) ? before : [before];
   router.post(
     `${pathPrefix}approval/status`,
+    ...lead,
     portalExternalAuth,
     requireExternalApproveApi,
     updateLightAmcApprovalStatus
   );
   router.get(
     `${pathPrefix}approval/list`,
+    ...lead,
     portalExternalAuth,
     requirePortalApiScope("read"),
     getLightAmcsForApproval
   );
-  router.get(`${pathPrefix}approval/pending`, portalExternalAuth, requirePortalApiScope("read"), (req, res, next) => {
+  router.get(`${pathPrefix}approval/pending`, ...lead, portalExternalAuth, requirePortalApiScope("read"), (req, res, next) => {
     if (req.query.approval_status == null || req.query.approval_status === "") {
       req.query.approval_status = String(0);
     }
@@ -65,8 +68,7 @@ export const createRegionalLightAmcPortalRouter = (region, segment = "light") =>
   router.get(`/${segment}/get`, ...readStack, setRegion, getLightAmcs);
   router.get(`/${segment}/view/:id`, ...readStack, setRegion, getLightAmcById);
 
-  router.use(setRegion);
-  mountLightAmcApprovalRoutes(router, `${segment}/`);
+  mountLightAmcApprovalRoutes(router, `${segment}/`, setRegion);
 
   return router;
 };

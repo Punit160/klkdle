@@ -13,6 +13,7 @@ import { userIsAdmin } from '../../utils/userRoles'
 import localApi from '../../api/localApi'
 import { app } from '../../api/routes'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
+import { rowsForAmcRegion } from '../../utils/lightAmcRows'
 import '../../styles/AMC/amc-table-filters.css'
 
 const PER_PAGE = 20
@@ -59,13 +60,14 @@ const LightAmcList = ({ region = 'bihar' }) => {
     }
 
     const fetchRows = async () => {
+        setRows([])
         setLoading(true)
         setError('')
         try {
             const res = await localApi.get(app.lightAmc.get, {
                 params: { company_id: getCompanyId(), state: stateName, region },
             })
-            setRows(res?.data?.data || [])
+            setRows(rowsForAmcRegion(region, res?.data?.data, res?.data?.meta?.region))
         } catch (err) {
             setError(err?.response?.data?.message || 'Failed to load AMC records.')
         } finally {

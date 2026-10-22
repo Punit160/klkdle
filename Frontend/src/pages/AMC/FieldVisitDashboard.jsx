@@ -18,6 +18,7 @@ import { app } from '../../api/routes'
 import { getCompanyId } from '../../utils/auth'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
 import { userIsAdmin } from '../../utils/userRoles'
+import { rowsForAmcRegion } from '../../utils/lightAmcRows'
 import '../../styles/Bihar/bihar-ssl-amc-dashboard.css'
 
 const ASSET = {
@@ -112,6 +113,7 @@ const FieldVisitDashboard = ({ region = 'kusumc' }) => {
   const [error, setError] = useState('')
 
   const fetchDashboard = useCallback(async () => {
+    setRows([])
     setLoading(true)
     setError('')
     try {
@@ -122,7 +124,7 @@ const FieldVisitDashboard = ({ region = 'kusumc' }) => {
           region,
         },
       })
-      setRows(Array.isArray(res?.data?.data) ? res.data.data : [])
+      setRows(rowsForAmcRegion(region, res?.data?.data, res?.data?.meta?.region))
       setScope(res?.data?.meta?.scope === 'all' ? 'all' : 'mine')
     } catch (err) {
       setRows([])

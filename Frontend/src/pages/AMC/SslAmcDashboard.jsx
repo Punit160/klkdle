@@ -20,6 +20,7 @@ import { app } from '../../api/routes'
 import { getCompanyId } from '../../utils/auth'
 import { getSslAmcConfig } from '../../utils/sslAmcConfig'
 import { userIsAdmin } from '../../utils/userRoles'
+import { rowsForAmcRegion } from '../../utils/lightAmcRows'
 import '../../styles/Bihar/bihar-ssl-amc-dashboard.css'
 
 const formatDate = (value) => {
@@ -385,6 +386,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
           params: {
             company_id: getCompanyId(),
             state: amcConfig.stateName,
+            region: amcConfig.key,
             ...(isAdmin ? { scope: 'all' } : {}),
           },
         }),
@@ -399,7 +401,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
       const docScope = docRes.data?.meta?.scope
       const amcScope = amcRes.data?.meta?.scope
       setDataScope(docScope === 'all' && amcScope === 'all' ? 'all' : 'mine')
-      setAmcRows(amcRes.data?.data || [])
+      setAmcRows(rowsForAmcRegion(amcConfig.key, amcRes.data?.data, amcRes.data?.meta?.region))
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load dashboard data')
       setDocData(null)
@@ -407,7 +409,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
     } finally {
       setLoading(false)
     }
-  }, [amcConfig.sslState, amcConfig.stateName, isAdmin])
+  }, [amcConfig.sslState, amcConfig.stateName, amcConfig.key, isAdmin])
 
   useEffect(() => {
     fetchDashboard()

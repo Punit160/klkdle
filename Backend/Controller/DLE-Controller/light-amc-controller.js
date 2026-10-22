@@ -66,17 +66,15 @@ const normalizeUpVisitAnswers = (value) => {
   return answers;
 };
 
-const requestLightRegion = (req, stateValue) => {
-  if (lightAmcRegionOf(req.lightAmcRegion)) return lightAmcRegionOf(req.lightAmcRegion);
-  return (
-    lightAmcRegionOf(req.query?.region) ||
-    lightAmcRegionOf(req.body?.region) ||
-    lightAmcRegionOf(stateValue) ||
-    lightAmcRegionOf(req.query?.state) ||
-    lightAmcRegionOf(req.body?.state) ||
-    null
-  );
-};
+const requestLightRegion = (req, stateValue) => (
+  lightAmcRegionOf(req.query?.region) ||
+  lightAmcRegionOf(req.body?.region) ||
+  lightAmcRegionOf(req.lightAmcRegion) ||
+  lightAmcRegionOf(stateValue) ||
+  lightAmcRegionOf(req.query?.state) ||
+  lightAmcRegionOf(req.body?.state) ||
+  null
+);
 
 const resolveLightAmcReadScope = (req) => {
   const portalCompanyId = req.portalCompanyId
@@ -256,6 +254,7 @@ export const getLightAmcs = async (req, res) => {
         state: scope.state || "all",
         company_id: scope.companyId ? String(scope.companyId) : null,
         scope: scope.scope || (scope.userId ? "mine" : "company"),
+        region,
         working: working || null,
         district: district || null,
       },
