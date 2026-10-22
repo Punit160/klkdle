@@ -772,6 +772,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                     setPeriodEnd(end)
                     setAmcDate(due)
                     setNextAmcDate(addMonthsISO(due, 3))
+                    setQuarterNo(last?.quarter_no ? Math.min(20, Number(last.quarter_no) + 1) : 1)
 
                     if (due > end) {
                         setScheduleNote('AMC period of 5 years has ended for this light.')
@@ -787,6 +788,7 @@ const LightAmcForm = ({ region = 'bihar' }) => {
                     setPeriodEnd(addMonthsISO(start, 60))
                     setAmcDate(todayISO())
                     setNextAmcDate(addMonthsISO(todayISO(), 3))
+                    setQuarterNo(1)
                     setScheduleNote('First AMC for this light. Next visit will be after 3 months. Total period is 5 years.')
                 }
             } catch (err) {
@@ -961,10 +963,6 @@ const LightAmcForm = ({ region = 'bihar' }) => {
 
     useEffect(() => {
         if (!amcDate || !periodStart) return
-        const start = new Date(periodStart)
-        const current = new Date(amcDate)
-        const months = (current.getFullYear() - start.getFullYear()) * 12 + (current.getMonth() - start.getMonth())
-        setQuarterNo(Math.min(20, Math.max(1, Math.floor(Math.max(0, months) / 3) + 1)))
         setNextAmcDate(addMonthsISO(amcDate, 3))
     }, [amcDate, periodStart])
 

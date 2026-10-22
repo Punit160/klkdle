@@ -5,6 +5,7 @@ import {
   findLightAmcById,
   isUpStyleAmcRegion,
   lightAmcRegionOf,
+  nextLightAmcQuarter,
   serializeLightAmc,
   updateLightAmcById,
   visitRegionProfile,
@@ -56,13 +57,6 @@ const addMonths = (isoDate, months) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
-const monthDiff = (fromIso, toIso) => {
-  const from = String(fromIso || "").match(/^(\d{4})-(\d{2})/);
-  const to = String(toIso || "").match(/^(\d{4})-(\d{2})/);
-  if (!from || !to) return 0;
-  return (Number(to[1]) - Number(from[1])) * 12 + (Number(to[2]) - Number(from[2]));
-};
-
 const financialYearLabel = (isoDate) => {
   const match = String(isoDate || "").match(/^(\d{4})-(\d{2})/);
   if (!match) return null;
@@ -94,14 +88,13 @@ const textOrNull = (value) => {
   return text || null;
 };
 
-const scheduleForDate = (amcDate, periodStart, periodEnd) => {
+const scheduleForDate = (amcDate, periodEnd, lastQuarter) => {
   if (periodEnd && amcDate > periodEnd) {
     return { error: `AMC date is after the 5 year period ending ${periodEnd}` };
   }
-  const months = Math.max(0, monthDiff(periodStart, amcDate));
   return {
     next_amc_date: addMonths(amcDate, 3),
-    quarter_no: Math.min(20, Math.floor(months / 3) + 1),
+    quarter_no: nextLightAmcQuarter(lastQuarter),
   };
 };
 
@@ -131,6 +124,7 @@ const UP_HEADERS = [
   "beneficiary_name",
   "beneficiary_contact",
   "amc_date",
+  "quarter_no",
   "amc_time",
   "fy_year",
   "latitude",
@@ -152,6 +146,7 @@ const KUSUMC_HEADERS = [
   "beneficiary_name",
   "beneficiary_contact",
   "amc_date",
+  "quarter_no",
   "amc_time",
   "fy_year",
   "latitude",
@@ -176,6 +171,7 @@ const POWERPACK_HEADERS = [
   "beneficiary_name",
   "beneficiary_contact",
   "amc_date",
+  "quarter_no",
   "amc_time",
   "fy_year",
   "latitude",
@@ -201,6 +197,7 @@ const gridHeaders = (idKey) => [
   "beneficiary_name",
   "beneficiary_contact",
   "amc_date",
+  "quarter_no",
   "amc_time",
   "fy_year",
   "latitude",
@@ -228,6 +225,7 @@ const GRID_SAMPLE = {
   beneficiary_name: "Ramesh Kumar",
   beneficiary_contact: "9876543210",
   amc_date: "2026-10-13",
+  quarter_no: "1",
   amc_time: "16:11",
   fy_year: "2026-27",
   latitude: "28.60346510708853",
@@ -260,6 +258,7 @@ const BIHAR_HEADERS = [
   "beneficiary_name",
   "beneficiary_contact",
   "amc_date",
+  "quarter_no",
   "latitude",
   "longitude",
   "light_working",
@@ -284,6 +283,7 @@ const SAMPLE_BY_REGION = {
     beneficiary_name: "Ramesh Kumar",
     beneficiary_contact: "9876543210",
     amc_date: "2026-10-13",
+    quarter_no: "1",
     amc_time: "16:11",
     fy_year: "2026-27",
     latitude: "28.60346510708853",
@@ -315,6 +315,7 @@ const SAMPLE_BY_REGION = {
     beneficiary_name: "Ramesh Kumar",
     beneficiary_contact: "9876543210",
     amc_date: "2026-10-13",
+    quarter_no: "1",
     amc_time: "16:11",
     fy_year: "2026-27",
     latitude: "28.60346510708853",
@@ -346,6 +347,7 @@ const SAMPLE_BY_REGION = {
     beneficiary_name: "Ramesh Kumar",
     beneficiary_contact: "9876543210",
     amc_date: "2026-10-13",
+    quarter_no: "1",
     amc_time: "16:11",
     fy_year: "2026-27",
     latitude: "28.60346510708853",
@@ -377,6 +379,7 @@ const SAMPLE_BY_REGION = {
     beneficiary_name: "Ramesh Kumar",
     beneficiary_contact: "9876543210",
     amc_date: "2026-09-17",
+    quarter_no: "1",
     latitude: "28.603351168418506",
     longitude: "77.3574342176244",
     light_working: "Yes",
@@ -386,6 +389,17 @@ const SAMPLE_BY_REGION = {
 };
 
 const headerKey = (value) => String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+
+/** Excel quarter is optional. A blank cell keeps the next visit number. */
+const quarterFromExcel = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const match = text.match(/^(\d{1,2})(?:\s*\/\s*20)?$/);
+  if (!match) return false;
+  const quarter = Number(match[1]);
+  if (!Number.isInteger(quarter) || quarter < 1 || quarter > 20) return false;
+  return quarter;
+};
 
 export const updateLightAmcRecord = async (req, res) => {
   try {
@@ -446,7 +460,7 @@ export const updateLightAmcRecord = async (req, res) => {
 
     const periodStart = localISODate(existing.period_start) || amcDate;
     const periodEnd = localISODate(existing.period_end);
-    const schedule = scheduleForDate(amcDate, periodStart, periodEnd);
+    const schedule = scheduleForDate(amcDate, periodEnd, Number(existing.quarter_no) - 1);
     if (schedule.error) {
       return res.status(400).json({ success: false, message: schedule.error });
     }
@@ -633,8 +647,10 @@ const buildImportRecord = async ({ record, region, companyId, userId }) => {
   const installed = localISODate(record.date_of_installation);
   const periodStart = localISODate(last?.period_start) || installed || amcDate;
   const periodEnd = localISODate(last?.period_end) || addMonths(periodStart, 60);
-  const schedule = scheduleForDate(amcDate, periodStart, periodEnd);
+  const schedule = scheduleForDate(amcDate, periodEnd, last?.quarter_no);
   if (schedule.error) return { error: schedule.error };
+  const typedQuarter = quarterFromExcel(record.quarter_no ?? record.quarter);
+  if (typedQuarter === false) return { error: "quarter_no must be a whole number from 1 to 20" };
 
   const plantStatus = textOrNull(record.plant_status);
   const visitAnswers = {};
@@ -676,7 +692,7 @@ const buildImportRecord = async ({ record, region, companyId, userId }) => {
       next_amc_date: schedule.next_amc_date,
       period_start: periodStart,
       period_end: periodEnd,
-      quarter_no: schedule.quarter_no,
+      quarter_no: typedQuarter || schedule.quarter_no,
       beneficiary_name: beneficiaryName,
       beneficiary_contact: beneficiaryContact,
       light_working: lightWorking,

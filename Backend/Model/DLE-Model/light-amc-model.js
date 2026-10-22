@@ -119,6 +119,13 @@ const scopeWhere = ({ companyId, state, userId } = {}) => {
 
 const workingFieldOf = (region) => visitRegionProfile(region)?.working || "light_working";
 
+/** First saved visit is quarter 1. Each later visit is the next number, up to 20. */
+export const nextLightAmcQuarter = (lastQuarter) => {
+  const previous = Number(lastQuarter);
+  if (!Number.isFinite(previous) || previous < 1) return 1;
+  return Math.min(20, previous + 1);
+};
+
 const siteFieldOf = (region) => visitRegionProfile(region)?.site || "ssl_id";
 
 const TABLE_SQL = {

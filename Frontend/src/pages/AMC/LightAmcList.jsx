@@ -436,7 +436,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                         You can upload up to <strong>{IMPORT_ROW_LIMIT.toLocaleString('en-IN')}</strong> visits in one Excel file.
                                     </p>
                                     <p className="fs-13 text-muted mb-0">
-                                        Download the template, fill the visit rows, then choose that file to import.
+                                        Download the template, fill the visit rows, then choose that file to import. Put the visit number in <strong>quarter_no</strong> (1 to 20). Leave that cell blank and the next quarter is filled in.
                                     </p>
                                     {(importMessage || importError) && (
                                         <div className={`alert ${importError ? 'alert-danger' : 'alert-success'} mt-3 mb-0 py-2 fs-13`}>

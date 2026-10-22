@@ -8,6 +8,7 @@ import {
   findRecentLightAmcs,
   isUpStyleAmcRegion,
   lightAmcRegionOf,
+  nextLightAmcQuarter,
   serializeLightAmc,
   visitRegionProfile,
 } from "../../Model/DLE-Model/light-amc-model.js";
@@ -150,12 +151,6 @@ const normalizeAmcTime = (value) => {
   const match = text.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
   if (!match) return false;
   return `${match[1]}:${match[2]}`;
-};
-
-const monthDiff = (from, to) => {
-  const a = startOfDay(from);
-  const b = startOfDay(to);
-  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 };
 
 const parseInstallDate = (value) => {
@@ -636,8 +631,7 @@ export const storeLightAmc = async (req, res) => {
     }
 
     const nextAmcDate = addMonths(amcDate, 3);
-    const months = Math.max(0, monthDiff(periodStart, amcDate));
-    const quarterNo = Math.min(20, Math.floor(months / 3) + 1);
+    const quarterNo = nextLightAmcQuarter(last?.quarter_no);
 
     const row = await createLightAmc({
       company_id,
