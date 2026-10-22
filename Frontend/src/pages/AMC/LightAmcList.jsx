@@ -1,5 +1,5 @@
  
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FiDownload, FiEye, FiUpload } from 'react-icons/fi'
 import CardHeader from '@/components/shared/CardHeader'
@@ -34,6 +34,8 @@ const LightAmcList = ({ region = 'bihar' }) => {
     const detailsPath = amcConfig.pages.lightAmcDetails
     const { refreshKey, isRemoved, isExpanded, handleRefresh, handleExpand, handleDelete } = useCardTitleActions()
     const [rows, setRows] = useState([])
+    const [summary, setSummary] = useState({ total: 0, working: 0, notWorking: 0, districts: [] })
+    const [totalPages, setTotalPages] = useState(0)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
@@ -56,19 +58,36 @@ const LightAmcList = ({ region = 'bihar' }) => {
         else next.delete('working')
         if (district) next.set('district', district)
         else next.delete('district')
+        setCurrentPage(1)
         setSearchParams(next, { replace: true })
     }
 
     const fetchRows = async () => {
-        setRows([])
         setLoading(true)
         setError('')
         try {
             const res = await localApi.get(app.lightAmc.get, {
-                params: { company_id: getCompanyId(), state: stateName, region },
+                params: {
+                    company_id: getCompanyId(),
+                    state: stateName,
+                    region,
+                    page: currentPage,
+                    limit: PER_PAGE,
+                    working: workingFilter,
+                    district: districtFilter,
+                },
             })
-            setRows(rowsForAmcRegion(region, res?.data?.data, res?.data?.meta?.region))
+            const meta = res?.data?.meta || {}
+            setRows(rowsForAmcRegion(region, res?.data?.data, meta.region))
+            setSummary({
+                total: Number(meta.summary?.total) || 0,
+                working: Number(meta.summary?.working) || 0,
+                notWorking: Number(meta.summary?.notWorking) || 0,
+                districts: Array.isArray(meta.summary?.districts) ? meta.summary.districts : [],
+            })
+            setTotalPages(Number(meta.total_pages) || 0)
         } catch (err) {
+            setRows([])
             setError(err?.response?.data?.message || 'Failed to load AMC records.')
         } finally {
             setLoading(false)
@@ -78,34 +97,10 @@ const LightAmcList = ({ region = 'bihar' }) => {
     useEffect(() => {
         fetchRows()
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refreshKey, stateName, region])
+    }, [refreshKey, stateName, region, currentPage, workingFilter, districtFilter])
 
-    const stats = useMemo(() => ({
-        total: rows.length,
-        working: rows.filter((row) => row.light_working === 'Yes').length,
-        notWorking: rows.filter((row) => row.light_working !== 'Yes').length,
-    }), [rows])
-
-    const districtOptions = useMemo(
-        () => [...new Set(rows.map((row) => String(row.district || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-        [rows]
-    )
-
-    const visibleRows = useMemo(() => rows.filter((row) => {
-        if (workingFilter === 'Yes' && row.light_working !== 'Yes') return false
-        if (workingFilter === 'No' && row.light_working === 'Yes') return false
-        if (districtFilter && String(row.district || '').trim().toLowerCase() !== districtFilter.toLowerCase()) return false
-        return true
-    }), [rows, workingFilter, districtFilter])
-
-    useEffect(() => {
-        setCurrentPage(1)
-    }, [workingFilter, districtFilter])
-
-    const paged = useMemo(() => {
-        const start = (currentPage - 1) * PER_PAGE
-        return visibleRows.slice(start, start + PER_PAGE)
-    }, [visibleRows, currentPage])
+    const stats = summary
+    const districtOptions = summary.districts
 
     const downloadTemplate = async () => {
         setImportError('')
@@ -344,10 +339,7 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                             {!loading && !error && rows.length === 0 && (
                                                 <tr><td colSpan={9} className="text-center py-4 text-muted">No AMC records yet.</td></tr>
                                             )}
-                                            {!loading && !error && rows.length > 0 && visibleRows.length === 0 && (
-                                                <tr><td colSpan={9} className="text-center py-4 text-muted">No records match these filters.</td></tr>
-                                            )}
-                                            {!loading && !error && paged.map((row, index) => (
+                                            {!loading && !error && rows.map((row, index) => (
                                                 <tr key={row.id}>
                                                     <td>{(currentPage - 1) * PER_PAGE + index + 1}</td>
                                                     <td>{formatDate(row.amc_date)}</td>
@@ -404,11 +396,11 @@ const LightAmcList = ({ region = 'bihar' }) => {
                                 </div>
                                 <CardLoader refreshKey={refreshKey} />
                             </div>
-                            {visibleRows.length > PER_PAGE && (
+                            {totalPages > 1 && (
                                 <div className="card-footer">
                                     <Pagination
                                         currentPage={currentPage}
-                                        totalPages={Math.ceil(visibleRows.length / PER_PAGE)}
+                                        totalPages={totalPages}
                                         onPageChange={setCurrentPage}
                                     />
                                 </div>

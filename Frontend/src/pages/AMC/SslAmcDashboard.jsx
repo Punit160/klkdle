@@ -157,9 +157,9 @@ const districtLightsChartOption = (districts, completedLabel, pendingLabel, onDi
   }
 }
 
-const FieldAmcSection = ({ amcRows, amcConfig }) => {
+const FieldAmcSection = ({ amcRows, amcConfig, summary }) => {
   const navigate = useNavigate()
-  const stats = useMemo(() => buildFieldAmcStats(amcRows), [amcRows])
+  const stats = useMemo(() => summary || buildFieldAmcStats(amcRows), [amcRows, summary])
   const recentRows = amcRows.slice(0, 8)
   const listPath = amcConfig.pages.lightAmcList
   const chartOptions = fieldAmcChartOptions(stats.working, stats.notWorking, (working) => {
@@ -177,7 +177,7 @@ const FieldAmcSection = ({ amcRows, amcConfig }) => {
     >
       <div className="bihar-amc-stat-grid">
         <StatTile icon={FiActivity} title="Field AMC Records" value={stats.total} subtitle="Open the field AMC table" tone="primary" to={listPath} />
-        <StatTile icon={FiSun} title="Unique Lights" value={stats.uniqueLights} subtitle="Open the field AMC table" tone="info" to={listPath} />
+        <StatTile icon={FiSun} title="Unique Lights" value={stats.uniqueAssets ?? stats.uniqueLights} subtitle="Open the field AMC table" tone="info" to={listPath} />
         <StatTile icon={FiCheckCircle} title="Lights Working" value={stats.working} subtitle="Open working visits" tone="success" to={`${listPath}?working=Yes`} />
         <StatTile icon={FiMapPin} title="Districts Covered" value={stats.districts} subtitle="Open the field AMC table" tone="warning" to={listPath} />
       </div>
@@ -370,6 +370,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
   const amcConfig = getSslAmcConfig(region)
   const [docData, setDocData] = useState(null)
   const [amcRows, setAmcRows] = useState([])
+  const [amcSummary, setAmcSummary] = useState(null)
   const [dataScope, setDataScope] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -387,6 +388,8 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
             company_id: getCompanyId(),
             state: amcConfig.stateName,
             region: amcConfig.key,
+            page: 1,
+            limit: 8,
             ...(isAdmin ? { scope: 'all' } : {}),
           },
         }),
@@ -402,10 +405,12 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
       const amcScope = amcRes.data?.meta?.scope
       setDataScope(docScope === 'all' && amcScope === 'all' ? 'all' : 'mine')
       setAmcRows(rowsForAmcRegion(amcConfig.key, amcRes.data?.data, amcRes.data?.meta?.region))
+      setAmcSummary(amcRes.data?.meta?.summary || null)
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load dashboard data')
       setDocData(null)
       setAmcRows([])
+      setAmcSummary(null)
     } finally {
       setLoading(false)
     }
@@ -475,7 +480,7 @@ const SslAmcDashboard = ({ region = 'bihar' }) => {
 
           {!loading && !error && docData && (
             <>
-              <FieldAmcSection amcRows={amcRows} amcConfig={amcConfig} />
+              <FieldAmcSection amcRows={amcRows} amcConfig={amcConfig} summary={amcSummary} />
               <DocumentationSection docData={docData} amcConfig={amcConfig} />
             </>
           )}

@@ -76,29 +76,6 @@ const StatTile = ({ icon: Icon, title, value, subtitle, tone = 'primary', to }) 
   )
 }
 
-const buildStats = (rows, asset) => {
-  const working = rows.filter((row) => row.light_working === 'Yes').length
-  const districts = [...rows.reduce((map, row) => {
-    const name = String(row.district || '').trim()
-    if (!name) return map
-    const current = map.get(name) || { district: name, total: 0, working: 0, notWorking: 0 }
-    current.total += 1
-    if (row.light_working === 'Yes') current.working += 1
-    else current.notWorking += 1
-    map.set(name, current)
-    return map
-  }, new Map()).values()].sort((a, b) => b.total - a.total)
-
-  return {
-    total: rows.length,
-    working,
-    notWorking: rows.length - working,
-    districts: districts.length,
-    uniqueAssets: new Set(rows.map((row) => asset.id(row)).filter(Boolean)).size,
-    districtRows: districts,
-  }
-}
-
 const FieldVisitDashboard = ({ region = 'kusumc' }) => {
   const navigate = useNavigate()
   const amcConfig = getSslAmcConfig(region)
@@ -108,12 +85,12 @@ const FieldVisitDashboard = ({ region = 'kusumc' }) => {
   const formPath = amcConfig.pages.lightAmc
   const isAdmin = userIsAdmin()
   const [rows, setRows] = useState([])
+  const [summary, setSummary] = useState(null)
   const [scope, setScope] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const fetchDashboard = useCallback(async () => {
-    setRows([])
     setLoading(true)
     setError('')
     try {
@@ -122,12 +99,16 @@ const FieldVisitDashboard = ({ region = 'kusumc' }) => {
           company_id: getCompanyId(),
           state: amcConfig.stateName,
           region,
+          summary: 1,
         },
       })
-      setRows(rowsForAmcRegion(region, res?.data?.data, res?.data?.meta?.region))
+      const payload = res?.data?.data || {}
+      setRows(rowsForAmcRegion(region, payload.recent, res?.data?.meta?.region))
+      setSummary(payload)
       setScope(res?.data?.meta?.scope === 'all' ? 'all' : 'mine')
     } catch (err) {
       setRows([])
+      setSummary(null)
       setError(err?.response?.data?.message || err?.message || 'Failed to load the dashboard.')
     } finally {
       setLoading(false)
@@ -138,8 +119,15 @@ const FieldVisitDashboard = ({ region = 'kusumc' }) => {
     fetchDashboard()
   }, [fetchDashboard])
 
-  const stats = useMemo(() => buildStats(rows, asset), [rows, asset])
-  const recent = rows.slice(0, 8)
+  const stats = useMemo(() => ({
+    total: Number(summary?.total) || 0,
+    working: Number(summary?.working) || 0,
+    notWorking: Number(summary?.notWorking) || 0,
+    districts: Number(summary?.districts) || 0,
+    uniqueAssets: Number(summary?.uniqueAssets) || 0,
+    districtRows: Array.isArray(summary?.districtRows) ? summary.districtRows : [],
+  }), [summary])
+  const recent = rows
   const categories = stats.districtRows.map((row) => row.district)
 
   const donutOptions = {

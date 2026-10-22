@@ -109,11 +109,130 @@ export const findLastLightAmc = async (sslId, companyId, region = "bihar") => {
   return row;
 };
 
-export const findLightAmcs = async ({ companyId, state, userId, region } = {}) => {
+const scopeWhere = ({ companyId, state, userId } = {}) => {
   const where = {};
   if (companyId) where.company_id = String(companyId);
   if (state) where.state = String(state);
   if (userId) where.user_id = String(userId);
+  return where;
+};
+
+const workingFieldOf = (region) => visitRegionProfile(region)?.working || "light_working";
+
+const siteFieldOf = (region) => visitRegionProfile(region)?.site || "ssl_id";
+
+const TABLE_SQL = {
+  bihar: { table: "bihar_light_amcs", site: "ssl_id" },
+  up: { table: "up_light_amcs", site: "ssl_id" },
+  kusumc: { table: "up_kusumc_amcs", site: "pump_id" },
+  powerpack: { table: "up_powerpack_amcs", site: "powerpack_id" },
+  offgrid: { table: "up_off_grid_amcs", site: "offgrid_id" },
+  ongrid: { table: "up_on_grid_amcs", site: "ongrid_id" },
+};
+
+const listWhere = ({ companyId, state, userId, region, working, district } = {}) => {
+  const where = scopeWhere({ companyId, state, userId });
+  const districtText = String(district || "").trim();
+  if (districtText) where.district = districtText;
+  const field = workingFieldOf(region);
+  if (working === "Yes") where[field] = "Yes";
+  else if (working === "No") where[field] = { not: "Yes" };
+  return where;
+};
+
+const countDistinctSites = async (region, { companyId, state, userId } = {}) => {
+  const sql = TABLE_SQL[knownLightAmcRegion(region) || lightAmcRegionOf(region) || "bihar"];
+  if (!sql) return 0;
+  const filters = ["1=1"];
+  if (companyId) filters.push(`company_id = '${String(companyId).replace(/'/g, "''")}'`);
+  if (state) filters.push(`state = '${String(state).replace(/'/g, "''")}'`);
+  if (userId) filters.push(`user_id = '${String(userId).replace(/'/g, "''")}'`);
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT COUNT(DISTINCT \`${sql.site}\`) AS total FROM \`${sql.table}\` WHERE ${filters.join(" AND ")}`
+  );
+  return Number(rows?.[0]?.total || 0);
+};
+
+export const findLightAmcSummary = async ({ companyId, state, userId, region } = {}) => {
+  const table = tableFor({ region, state });
+  const where = scopeWhere({ companyId, state, userId });
+  const field = workingFieldOf(region);
+  const [total, working, districtGroups, districts] = await Promise.all([
+    table.count({ where }),
+    table.count({ where: { ...where, [field]: "Yes" } }),
+    table.groupBy({
+      by: ["district", field],
+      where,
+      _count: { _all: true },
+    }),
+    table.findMany({
+      where,
+      distinct: ["district"],
+      select: { district: true },
+    }),
+  ]);
+
+  const byDistrict = new Map();
+  districtGroups.forEach((group) => {
+    const name = String(group.district || "").trim();
+    if (!name) return;
+    const current = byDistrict.get(name) || { district: name, total: 0, working: 0, notWorking: 0 };
+    const count = group._count?._all || 0;
+    current.total += count;
+    if (group[field] === "Yes") current.working += count;
+    else current.notWorking += count;
+    byDistrict.set(name, current);
+  });
+
+  return {
+    total,
+    working,
+    notWorking: Math.max(0, total - working),
+    uniqueAssets: await countDistinctSites(region, { companyId, state, userId }),
+    districts: districts
+      .map((row) => String(row.district || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b)),
+    districtRows: [...byDistrict.values()].sort((a, b) => b.total - a.total),
+  };
+};
+
+export const findLightAmcPage = async ({
+  companyId,
+  state,
+  userId,
+  region,
+  working,
+  district,
+  page = 1,
+  limit = 20,
+} = {}) => {
+  const table = tableFor({ region, state });
+  const where = listWhere({ companyId, state, userId, region, working, district });
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+  const safePage = Math.max(1, Number(page) || 1);
+  const [rows, total, summary] = await Promise.all([
+    table.findMany({
+      where,
+      orderBy: { created_at: "desc" },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
+    }),
+    table.count({ where }),
+    findLightAmcSummary({ companyId, state, userId, region }),
+  ]);
+
+  return {
+    rows,
+    total,
+    page: safePage,
+    limit: safeLimit,
+    summary,
+  };
+};
+
+export const findLightAmcs = async ({ companyId, state, userId, region } = {}) => {
+  const where = scopeWhere({ companyId, state, userId });
 
   const rows = await tableFor({ region, state }).findMany({
     where,

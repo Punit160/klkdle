@@ -2,6 +2,7 @@ import {
   createLightAmc,
   findLastLightAmc,
   findLightAmcById,
+  findLightAmcPage,
   findLightAmcs,
   findLightAmcsInPeriod,
   findRecentLightAmcs,
@@ -232,19 +233,67 @@ export const getLightAmcs = async (req, res) => {
       });
     }
 
-    const rows = await findLightAmcs({
+    const scopeArgs = {
       companyId: scope.companyId,
       state: scope.state,
       userId: scope.userId,
       region,
-    });
-
+    };
     const working = String(req.query.working || "").trim();
-    const district = String(req.query.district || "").trim().toLowerCase();
+    const district = String(req.query.district || "").trim();
+
+    if (String(req.query.summary || "") === "1") {
+      const recent = await findLightAmcPage({ ...scopeArgs, page: 1, limit: 8 });
+      return res.status(200).json({
+        success: true,
+        meta: {
+          state: scope.state || "all",
+          company_id: scope.companyId ? String(scope.companyId) : null,
+          scope: scope.scope || (scope.userId ? "mine" : "company"),
+          region,
+          summary: true,
+        },
+        data: {
+          ...recent.summary,
+          districts: recent.summary.districtRows.length,
+          recent: recent.rows.map(serializeLightAmc),
+        },
+      });
+    }
+
+    if (req.query.page != null && req.query.page !== "") {
+      const paged = await findLightAmcPage({
+        ...scopeArgs,
+        working,
+        district,
+        page: req.query.page,
+        limit: req.query.limit,
+      });
+      return res.status(200).json({
+        success: true,
+        meta: {
+          state: scope.state || "all",
+          company_id: scope.companyId ? String(scope.companyId) : null,
+          scope: scope.scope || (scope.userId ? "mine" : "company"),
+          region,
+          working: working || null,
+          district: district || null,
+          page: paged.page,
+          limit: paged.limit,
+          total: paged.total,
+          total_pages: Math.ceil(paged.total / paged.limit) || 0,
+          summary: paged.summary,
+        },
+        data: paged.rows.map(serializeLightAmc),
+      });
+    }
+
+    const rows = await findLightAmcs(scopeArgs);
+    const districtKey = district.toLowerCase();
     const data = rows.map(serializeLightAmc).filter((row) => {
       if (working === "Yes" && row.light_working !== "Yes") return false;
       if (working === "No" && row.light_working === "Yes") return false;
-      if (district && String(row.district || "").trim().toLowerCase() !== district) return false;
+      if (districtKey && String(row.district || "").trim().toLowerCase() !== districtKey) return false;
       return true;
     });
 
