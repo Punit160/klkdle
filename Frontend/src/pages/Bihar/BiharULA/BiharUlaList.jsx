@@ -104,19 +104,19 @@ const BiharUlaList = () => {
               solarMeterOnFirst: ulaSolarMeterOnFirstVisit(row),
               secondVisitComplete: Boolean(row.second_visit_complete),
               firstVisitComplete: Boolean(row.first_visit_complete),
-              visitType: row.second_visit_complete
+              visitType: ulaVisitsReadyForApproval(row)
                 ? 'Complete'
-                : ulaSolarMeterOnFirstVisit(row) && row.first_visit_complete
-                  ? 'Complete'
-                  : row.first_visit_complete
-                    ? '1st done'
-                    : 'Draft',
+                : row.first_visit_complete
+                  ? '1st done'
+                  : 'Draft',
               secondVisitPending: ulaSecondVisitNeeded(row),
               visitsReady: ulaVisitsReadyForApproval(row),
               imagesCount: countUlaSurveyPhotos(row),
               expectedPhotoCount:
                 expectedFirstVisitPhotoCount(row) +
-                (row.second_visit_complete ? 2 : 0),
+                (row.solar_meter_img2 ? 1 : 0) +
+                (row.system_img2 ? 1 : 0) +
+                (row.inverter_img && row.inverter_on_first_visit === false ? 1 : 0),
               approvalStatus: Number(row.approval_status ?? 0),
               approvalRemarks: row.approval_remarks || '',
             }})
@@ -364,16 +364,14 @@ const BiharUlaList = () => {
   }
 
   const visitPillClass = (row) => {
-    if (row.secondVisitComplete || (row.solarMeterOnFirst && row.firstVisitComplete)) {
-      return 'ula-visit-pill ula-visit-pill--complete'
-    }
+    if (row.visitsReady) return 'ula-visit-pill ula-visit-pill--complete'
     if (row.secondVisitPending) return 'ula-visit-pill ula-visit-pill--pending'
     return 'ula-visit-pill ula-visit-pill--first'
   }
 
   const visitPillLabel = (row) => {
-    if (row.secondVisitComplete) return '2nd visit done'
-    if (row.solarMeterOnFirst && row.firstVisitComplete) return 'Complete'
+    if (row.visitsReady && row.secondVisitComplete) return '2nd visit done'
+    if (row.visitsReady) return 'Complete'
     if (row.secondVisitPending) return '2nd visit pending'
     if (row.firstVisitComplete) return '1st visit done'
     return 'Draft'

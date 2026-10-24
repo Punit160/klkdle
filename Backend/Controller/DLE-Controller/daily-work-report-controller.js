@@ -118,21 +118,30 @@ export const getDailyWorkReport = async (req, res) => {
       ...companyFilter,
       ...(userMatch ? { user_id: userMatch } : {}),
     };
-    const fieldAmcSelect = {
-      id: true,
+    const monthSummary = monthMode && String(req.query.detail || "") !== "1";
+    const visitPointSelect = {
       user_id: true,
-      state: true,
-      district: true,
-      block: true,
-      panchayat: true,
-      unique_id: true,
-      ssl_id: true,
-      pole_no: true,
       latitude: true,
       longitude: true,
-      light_working: true,
       created_at: true,
     };
+    const fieldAmcSelect = monthSummary
+      ? visitPointSelect
+      : {
+          id: true,
+          user_id: true,
+          state: true,
+          district: true,
+          block: true,
+          panchayat: true,
+          unique_id: true,
+          ssl_id: true,
+          pole_no: true,
+          latitude: true,
+          longitude: true,
+          light_working: true,
+          created_at: true,
+        };
     const [attendance, ulaFirst, ulaSecond, fieldAmcBihar, fieldAmcUp, fieldAmcKusumc, fieldAmcPowerpack, fieldAmcOffgrid, fieldAmcOngrid, biharDocs, upDocs] = await Promise.all([
       prisma.attendance.findMany({ where: attendanceWhere }),
       prisma.biharUlaSurvey.findMany({
@@ -141,19 +150,21 @@ export const getDailyWorkReport = async (req, res) => {
           ...companyFilter,
           ...(userMatch ? { user_id: userMatch } : { user_id: { not: null } }),
         },
-        select: {
-          id: true,
-          ca_no: true,
-          ca_name: true,
-          district: true,
-          block: true,
-          panchayat: true,
-          village: true,
-          latitude: true,
-          longitude: true,
-          user_id: true,
-          created_at: true,
-        },
+        select: monthSummary
+          ? { latitude: true, longitude: true, user_id: true, created_at: true }
+          : {
+              id: true,
+              ca_no: true,
+              ca_name: true,
+              district: true,
+              block: true,
+              panchayat: true,
+              village: true,
+              latitude: true,
+              longitude: true,
+              user_id: true,
+              created_at: true,
+            },
       }),
       prisma.biharUlaSurvey.findMany({
         where: {
@@ -161,89 +172,99 @@ export const getDailyWorkReport = async (req, res) => {
           ...companyFilter,
           ...(userMatch ? { user_id2: userMatch } : { user_id2: { not: null } }),
         },
-        select: {
-          id: true,
-          ca_no: true,
-          ca_name: true,
-          district: true,
-          block: true,
-          panchayat: true,
-          village: true,
-          latitude2: true,
-          longitude2: true,
-          user_id2: true,
-          second_visit_at: true,
-        },
+        select: monthSummary
+          ? { latitude2: true, longitude2: true, user_id2: true, second_visit_at: true }
+          : {
+              id: true,
+              ca_no: true,
+              ca_name: true,
+              district: true,
+              block: true,
+              panchayat: true,
+              village: true,
+              latitude2: true,
+              longitude2: true,
+              user_id2: true,
+              second_visit_at: true,
+            },
       }),
       prisma.biharLightAmc.findMany({ where: fieldAmcWhere, select: fieldAmcSelect }),
       prisma.upLightAmc.findMany({ where: fieldAmcWhere, select: fieldAmcSelect }),
       prisma.upKusmcAmc.findMany({
         where: fieldAmcWhere,
-        select: {
-          id: true,
-          user_id: true,
-          state: true,
-          district: true,
-          block: true,
-          village: true,
-          pump_id: true,
-          work_order_no: true,
-          latitude: true,
-          longitude: true,
-          pump_working: true,
-          created_at: true,
-        },
+        select: monthSummary
+          ? visitPointSelect
+          : {
+              id: true,
+              user_id: true,
+              state: true,
+              district: true,
+              block: true,
+              village: true,
+              pump_id: true,
+              work_order_no: true,
+              latitude: true,
+              longitude: true,
+              pump_working: true,
+              created_at: true,
+            },
       }),
       prisma.upPowerPackAmc.findMany({
         where: fieldAmcWhere,
-        select: {
-          id: true,
-          user_id: true,
-          state: true,
-          district: true,
-          block: true,
-          village: true,
-          powerpack_id: true,
-          scheme_name: true,
-          latitude: true,
-          longitude: true,
-          powerpack_working: true,
-          created_at: true,
-        },
+        select: monthSummary
+          ? visitPointSelect
+          : {
+              id: true,
+              user_id: true,
+              state: true,
+              district: true,
+              block: true,
+              village: true,
+              powerpack_id: true,
+              scheme_name: true,
+              latitude: true,
+              longitude: true,
+              powerpack_working: true,
+              created_at: true,
+            },
       }),
       prisma.upOffgridAmc.findMany({
         where: fieldAmcWhere,
-        select: {
-          id: true,
-          user_id: true,
-          state: true,
-          district: true,
-          block: true,
-          village: true,
-          offgrid_id: true,
-          scheme_name: true,
-          latitude: true,
-          longitude: true,
-          working_status: true,
-          created_at: true,
-        },
+        select: monthSummary
+          ? visitPointSelect
+          : {
+              id: true,
+              user_id: true,
+              state: true,
+              district: true,
+              block: true,
+              village: true,
+              offgrid_id: true,
+              scheme_name: true,
+              latitude: true,
+              longitude: true,
+              working_status: true,
+              created_at: true,
+            },
       }),
       prisma.upOngridAmc.findMany({
         where: fieldAmcWhere,
-        select: {
-          id: true,
-          user_id: true,
-          state: true,
-          district: true,
-          block: true,
-          village: true,
-          ongrid_id: true,
-          scheme_name: true,
-          latitude: true,
-          longitude: true,
-          working_status: true,
-          created_at: true,
-        },
+        select: monthSummary
+          ? visitPointSelect
+          : {
+              id: true,
+              user_id: true,
+              state: true,
+              district: true,
+              block: true,
+              village: true,
+              ongrid_id: true,
+              scheme_name: true,
+              latitude: true,
+              longitude: true,
+              working_status: true,
+              created_at: true,
+            },
       }),
       prisma.biharSslAmcUploadDocument.findMany({
         where: {
@@ -251,12 +272,14 @@ export const getDailyWorkReport = async (req, res) => {
           ...companyFilter,
           ...(targetUserId ? { created_by: BigInt(targetUserId) } : {}),
         },
-        select: {
-          id: true,
-          created_by: true,
-          created_at: true,
-          biharSslAmc: { select: { district: true, block: true, panchayat: true, state: true } },
-        },
+        select: monthSummary
+          ? { created_by: true, created_at: true }
+          : {
+              id: true,
+              created_by: true,
+              created_at: true,
+              biharSslAmc: { select: { district: true, block: true, panchayat: true, state: true } },
+            },
       }),
       prisma.upSslAmcUploadDocument.findMany({
         where: {
@@ -264,12 +287,14 @@ export const getDailyWorkReport = async (req, res) => {
           ...companyFilter,
           ...(targetUserId ? { created_by: BigInt(targetUserId) } : {}),
         },
-        select: {
-          id: true,
-          created_by: true,
-          created_at: true,
-          upSslAmc: { select: { district: true, block: true, panchayat: true, state: true } },
-        },
+        select: monthSummary
+          ? { created_by: true, created_at: true }
+          : {
+              id: true,
+              created_by: true,
+              created_at: true,
+              upSslAmc: { select: { district: true, block: true, panchayat: true, state: true } },
+            },
       }),
     ]);
 

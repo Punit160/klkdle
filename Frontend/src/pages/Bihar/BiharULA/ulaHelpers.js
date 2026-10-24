@@ -211,7 +211,8 @@ export const ULA_IMAGE_SLOTS = [
     hasSerialInput: true,
     serialPlaceholder: 'e.g. INV-KLK-908231',
     visit: 1,
-    required: true,
+    required: false,
+    optionalOnFirst: true,
     desc: 'Clear photo of Inverter serial & QR code',
     descHi: 'इनवर्टर सीरियल और क्यूआर कोड का स्पष्ट फोटो',
   },
@@ -283,8 +284,24 @@ export const ULA_IMAGE_SLOTS = [
     visit: 1,
     required: false,
     optionalWhenSolarAvailable: true,
-    desc: 'Optional 8th photo — only if solar meter is already installed on 1st visit',
-    descHi: 'वैकल्पिक 8वाँ फोटो — केवल यदि पहली भेंट पर सोलर मीटर पहले से लगा हो',
+    desc: 'Optional photo — only if solar meter is already installed on 1st visit',
+    descHi: 'वैकल्पिक फोटो — केवल यदि पहली भेंट पर सोलर मीटर पहले से लगा हो',
+  },
+  {
+    id: 'inverter_qr_v2',
+    key: 'inverter_qr',
+    title: 'Inverter (QR Code)',
+    titleHi: 'इनवर्टर (क्यूआर कोड)',
+    badge: '2nd Visit',
+    badgeClass: 'bg-soft-warning text-warning',
+    isQr: true,
+    hasSerialInput: true,
+    serialPlaceholder: 'e.g. INV-KLK-908231',
+    visit: 2,
+    required: true,
+    whenInverterMissing: true,
+    desc: 'Clear photo of Inverter serial & QR code',
+    descHi: 'इनवर्टर सीरियल और क्यूआर कोड का स्पष्ट फोटो',
   },
   {
     id: 'solar_meter_v2',
@@ -316,12 +333,26 @@ export const ULA_IMAGE_SLOTS = [
   },
 ]
 
-export const getUlaSlotsForVisit = (visitType, solarMeterOnFirstVisit = false) => {
+export const getUlaSlotsForVisit = (visitType, solarOrOptions = false) => {
+  const options =
+    solarOrOptions && typeof solarOrOptions === 'object'
+      ? solarOrOptions
+      : { solarMeterOnFirstVisit: Boolean(solarOrOptions) }
+  const solarMeterOnFirstVisit = Boolean(options.solarMeterOnFirstVisit)
+  const inverterOnFirstVisit = Boolean(options.inverterOnFirstVisit)
+  const inverterAlreadyCaptured = Boolean(options.inverterAlreadyCaptured)
   const visit = visitType === '2nd Visit' ? 2 : 1
   return ULA_IMAGE_SLOTS.filter((slot) => {
     if (slot.visit !== visit) return false
-    if (slot.optionalWhenSolarAvailable && visit === 1) {
-      return solarMeterOnFirstVisit
+    if (slot.optionalWhenSolarAvailable && visit === 1) return solarMeterOnFirstVisit
+    if (slot.optionalOnFirst && visit === 1) return inverterOnFirstVisit
+    if (slot.whenInverterMissing && visit === 2) return !inverterAlreadyCaptured
+    if (
+      visit === 2 &&
+      solarMeterOnFirstVisit &&
+      (slot.key === 'solar_meter_v2' || slot.key === 'system_complete')
+    ) {
+      return false
     }
     return true
   }).map((slot) => {
@@ -331,6 +362,14 @@ export const getUlaSlotsForVisit = (visitType, solarMeterOnFirstVisit = false) =
         required: true,
         badge: '1st Visit',
         badgeClass: 'bg-soft-dark text-dark',
+      }
+    }
+    if (slot.optionalOnFirst && visit === 1 && inverterOnFirstVisit) {
+      return {
+        ...slot,
+        required: true,
+        badge: '1st Visit',
+        badgeClass: 'bg-soft-warning text-warning',
       }
     }
     return slot
@@ -404,11 +443,30 @@ export const countUlaSurveyPhotos = (row) => {
   return count
 }
 
-/** Minimum photos for a complete 1st visit (7 required; +1 if solar meter on 1st visit). */
-export const expectedFirstVisitPhotoCount = (row) =>
-  row?.solar_meter_img ? 8 : 7
+/** Inverter photo and serial are saved, on either visit. */
+export const ulaInverterCaptured = (survey) =>
+  Boolean(
+    String(survey?.inverter_no || '').trim() &&
+      (survey?.inverter_img || survey?.inverter_img_url)
+  )
 
-/** Solar meter captured with the 1st visit (the 8th photo). That site needs no 2nd visit. */
+/** True when the inverter was captured during the 1st visit. Older rows did that by default. */
+export const ulaInverterOnFirstVisit = (survey) => {
+  const flag = survey?.inverter_on_first_visit
+  if (flag === true || flag === 1 || flag === '1') return true
+  if (flag === false || flag === 0 || flag === '0') return false
+  return ulaInverterCaptured(survey)
+}
+
+/** 6 required 1st-visit photos, plus inverter and solar meter when those were on site. */
+export const expectedFirstVisitPhotoCount = (row) => {
+  let count = 6
+  if (ulaInverterOnFirstVisit(row)) count += 1
+  if (row?.solar_meter_img || row?.solar_meter_img_url || row?.solar_meter_on_first_visit) count += 1
+  return count
+}
+
+/** Solar meter captured with the 1st visit. */
 export const ulaSolarMeterOnFirstVisit = (survey) =>
   Boolean(
     survey?.solar_meter_on_first_visit ||
@@ -416,19 +474,32 @@ export const ulaSolarMeterOnFirstVisit = (survey) =>
       survey?.solar_meter_img_url
   )
 
-export const ulaSecondVisitNeeded = (survey) =>
-  Boolean(survey?.first_visit_complete) &&
-  !survey?.second_visit_complete &&
-  !ulaSolarMeterOnFirstVisit(survey)
+const ulaSecondVisitPhotosDone = (survey) =>
+  Boolean(
+    survey?.secondVisitComplete ||
+      survey?.second_visit_complete ||
+      (survey?.system_img2 && survey?.solar_meter_img2) ||
+      (survey?.system_img2_url && survey?.solar_meter_img2_url)
+  )
 
-/** Approve only when both visits are done, or the 1st visit already finished the site. */
+/** First visit is done, the inverter is saved, and the solar meter is saved on visit 1 or 2. */
+export const ulaSiteVisitsComplete = (survey) => {
+  const firstDone = Boolean(
+    survey?.firstVisitComplete ?? survey?.first_visit_complete ?? survey?.system_img
+  )
+  if (!firstDone || !ulaInverterCaptured(survey)) return false
+  return ulaSolarMeterOnFirstVisit(survey) || ulaSecondVisitPhotosDone(survey)
+}
+
+export const ulaSecondVisitNeeded = (survey) => {
+  const firstDone = Boolean(survey?.first_visit_complete ?? survey?.firstVisitComplete)
+  return firstDone && !ulaSiteVisitsComplete(survey)
+}
+
+/** Approve only when the inverter and the solar meter are both on file. */
 export const ulaVisitsReadyForApproval = (survey) => {
   if (!survey) return false
-  const firstDone = Boolean(survey.firstVisitComplete ?? survey.first_visit_complete)
-  const secondDone = Boolean(survey.secondVisitComplete ?? survey.second_visit_complete)
-  if (!firstDone) return false
-  if (secondDone) return true
-  return Boolean(survey.solarMeterOnFirst) || ulaSolarMeterOnFirstVisit(survey)
+  return ulaSiteVisitsComplete(survey)
 }
 
 export const dataUrlToBlob = async (dataUrl) => {
@@ -728,6 +799,7 @@ export const fetchUlaReport = async () => {
     rows: res?.data?.data || [],
     total: Number(res?.data?.meta?.total ?? res?.data?.data?.length ?? 0),
     scope: res?.data?.meta?.scope || 'mine',
+    districts: Array.isArray(res?.data?.meta?.districts) ? res.data.meta.districts : [],
   }
 }
 
@@ -815,6 +887,7 @@ export const submitUlaFirstVisit = async ({
   images,
   serialNumbers,
   solarMeterOnFirstVisit,
+  inverterOnFirstVisit,
   remarks,
 }) => {
   const user = getUser()
@@ -834,6 +907,7 @@ export const submitUlaFirstVisit = async ({
   fd.append('latitude', form.latitude || '')
   fd.append('longitude', form.longitude || '')
   fd.append('solar_meter_on_first_visit', solarMeterOnFirstVisit ? '1' : '0')
+  fd.append('inverter_on_first_visit', inverterOnFirstVisit ? '1' : '0')
   const visit1Note = String(remarks ?? '').trim().slice(0, 500)
   if (visit1Note) fd.append('remarks', visit1Note)
 
@@ -843,7 +917,10 @@ export const submitUlaFirstVisit = async ({
     }
   })
 
-  const slots = getUlaSlotsForVisit('1st Visit', solarMeterOnFirstVisit)
+  const slots = getUlaSlotsForVisit('1st Visit', {
+    solarMeterOnFirstVisit,
+    inverterOnFirstVisit,
+  })
   for (const slot of slots) {
     if (!images[slot.key]) continue
     let apiField = ULA_SLOT_API_FIELD[slot.key]
@@ -862,14 +939,23 @@ export const submitUlaFirstVisit = async ({
   return res?.data
 }
 
-export const submitUlaSecondVisit = async ({ recordId, images, latitude, longitude, remarks }) => {
+export const submitUlaSecondVisit = async ({
+  recordId,
+  images,
+  serialNumbers,
+  latitude,
+  longitude,
+  remarks,
+}) => {
   const fd = new FormData()
   fd.append('latitude2', latitude || '')
   fd.append('longitude2', longitude || '')
   const visit2Note = String(remarks ?? '').trim().slice(0, 500)
   if (visit2Note) fd.append('remarks', visit2Note)
+  const inverterNo = String(serialNumbers?.inverter_qr || '').trim()
+  if (inverterNo) fd.append('inverter_no', inverterNo)
 
-  for (const key of ['solar_meter_v2', 'system_complete']) {
+  for (const key of ['solar_meter_v2', 'system_complete', 'inverter_qr']) {
     const apiField = ULA_SLOT_API_FIELD[key]
     if (!images[key] || !apiField) continue
     const file = await dataUrlToUploadFile(images[key], `${key}.jpg`)
@@ -941,13 +1027,15 @@ export const mapSurveyToDetailsRecord = (survey) => {
     longitude: survey.longitude,
     latitude2: survey.latitude2,
     longitude2: survey.longitude2,
-    visitType: survey.second_visit_complete
-      ? '2nd Visit complete'
-      : ulaSolarMeterOnFirstVisit(survey) && survey.first_visit_complete
-        ? 'Complete (solar meter on 1st visit)'
-        : survey.first_visit_complete
-          ? '1st Visit complete'
-          : '1st Visit',
+    visitType: !survey.first_visit_complete
+      ? '1st Visit'
+      : ulaSiteVisitsComplete(survey) && !survey.second_visit_complete
+        ? 'Complete (solar meter and inverter on 1st visit)'
+        : survey.second_visit_complete
+          ? '2nd Visit complete'
+          : '1st Visit complete',
+    inverterOnFirstVisit: ulaInverterOnFirstVisit(survey),
+    inverterCaptured: ulaInverterCaptured(survey),
     firstVisitComplete: Boolean(survey.first_visit_complete),
     secondVisitComplete: Boolean(survey.second_visit_complete),
     solarMeterOnFirst: ulaSolarMeterOnFirstVisit(survey),

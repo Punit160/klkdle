@@ -25,7 +25,10 @@ export const biharUlaFirstVisitUpload = objectUploadFields(
 );
 
 export const biharUlaSecondVisitUpload = objectUploadFields(
-  visit2Fields.map((f) => ({ ...f, prefix: "biharula" })),
+  [...visit2Fields, { name: "inverter_img", maxCount: 1 }].map((f) => ({
+    ...f,
+    prefix: "biharula",
+  })),
   { maxFileSize: ULA_MAX_FILE_BYTES }
 );
 

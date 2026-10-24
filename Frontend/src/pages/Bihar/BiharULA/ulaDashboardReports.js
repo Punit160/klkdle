@@ -1,4 +1,5 @@
 import { getAmcApprovalLabel } from '../../../utils/amcApproval'
+import { ulaInverterCaptured, ulaSolarMeterOnFirstVisit } from './ulaHelpers'
 
 export const ULA_REPORT_TABS = [
   { id: 'overview', label: 'Overview' },
@@ -45,12 +46,8 @@ export const surveyDayKey = (value) => {
 }
 
 export const classifyUlaVisit = (row) => {
-  const solarFirst = Boolean(
-    row?.solarMeterOnFirst ||
-      row?.solar_meter_on_first_visit ||
-      row?.solar_meter_img ||
-      row?.solar_meter_img_url
-  )
+  const solarFirst = ulaSolarMeterOnFirstVisit(row)
+  const inverterDone = ulaInverterCaptured(row)
   const firstDone = Boolean(row?.firstVisitComplete ?? row?.first_visit_complete ?? row?.system_img)
   const secondDone = Boolean(
     row?.secondVisitComplete ??
@@ -58,7 +55,7 @@ export const classifyUlaVisit = (row) => {
       (row?.system_img2 && row?.solar_meter_img2)
   )
   if (secondDone) return { key: 'complete_second', label: '2nd visit complete' }
-  if (firstDone && solarFirst) return { key: 'complete_first', label: 'Complete on 1st visit' }
+  if (firstDone && solarFirst && inverterDone) return { key: 'complete_first', label: 'Complete on 1st visit' }
   if (firstDone) return { key: 'second_pending', label: '2nd visit pending' }
   return { key: 'incomplete', label: '1st visit incomplete' }
 }

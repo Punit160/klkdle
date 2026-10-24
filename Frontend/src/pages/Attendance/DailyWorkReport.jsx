@@ -7,6 +7,8 @@ import { userIsAdmin } from '../../utils/userRoles'
 import { formatAttendanceDate, formatAttendanceTime, formatCoords, MONTH_NAMES } from '../../utils/attendanceFormat'
 import '../../styles/DLE/daily-work-report.css'
 
+const PAGE_SIZE = 25
+
 const currentMonth = () => {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -172,6 +174,7 @@ const DailyWorkReport = () => {
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -179,6 +182,7 @@ const DailyWorkReport = () => {
     setError('')
     setOpenKey('')
     setDetail(null)
+    setPage(1)
     localApi
       .get(app.attendance.workReport, {
         params: isAdmin ? { month, user_id: 'all' } : { month },
@@ -251,6 +255,10 @@ const DailyWorkReport = () => {
     [visibleUsers]
   )
 
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount)
+  const pageRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
   const totals = useMemo(() => {
     const people = new Set(rows.map((row) => String(row.user_id)))
     return {
@@ -303,7 +311,16 @@ const DailyWorkReport = () => {
             {isAdmin ? (
               <label className="daily-work-user">
                 <FiUsers size={14} />
-                <select value={userId} onChange={(event) => setUserId(event.target.value)} aria-label="Filter by user">
+                <select
+                  value={userId}
+                  onChange={(event) => {
+                    setUserId(event.target.value)
+                    setPage(1)
+                    setOpenKey('')
+                    setDetail(null)
+                  }}
+                  aria-label="Filter by user"
+                >
                   <option value="">All users</option>
                   {filterOptions.map((user) => (
                     <option key={user.user_id} value={user.user_id}>
@@ -361,6 +378,7 @@ const DailyWorkReport = () => {
           <p className="p-4 text-muted fs-13 mb-0">No punch-in or field work in this month.</p>
         ) : null}
         {!loading && rows.length > 0 ? (
+          <>
             <div className="table-responsive">
               <table className="table daily-work-table mb-0">
                 <thead>
@@ -377,7 +395,7 @@ const DailyWorkReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => {
+                  {pageRows.map((row) => {
                     const key = `${row.user_id}|${row.date}`
                     const open = openKey === key
                     const status = dayStatus(row)
@@ -411,6 +429,40 @@ const DailyWorkReport = () => {
                 </tbody>
               </table>
             </div>
+            {pageCount > 1 ? (
+              <div className="d-flex align-items-center justify-content-between px-3 py-2 border-top">
+                <span className="fs-12 text-muted">
+                  Page {currentPage} of {pageCount} · {rows.length} working days
+                </span>
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-light"
+                    disabled={currentPage <= 1}
+                    onClick={() => {
+                      setPage(currentPage - 1)
+                      setOpenKey('')
+                      setDetail(null)
+                    }}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-light"
+                    disabled={currentPage >= pageCount}
+                    onClick={() => {
+                      setPage(currentPage + 1)
+                      setOpenKey('')
+                      setDetail(null)
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : null}
           </div>
         </div>

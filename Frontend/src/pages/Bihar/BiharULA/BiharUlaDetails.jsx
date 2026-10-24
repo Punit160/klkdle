@@ -19,6 +19,7 @@ import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { pages } from '../../../api/routes'
 import {
   getUlaSlotsForVisit,
+  ulaInverterCaptured,
   fetchUlaSurveyById,
   mapSurveyToDetailsRecord,
   buildMapsUrl,
@@ -223,11 +224,19 @@ const BiharUlaDetails = () => {
     .filter(Boolean)
     .join(', ')
 
-  const firstVisitSlots = getUlaSlotsForVisit(
-    '1st Visit',
-    Boolean(record.images?.solar_meter_v1)
-  )
-  const secondVisitSlots = getUlaSlotsForVisit('2nd Visit', false)
+  const solarOnFirst = Boolean(record.solarMeterOnFirst || record.images?.solar_meter_v1)
+  const inverterOnFirst = Boolean(record.inverterOnFirstVisit)
+  const firstVisitSlots = getUlaSlotsForVisit('1st Visit', {
+    solarMeterOnFirstVisit: solarOnFirst,
+    inverterOnFirstVisit: inverterOnFirst,
+  })
+  const secondVisitSlots = getUlaSlotsForVisit('2nd Visit', {
+    solarMeterOnFirstVisit: solarOnFirst,
+    inverterAlreadyCaptured: inverterOnFirst || !ulaInverterCaptured({
+      inverter_no: record.serialNumbers?.inverter_qr,
+      inverter_img_url: record.images?.inverter_qr,
+    }),
+  })
   const hasSecondVisitPhotos =
     record.secondVisitComplete ||
     secondVisitSlots.some((slot) => record.images?.[slot.key])

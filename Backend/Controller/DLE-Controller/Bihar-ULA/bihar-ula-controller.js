@@ -28,8 +28,7 @@ const buildUlaExistingRecordSummary = (row) => {
   const first_visit_complete = Boolean(String(row.system_img ?? "").trim());
   const second_visit_complete = secondVisitIsComplete(row);
   const solar_meter_on_first_visit = solarMeterCapturedOnFirstVisit(row);
-  const visits_complete =
-    first_visit_complete && (second_visit_complete || solar_meter_on_first_visit);
+  const visits_complete = siteVisitsAreComplete(row);
   let visit_status = "first_incomplete";
   if (visits_complete) visit_status = "complete";
   else if (first_visit_complete) visit_status = "second_pending";
@@ -224,19 +223,37 @@ const zipEntryNameFromStored = (stored, fallbackBase) => {
   return `${fallbackBase}.jpg`;
 };
 
-const secondVisitIsComplete = (row) =>
+const secondVisitPhotosDone = (row) =>
   Boolean(
     String(row?.system_img2 ?? "").trim() &&
       String(row?.solar_meter_img2 ?? "").trim()
   );
 
+const secondVisitIsComplete = (row) =>
+  Boolean(row?.second_visit_at) || secondVisitPhotosDone(row);
+
 const solarMeterCapturedOnFirstVisit = (row) =>
   Boolean(String(row?.solar_meter_img ?? "").trim());
 
-/** 8 first-visit photos, including the solar meter, finish the site. No 2nd visit. */
+const inverterCaptured = (row) =>
+  Boolean(String(row?.inverter_no ?? "").trim() && String(row?.inverter_img ?? "").trim());
+
+/** Older rows captured the inverter on the 1st visit and have no flag. */
+const inverterOnFirstVisit = (row) => {
+  const flag = parseSurveyRemarksMeta(row?.remarks).inverter_on_first_visit;
+  if (flag === true || flag === 1 || flag === "1") return true;
+  if (flag === false || flag === 0 || flag === "0") return false;
+  return inverterCaptured(row);
+};
+
+/** First visit, inverter, and solar meter (on visit 1 or visit 2) finish the site. */
 const siteVisitsAreComplete = (row) => {
   const firstVisitDone = Boolean(String(row?.system_img ?? "").trim());
-  return firstVisitDone && (secondVisitIsComplete(row) || solarMeterCapturedOnFirstVisit(row));
+  return (
+    firstVisitDone &&
+    inverterCaptured(row) &&
+    (solarMeterCapturedOnFirstVisit(row) || secondVisitPhotosDone(row))
+  );
 };
 
 const isSecondVisitPendingRow = (row) =>
@@ -405,6 +422,7 @@ const serializeSurvey = (req, row, nameMap = new Map()) => {
     first_visit_complete: Boolean(row.system_img),
     second_visit_complete: secondVisitIsComplete(row),
     solar_meter_on_first_visit: solarMeterCapturedOnFirstVisit(row),
+    inverter_on_first_visit: inverterOnFirstVisit(row),
     second_visit_required: isSecondVisitPendingRow(row),
     visits_complete: siteVisitsAreComplete(row),
     ...serializeAmcApprovalFields(row),
@@ -961,6 +979,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       latitude,
       longitude,
       solar_meter_on_first_visit,
+      inverter_on_first_visit,
       remarks: visit1NoteBody,
     } = req.body;
 
@@ -991,13 +1010,23 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     const caNoNormalized = caParsed.value;
     const panelOneNormalized = normalizeUlaSerialNumber(panel_one_no);
     const panelTwoNormalized = normalizeUlaSerialNumber(panel_two_no);
-    const inverterNormalized = normalizeUlaSerialNumber(inverter_no);
+    const inverterWanted =
+      String(inverter_on_first_visit).toLowerCase() === "true" ||
+      inverter_on_first_visit === "1" ||
+      Boolean(normalizeUlaSerialNumber(inverter_no)) ||
+      Boolean(req.files?.inverter_img?.[0]);
+    const inverterNormalized = inverterWanted ? normalizeUlaSerialNumber(inverter_no) : null;
 
-    if (!panelOneNormalized || !panelTwoNormalized || !inverterNormalized) {
+    if (!panelOneNormalized || !panelTwoNormalized) {
       return res.status(422).json({
         success: false,
-        message:
-          "Panel 1, Panel 2, and Inverter serial numbers are required on 1st visit.",
+        message: "Panel 1 and Panel 2 serial numbers are required on 1st visit.",
+      });
+    }
+    if (inverterWanted && !inverterNormalized) {
+      return res.status(422).json({
+        success: false,
+        message: "Inverter serial number is required when the inverter is captured on the 1st visit.",
       });
     }
 
@@ -1011,7 +1040,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       beneficiaryContact: mobileParsed.value,
       panelOneNo: panelOneNormalized,
       panelTwoNo: panelTwoNormalized,
-      inverterNo: inverterNormalized,
+      inverterNo: inverterNormalized || null,
       latitude: gpsParsed.latitude,
       longitude: gpsParsed.longitude,
     });
@@ -1055,7 +1084,6 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     const required = [
       "panel_one_img",
       "panel_two_img",
-      "inverter_img",
       "smart_meter_img",
       "acdb_img",
       "system_img",
@@ -1088,6 +1116,13 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       }
     }
 
+    if (inverterWanted && !stored.inverter_img) {
+      return res.status(422).json({
+        success: false,
+        message: "Inverter photo is required when the inverter is captured on the 1st visit.",
+      });
+    }
+
     const surveyorName = await resolveUserDisplayName(userId);
     const created = await prisma.biharUlaSurvey.create({
       data: {
@@ -1106,8 +1141,8 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         panel_one_no: panelOneNormalized,
         panel_two_img: stored.panel_two_img,
         panel_two_no: panelTwoNormalized,
-        inverter_img: stored.inverter_img,
-        inverter_no: inverterNormalized,
+        inverter_img: inverterWanted ? stored.inverter_img : null,
+        inverter_no: inverterWanted ? inverterNormalized : null,
         smart_meter_img: stored.smart_meter_img,
         acdb_img: stored.acdb_img,
         system_img: stored.system_img,
@@ -1119,6 +1154,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         remarks: mergeSurveyRemarksMeta(null, {
           structure_img: structurePath,
           surveyor_name: surveyorName,
+          inverter_on_first_visit: Boolean(inverterWanted),
           ...(clip(visit1NoteBody, 500)
             ? { visit1_note: clip(visit1NoteBody, 500) }
             : {}),
@@ -1202,31 +1238,35 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       });
     }
 
-    if (solarMeterCapturedOnFirstVisit(existing)) {
+    if (siteVisitsAreComplete(existing)) {
       return res.status(409).json({
         success: false,
-        message:
-          "2nd visit is not required. The solar meter photo was already captured on the 1st visit.",
+        message: solarMeterCapturedOnFirstVisit(existing)
+          ? "2nd visit is not required. The solar meter and inverter were already captured on the 1st visit."
+          : "2nd visit is already completed for this record.",
       });
     }
 
-    if (existing.system_img2 && existing.solar_meter_img2) {
-      return res.status(409).json({
-        success: false,
-        message: "2nd visit is already completed for this record.",
-      });
-    }
-
-    const { latitude2, longitude2, remarks: visit2NoteBody } = req.body;
+    const needsSolar = !solarMeterCapturedOnFirstVisit(existing);
+    const needsInverter = !inverterCaptured(existing);
+    const { latitude2, longitude2, inverter_no, remarks: visit2NoteBody } = req.body;
     const files = req.files || {};
 
     const solarFile = files.solar_meter_img2?.[0];
     const systemFile = files.system_img2?.[0];
+    const inverterFile = files.inverter_img?.[0];
+    const inverterNormalized = normalizeUlaSerialNumber(inverter_no);
 
-    if (!solarFile || !systemFile) {
+    if (needsSolar && (!solarFile || !systemFile)) {
       return res.status(422).json({
         success: false,
         message: "Both solar_meter_img2 and system_img2 photos are required for 2nd visit.",
+      });
+    }
+    if (needsInverter && (!inverterFile || !inverterNormalized)) {
+      return res.status(422).json({
+        success: false,
+        message: "Inverter photo and serial number are required on the 2nd visit when they were not captured on the 1st visit.",
       });
     }
 
@@ -1251,10 +1291,28 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       });
     }
 
+    if (needsInverter) {
+      const inverterConflict = await findUlaSerialConflict(
+        "inverter_no",
+        "inverter_no",
+        inverterNormalized,
+        "inverter serial number",
+        id
+      );
+      if (inverterConflict) {
+        return res.status(409).json({
+          success: false,
+          message: inverterConflict.message,
+          conflicts: [inverterConflict],
+        });
+      }
+    }
+
     const caFolderKey = sanitizeUlaCaFolder(existing.ca_no);
-    const [solar_meter_img2, system_img2] = await Promise.all([
-      persistFileField(solarFile, caFolderKey, "solar_meter_img2"),
-      persistFileField(systemFile, caFolderKey, "system_img2"),
+    const [solar_meter_img2, system_img2, inverter_img] = await Promise.all([
+      solarFile ? persistFileField(solarFile, caFolderKey, "solar_meter_img2") : null,
+      systemFile ? persistFileField(systemFile, caFolderKey, "system_img2") : null,
+      inverterFile ? persistFileField(inverterFile, caFolderKey, "inverter_img") : null,
     ]);
 
     const surveyorName2 = await resolveUserDisplayName(userId);
@@ -1262,8 +1320,9 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
     const updated = await prisma.biharUlaSurvey.update({
       where: { id: BigInt(id) },
       data: {
-        solar_meter_img2,
-        system_img2,
+        ...(solar_meter_img2 ? { solar_meter_img2 } : {}),
+        ...(system_img2 ? { system_img2 } : {}),
+        ...(inverter_img ? { inverter_img, inverter_no: inverterNormalized } : {}),
         latitude2: gpsParsed.latitude,
         longitude2: gpsParsed.longitude,
         user_id2: clip(String(userId).trim(), 50),
@@ -1373,6 +1432,37 @@ export const listBiharUlaSurveys = async (req, res) => {
   }
 };
 
+const countValue = (value) => Number(value || 0);
+
+/** District totals for every surveyor. Field users see their company; admins see every company. */
+const findUlaDistrictSummary = async (companyId) => {
+  const filled = (column) => `\`${column}\` IS NOT NULL AND TRIM(\`${column}\`) <> ''`;
+  const firstDone = filled("system_img");
+  const complete = `(${firstDone}) AND (${filled("inverter_no")}) AND (${filled("inverter_img")}) AND ((${filled("solar_meter_img")}) OR ((${filled("system_img2")}) AND (${filled("solar_meter_img2")})))`;
+  const companySql = companyId ? Prisma.sql`WHERE company_id = ${String(companyId)}` : Prisma.empty;
+  const rows = await prisma.$queryRaw`
+    SELECT
+      COALESCE(NULLIF(TRIM(district), ''), 'Not set') AS district,
+      COUNT(*) AS sites,
+      SUM(CASE WHEN ${Prisma.raw(firstDone)} THEN 1 ELSE 0 END) AS first_done,
+      SUM(CASE WHEN NOT (${Prisma.raw(firstDone)}) THEN 1 ELSE 0 END) AS first_incomplete,
+      SUM(CASE WHEN (${Prisma.raw(firstDone)}) AND NOT (${Prisma.raw(complete)}) THEN 1 ELSE 0 END) AS second_pending,
+      SUM(CASE WHEN ${Prisma.raw(complete)} THEN 1 ELSE 0 END) AS complete
+    FROM bihar_ula_site_survey
+    ${companySql}
+    GROUP BY COALESCE(NULLIF(TRIM(district), ''), 'Not set')
+    ORDER BY sites DESC, district ASC
+  `;
+  return rows.map((row) => ({
+    district: String(row.district || "Not set"),
+    sites: countValue(row.sites),
+    firstDone: countValue(row.first_done),
+    firstIncomplete: countValue(row.first_incomplete),
+    secondPending: countValue(row.second_pending),
+    complete: countValue(row.complete),
+  }));
+};
+
 /** Admin sees every site. A field user sees only surveys they did (1st or 2nd visit). */
 export const getBiharUlaReport = async (req, res) => {
   try {
@@ -1399,9 +1489,16 @@ export const getBiharUlaReport = async (req, res) => {
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
     });
     const data = await enrichSurveysWithUserNames(req, rows);
+    const summaryCompanyId = portalCompanyId
+      || (adminView ? "" : (resolveJwtUserCompanyId(req) || await resolveUserCompanyFromDb(jwtUserId)));
+    const districts = await findUlaDistrictSummary(summaryCompanyId);
     return res.json({
       success: true,
-      meta: { scope: adminView ? "all" : "mine", total: data.length },
+      meta: {
+        scope: adminView ? "all" : "mine",
+        total: data.length,
+        districts,
+      },
       data,
     });
   } catch (error) {

@@ -154,6 +154,7 @@ const GroupTable = ({ table }) => {
 const BiharUlaDashboard = () => {
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
+  const [allDistricts, setAllDistricts] = useState([])
   const [scope, setScope] = useState('mine')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -171,15 +172,17 @@ const BiharUlaDashboard = () => {
     setLoading(true)
     setError('')
     fetchUlaReport()
-      .then(({ rows: loaded, scope: loadedScope }) => {
+      .then(({ rows: loaded, scope: loadedScope, districts }) => {
         if (!cancelled) {
           setRows(loaded.map(mapReportRow))
+          setAllDistricts(Array.isArray(districts) ? districts : [])
           setScope(loadedScope === 'all' ? 'all' : 'mine')
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setRows([])
+          setAllDistricts([])
           setError(getApiErrorMessage(err, 'Could not load the ULA dashboard.'))
         }
       })
@@ -218,8 +221,22 @@ const BiharUlaDashboard = () => {
 
   const filtered = useMemo(() => filterUlaDashboardRows(rows, filters), [rows, filters])
   const summary = useMemo(() => summarizeUlaRows(filtered), [filtered])
+  const myDistrictGroups = useMemo(
+    () => groupUlaRows(filtered, (row) => row.district).slice(0, 12),
+    [filtered]
+  )
+  const allDistrictRows = useMemo(
+    () => allDistricts.map((row) => ({
+      label: row.district,
+      total: Number(row.sites) || 0,
+      firstDone: Number(row.firstDone) || 0,
+      incomplete: Number(row.firstIncomplete) || 0,
+      secondPending: Number(row.secondPending) || 0,
+      complete: Number(row.complete) || 0,
+    })),
+    [allDistricts]
+  )
   const table = useMemo(() => reportTableFor(report, filtered), [report, filtered])
-  const districtGroups = useMemo(() => groupUlaRows(filtered, (row) => row.district).slice(0, 12), [filtered])
   const surveyorPreview = useMemo(() => buildSurveyorReport(filtered).slice(0, 8), [filtered])
 
   const totalPages = Math.ceil(table.rows.length / PER_PAGE) || 1
@@ -577,17 +594,17 @@ const BiharUlaDashboard = () => {
                       <>
                         <div className="bihar-amc-panel mb-3">
                           <div className="bihar-amc-panel-head">
-                            <h6>District-wise ULA progress</h6>
+                            <h6>{seesAllSites ? 'District-wise ULA progress' : 'Your district progress'}</h6>
                           </div>
                           <div className="p-2 pb-0">
-                            {districtGroups.length ? (
+                            {myDistrictGroups.length ? (
                               <ReactApexChart
                                 type="bar"
                                 height={340}
                                 series={[
-                                  { name: 'Sites', data: districtGroups.map((row) => row.total) },
-                                  { name: 'Approved', data: districtGroups.map((row) => row.approved) },
-                                  { name: '2nd visit pending', data: districtGroups.map((row) => row.secondPending) },
+                                  { name: 'Sites', data: myDistrictGroups.map((row) => row.total) },
+                                  { name: 'Approved', data: myDistrictGroups.map((row) => row.approved) },
+                                  { name: '2nd visit pending', data: myDistrictGroups.map((row) => row.secondPending) },
                                 ]}
                                 options={{
                                   chart: { toolbar: { show: false } },
@@ -595,7 +612,7 @@ const BiharUlaDashboard = () => {
                                   stroke: { width: [0, 0, 0], curve: 'smooth' },
                                   plotOptions: { bar: { borderRadius: 6, columnWidth: '48%' } },
                                   xaxis: {
-                                    categories: districtGroups.map((row) => row.label),
+                                    categories: myDistrictGroups.map((row) => row.label),
                                     labels: { rotate: -35, style: { fontSize: '11px', colors: '#64748b' } },
                                   },
                                   grid: { borderColor: '#eef2f6', strokeDashArray: 4 },
@@ -617,7 +634,8 @@ const BiharUlaDashboard = () => {
 
                         <div className="bihar-amc-panel mb-3">
                           <div className="bihar-amc-panel-head">
-                            <h6>District status</h6>
+                            <h6>All districts</h6>
+                            <span className="fs-12 text-muted">Every district, including sites visited by other surveyors</span>
                           </div>
                           <div className="table-responsive">
                             <table className="table bihar-amc-table mb-0">
@@ -625,45 +643,31 @@ const BiharUlaDashboard = () => {
                                 <tr>
                                   <th>District</th>
                                   <th>Sites</th>
-                                  <th>Done</th>
-                                  <th>2nd pending</th>
-                                  <th>Approved</th>
-                                  <th>Rejected</th>
-                                  <th>Progress</th>
+                                  <th>1st visit done</th>
+                                  <th>1st visit incomplete</th>
+                                  <th>2nd visit pending</th>
+                                  <th>Visits complete</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {districtGroups.length === 0 ? (
-                                  <tr><td colSpan={7}><div className="bihar-amc-empty">No districts in this filter.</div></td></tr>
+                                {allDistrictRows.length === 0 ? (
+                                  <tr><td colSpan={6}><div className="bihar-amc-empty">No districts yet.</div></td></tr>
                                 ) : (
-                                  districtGroups.map((row) => {
-                                    const done = row.completeFirst + row.completeSecond
-                                    const pct = row.total ? Math.round((done / row.total) * 100) : 0
-                                    const color = pct >= 50 ? 'success' : pct > 0 ? 'warning' : 'danger'
-                                    return (
-                                      <tr key={row.label}>
-                                        <td>
-                                          <div className="bihar-amc-district-cell">
-                                            <span className="bihar-amc-district-avatar">{row.label.trim().substring(0, 1)}</span>
-                                            <span className="fw-semibold">{row.label}</span>
-                                          </div>
-                                        </td>
-                                        <td><span className="badge bg-gray-200 text-dark">{row.total}</span></td>
-                                        <td>{done}</td>
-                                        <td>{row.secondPending}</td>
-                                        <td>{row.approved}</td>
-                                        <td>{row.rejected}</td>
-                                        <td>
-                                          <div className="bihar-amc-progress-wrap">
-                                            <div className="progress">
-                                              <div className={`progress-bar bg-${color}`} style={{ width: `${pct}%` }} />
-                                            </div>
-                                            <span className={`badge bg-soft-${color} text-${color}`}>{pct}%</span>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )
-                                  })
+                                  allDistrictRows.map((row) => (
+                                    <tr key={row.label}>
+                                      <td>
+                                        <div className="bihar-amc-district-cell">
+                                          <span className="bihar-amc-district-avatar">{row.label.trim().substring(0, 1)}</span>
+                                          <span className="fw-semibold">{row.label}</span>
+                                        </div>
+                                      </td>
+                                      <td><span className="badge bg-gray-200 text-dark">{row.total}</span></td>
+                                      <td>{row.firstDone}</td>
+                                      <td>{row.incomplete}</td>
+                                      <td>{row.secondPending}</td>
+                                      <td>{row.complete}</td>
+                                    </tr>
+                                  ))
                                 )}
                               </tbody>
                             </table>

@@ -143,6 +143,8 @@ model BiharSslAmcUploadDocument {
 
   biharSslAmc BiharSslAmcDocument @relation(fields: [bihar_ssl_amc_id], references: [id])
 
+  @@index([created_at], map: "bihar_ssl_upload_created_at_idx")
+  @@index([created_by, created_at], map: "bihar_ssl_upload_user_created_idx")
   @@map("bihar_ssl_amc_upload_documents")
 }
 
@@ -187,6 +189,8 @@ model UpSslAmcUploadDocument {
 
   upSslAmc UpSslAmcDocument @relation(fields: [up_ssl_amc_id], references: [id])
 
+  @@index([created_at], map: "up_ssl_upload_created_at_idx")
+  @@index([created_by, created_at], map: "up_ssl_upload_user_created_idx")
   @@map("up_ssl_amc_upload_documents")
 }
 
@@ -228,6 +232,8 @@ model BiharLightAmc {
   @@index([ssl_id])
   @@index([company_id])
   @@index([company_id, state, created_at])
+  @@index([created_at], map: "bihar_light_amcs_created_at_idx")
+  @@index([user_id, created_at], map: "bihar_light_amcs_user_created_idx")
   @@map("bihar_light_amcs")
 }
 
@@ -274,6 +280,8 @@ model UpLightAmc {
   @@index([ssl_id])
   @@index([company_id])
   @@index([company_id, state, created_at])
+  @@index([created_at], map: "up_light_amcs_created_at_idx")
+  @@index([user_id, created_at], map: "up_light_amcs_user_created_idx")
   @@map("up_light_amcs")
 }
 
@@ -344,6 +352,10 @@ model BiharUlaSurvey {
   updated_at          DateTime? @default(now()) @db.Timestamp(0)
 
   @@index([company_id])
+  @@index([created_at], map: "bihar_ula_created_at_idx")
+  @@index([user_id, created_at], map: "bihar_ula_user_created_idx")
+  @@index([second_visit_at], map: "bihar_ula_second_visit_at_idx")
+  @@index([user_id2, second_visit_at], map: "bihar_ula_user2_second_visit_idx")
   @@index([ca_no])
   @@index([beneficiary_contact])
   @@index([panel_one_no])
@@ -395,6 +407,8 @@ model UpKusmcAmc {
   @@index([pump_id])
   @@index([company_id])
   @@index([company_id, state, created_at])
+  @@index([created_at], map: "up_kusumc_amcs_created_at_idx")
+  @@index([user_id, created_at], map: "up_kusumc_amcs_user_created_idx")
   @@map("up_kusumc_amcs")
 }
 
@@ -444,6 +458,8 @@ model UpPowerPackAmc {
   @@index([powerpack_id])
   @@index([company_id])
   @@index([company_id, state, created_at])
+  @@index([created_at], map: "up_powerpack_amcs_created_at_idx")
+  @@index([user_id, created_at], map: "up_powerpack_amcs_user_created_idx")
   @@map("up_powerpack_amcs")
 }
 
@@ -494,6 +510,8 @@ model UpOffgridAmc {
   @@index([offgrid_id])
   @@index([company_id])
   @@index([company_id, state, created_at])
+  @@index([created_at], map: "up_off_grid_amcs_created_at_idx")
+  @@index([user_id, created_at], map: "up_off_grid_amcs_user_created_idx")
   @@map("up_off_grid_amcs")
 }
 
@@ -544,5 +562,7 @@ model UpOngridAmc {
   @@index([ongrid_id])
   @@index([company_id])
   @@index([company_id, state, created_at])
+  @@index([created_at], map: "up_on_grid_amcs_created_at_idx")
+  @@index([user_id, created_at], map: "up_on_grid_amcs_user_created_idx")
   @@map("up_on_grid_amcs")
 }
