@@ -256,6 +256,15 @@ button.ula-stat-card.is-active {
   color: #b91c1c;
 }
 
+.ula-decision-btn--consent {
+  color: #3454d1;
+  text-decoration: none;
+}
+
+.ula-decision-btn--consent:hover:not(:disabled) {
+  background: #eef2ff;
+}
+
 .ula-decision-btn--reject:hover:not(:disabled) {
   background: #fef2f2;
 }

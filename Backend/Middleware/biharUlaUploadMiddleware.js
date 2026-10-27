@@ -25,7 +25,13 @@ export const biharUlaFirstVisitUpload = objectUploadFields(
 );
 
 export const biharUlaSecondVisitUpload = objectUploadFields(
-  [...visit2Fields, { name: "inverter_img", maxCount: 1 }].map((f) => ({
+  [
+    ...visit2Fields,
+    { name: "inverter_img", maxCount: 1 },
+    { name: "acdb_img", maxCount: 1 },
+    { name: "system_img", maxCount: 1 },
+    { name: "solar_meter_img", maxCount: 1 },
+  ].map((f) => ({
     ...f,
     prefix: "biharula",
   })),
@@ -34,6 +40,14 @@ export const biharUlaSecondVisitUpload = objectUploadFields(
 
 /** External portal correction — any subset of visit 1 / 2 photos (all optional). */
 const portalEditFields = [...visit1Fields, ...visit2Fields];
+
+export const biharUlaConsentFormUpload = objectUploadFields(
+  [
+    { name: "consent_form", maxCount: 1, prefix: "biharula" },
+    { name: "sim_img", maxCount: 1, prefix: "biharula" },
+  ],
+  { maxFileSize: ULA_MAX_FILE_BYTES }
+);
 
 export const biharUlaPortalEditUpload = objectUploadFields(
   portalEditFields.map((f) => ({ ...f, prefix: "biharula" })),

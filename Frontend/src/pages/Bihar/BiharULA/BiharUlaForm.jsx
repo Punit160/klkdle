@@ -36,8 +36,9 @@ import {
   submitUlaFirstVisit,
   submitUlaSecondVisit,
   parseUlaSurveyVisitNotes,
+  ulaCompleteVisitChoice,
+  ulaLegacySecondVisit,
   ulaSolarMeterOnFirstVisit,
-  ulaInverterCaptured,
   sanitizeCaNumberInput,
   sanitizeMobileInput,
   isValidCaNumber,
@@ -118,8 +119,7 @@ const BiharUlaForm = () => {
   const [gpsError, setGpsError] = useState('')
 
   const [visitType, setVisitType] = useState(isSecondVisitMode ? '2nd Visit' : '1st Visit')
-  const [solarMeterOnFirstVisit, setSolarMeterOnFirstVisit] = useState(false)
-  const [inverterOnFirstVisit, setInverterOnFirstVisit] = useState(false)
+  const [completeVisit, setCompleteVisit] = useState(false)
   const [beneficiaryContact, setBeneficiaryContact] = useState('')
   const [visit1Remarks, setVisit1Remarks] = useState('')
   const [visit2Remarks, setVisit2Remarks] = useState('')
@@ -221,9 +221,11 @@ const BiharUlaForm = () => {
         setCaVisitStatus('complete')
         setUniqueFieldErrors((prev) => ({
           ...prev,
-          ca_no: record?.solar_meter_on_first_visit && !record?.second_visit_complete
-            ? 'Solar meter and inverter were captured on the 1st visit. A 2nd visit is not required for this CA.'
-            : 'Site visits have already been completed for this CA.',
+          ca_no: record?.complete_visit
+            ? 'Complete visit was saved on the 1st visit. A 2nd visit is not required for this CA.'
+            : record?.solar_meter_on_first_visit && !record?.second_visit_complete
+              ? 'Solar meter and inverter were captured on the 1st visit. A 2nd visit is not required for this CA.'
+              : 'Site visits have already been completed for this CA.',
         }))
         return false
       }
@@ -276,9 +278,11 @@ const BiharUlaForm = () => {
         setCaVisitStatus('complete')
         setUniqueFieldErrors((prev) => ({
           ...prev,
-          ca_no: record?.solar_meter_on_first_visit && !record?.second_visit_complete
-            ? 'Solar meter and inverter were captured on the 1st visit. A 2nd visit is not required for this CA.'
-            : 'Site visits have already been completed for this CA.',
+          ca_no: record?.complete_visit
+            ? 'Complete visit was saved on the 1st visit. A 2nd visit is not required for this CA.'
+            : record?.solar_meter_on_first_visit && !record?.second_visit_complete
+              ? 'Solar meter and inverter were captured on the 1st visit. A 2nd visit is not required for this CA.'
+              : 'Site visits have already been completed for this CA.',
         }))
         return false
       }
@@ -307,12 +311,15 @@ const BiharUlaForm = () => {
   const visibleSlots = useMemo(
     () =>
       getUlaSlotsForVisit(visitType, {
-        solarMeterOnFirstVisit:
-          visitType === '2nd Visit' ? ulaSolarMeterOnFirstVisit(loadedSurvey) : solarMeterOnFirstVisit,
-        inverterOnFirstVisit: visitType === '2nd Visit' ? false : inverterOnFirstVisit,
-        inverterAlreadyCaptured: visitType === '2nd Visit' && ulaInverterCaptured(loadedSurvey),
+        completeVisit: visitType === '2nd Visit' ? false : completeVisit,
+        deferredVisit: visitType === '2nd Visit' && ulaCompleteVisitChoice(loadedSurvey) === false,
+        legacySecondVisit: visitType === '2nd Visit' && ulaLegacySecondVisit(loadedSurvey),
+        acdbAlreadyCaptured: Boolean(loadedSurvey?.acdb_img),
+        systemAlreadyCaptured: Boolean(loadedSurvey?.system_img),
+        solarAlreadyCaptured: Boolean(loadedSurvey?.solar_meter_img),
+        inverterAlreadyCaptured: Boolean(loadedSurvey?.inverter_no && loadedSurvey?.inverter_img),
       }),
-    [visitType, solarMeterOnFirstVisit, inverterOnFirstVisit, loadedSurvey]
+    [visitType, completeVisit, loadedSurvey]
   )
 
   useEffect(() => {
@@ -448,13 +455,15 @@ const BiharUlaForm = () => {
           setSubmitError('ULA record not found for this CA.')
           return
         }
-        if (survey.second_visit_complete || ulaSolarMeterOnFirstVisit(survey)) {
+        if (survey.visits_complete || survey.second_visit_complete) {
           setCaVisitStatus('complete')
           setCaSecondVisitId(null)
           setSubmitError(
-            ulaSolarMeterOnFirstVisit(survey) && !survey.second_visit_complete
-              ? 'Solar meter and inverter were captured on the 1st visit. A 2nd visit is not required for this CA.'
-              : 'Site visits have already been completed for this CA.'
+            ulaCompleteVisitChoice(survey) === true && !survey.second_visit_complete
+              ? 'Complete visit was saved on the 1st visit. A 2nd visit is not required for this CA.'
+              : ulaSolarMeterOnFirstVisit(survey) && !survey.second_visit_complete
+                ? 'Solar meter and inverter were captured on the 1st visit. A 2nd visit is not required for this CA.'
+                : 'Site visits have already been completed for this CA.'
           )
           return
         }
@@ -803,8 +812,7 @@ const BiharUlaForm = () => {
           },
           images,
           serialNumbers,
-          solarMeterOnFirstVisit,
-          inverterOnFirstVisit,
+          completeVisit,
           remarks: visit1Remarks,
         })
         setSuccessMessage(`1st visit saved for CA #${caNumber}.`)
@@ -831,9 +839,11 @@ const BiharUlaForm = () => {
   const firstVisitSlots =
     loadedSurvey &&
     getUlaSlotsForVisit('1st Visit', {
-      solarMeterOnFirstVisit: Boolean(loadedSurvey.solar_meter_img),
-      inverterOnFirstVisit: ulaInverterCaptured(loadedSurvey),
-    })
+      completeVisit:
+        ulaCompleteVisitChoice(loadedSurvey) === true ||
+        (ulaCompleteVisitChoice(loadedSurvey) == null &&
+          Boolean(loadedSurvey.acdb_img || loadedSurvey.system_img)),
+    }).filter((slot) => !slot.whenCompleteVisit || firstVisitPreview[slot.key])
 
   const secondVisitSteps = visibleSlots.map((slot) => ({
     key: slot.id,
@@ -1209,7 +1219,7 @@ const BiharUlaForm = () => {
               </div>
             ) : (
               <div className="alert alert-light border py-2 mb-0 fs-13">
-                1st visit — 6 photos. Add the inverter or solar meter when it is already on site.
+                1st visit — panel photos, smart meter, and structure. Turn on Complete visit to capture every field now.
               </div>
             )}
           </div>
@@ -1220,39 +1230,33 @@ const BiharUlaForm = () => {
                 <input
                   className="form-check-input"
                   type="checkbox"
-                  id="inverterFirstVisit"
-                  checked={inverterOnFirstVisit}
+                  id="completeVisit"
+                  checked={completeVisit}
                   onChange={(e) => {
                     const on = e.target.checked
-                    setInverterOnFirstVisit(on)
+                    setCompleteVisit(on)
                     if (on) return
                     setImages((prev) => {
                       const next = { ...prev }
+                      delete next.acdb
+                      delete next.system_wiring
                       delete next.inverter_qr
+                      delete next.solar_meter_v1
                       return next
                     })
                     setSerialNumbers((prev) => ({ ...prev, inverter_qr: '' }))
                     setPhotoGps((prev) => {
                       const next = { ...prev }
+                      delete next.acdb
+                      delete next.system_wiring
                       delete next.inverter_qr
+                      delete next.solar_meter_v1
                       return next
                     })
                   }}
                 />
-                <label className="form-check-label fs-13" htmlFor="inverterFirstVisit">
-                  Inverter already available on site (photo and serial on 1st visit). Leave this off to capture it on the 2nd visit.
-                </label>
-              </div>
-              <div className="form-check form-switch mt-2">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="solarMeterFirstVisit"
-                  checked={solarMeterOnFirstVisit}
-                  onChange={(e) => setSolarMeterOnFirstVisit(e.target.checked)}
-                />
-                <label className="form-check-label fs-13" htmlFor="solarMeterFirstVisit">
-                  Solar meter already available on site (add the photo on 1st visit)
+                <label className="form-check-label fs-13" htmlFor="completeVisit">
+                  Complete visit. Turn this on and every field shows on the 1st visit, including ACDB, system, inverter photo and serial, and solar meter. Leave this off to capture those on the 2nd visit.
                 </label>
               </div>
             </div>
@@ -1456,12 +1460,16 @@ const BiharUlaForm = () => {
           title={
             visitType === '2nd Visit'
               ? 'Capture 2nd visit photos'
-              : '1st visit photos (6 required; inverter and solar meter when already on site)'
+              : completeVisit
+                ? '1st visit photos — all fields'
+                : '1st visit photos — panel, smart meter, and structure'
           }
           subtitle={
             visitType === '2nd Visit'
-              ? 'Capture the inverter if it was not taken on the 1st visit, plus the solar meter and full system when those are still pending.'
-              : 'Panel 1 and Panel 2 serials come from the photo QR, Scan button, or manual entry. Inverter is the same when it is on site.'
+              ? 'Capture ACDB, system, inverter, and solar meter when those were left for the 2nd visit.'
+              : completeVisit
+                ? 'Every photo is required, including ACDB, system, inverter serial, and solar meter.'
+                : 'Panel 1 and Panel 2 serials come from the photo QR, Scan button, or manual entry.'
           }
         />
 

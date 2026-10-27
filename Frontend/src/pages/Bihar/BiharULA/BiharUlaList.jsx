@@ -28,7 +28,7 @@ import {
   formatGpsPair,
   formatGpsDistance,
   countUlaSurveyPhotos,
-  expectedFirstVisitPhotoCount,
+  expectedUlaPhotoCount,
   resolveUlaSurveyorDisplayName,
   resolveUlaSecondSurveyorDisplayName,
   resolveUlaSecondVisitAt,
@@ -112,11 +112,7 @@ const BiharUlaList = () => {
               secondVisitPending: ulaSecondVisitNeeded(row),
               visitsReady: ulaVisitsReadyForApproval(row),
               imagesCount: countUlaSurveyPhotos(row),
-              expectedPhotoCount:
-                expectedFirstVisitPhotoCount(row) +
-                (row.solar_meter_img2 ? 1 : 0) +
-                (row.system_img2 ? 1 : 0) +
-                (row.inverter_img && row.inverter_on_first_visit === false ? 1 : 0),
+              expectedPhotoCount: expectedUlaPhotoCount(row),
               approvalStatus: Number(row.approval_status ?? 0),
               approvalRemarks: row.approval_remarks || '',
             }})
@@ -343,7 +339,7 @@ const BiharUlaList = () => {
       r.secondVisitComplete
         ? '2nd complete'
         : r.solarMeterOnFirst && r.firstVisitComplete
-          ? 'Complete (solar meter on 1st visit)'
+          ? 'Complete on 1st visit'
           : r.firstVisitComplete
             ? '1st complete'
             : 'Draft',

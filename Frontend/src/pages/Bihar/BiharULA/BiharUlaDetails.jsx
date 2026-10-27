@@ -19,7 +19,8 @@ import PageHeader from '@/components/shared/pageHeader/PageHeader'
 import { pages } from '../../../api/routes'
 import {
   getUlaSlotsForVisit,
-  ulaInverterCaptured,
+  ulaCompleteVisitChoice,
+  ulaLegacySecondVisit,
   fetchUlaSurveyById,
   mapSurveyToDetailsRecord,
   buildMapsUrl,
@@ -35,6 +36,7 @@ import {
 import { getApiErrorMessage } from '../../../utils/apiError'
 import { resolveUploadUrl } from '../../../utils/uploadUrl'
 import UlaPhotoLightbox from './UlaPhotoLightbox'
+import UlaConsentUpload from './UlaConsentUpload'
 import '../../../styles/bihar-ula.css'
 
 const DetailItem = ({ label, value, highlight = false }) => (
@@ -224,32 +226,42 @@ const BiharUlaDetails = () => {
     .filter(Boolean)
     .join(', ')
 
-  const solarOnFirst = Boolean(record.solarMeterOnFirst || record.images?.solar_meter_v1)
-  const inverterOnFirst = Boolean(record.inverterOnFirstVisit)
+  const completeChoice = record.completeVisit ?? ulaCompleteVisitChoice(record)
   const firstVisitSlots = getUlaSlotsForVisit('1st Visit', {
-    solarMeterOnFirstVisit: solarOnFirst,
-    inverterOnFirstVisit: inverterOnFirst,
-  })
+    completeVisit:
+      completeChoice === true ||
+      (completeChoice == null && Boolean(record.images?.acdb || record.images?.system_wiring)),
+  }).filter((slot) => !slot.whenCompleteVisit || record.images?.[slot.key])
   const secondVisitSlots = getUlaSlotsForVisit('2nd Visit', {
-    solarMeterOnFirstVisit: solarOnFirst,
-    inverterAlreadyCaptured: inverterOnFirst || !ulaInverterCaptured({
-      inverter_no: record.serialNumbers?.inverter_qr,
-      inverter_img_url: record.images?.inverter_qr,
+    deferredVisit: completeChoice === false,
+    legacySecondVisit: ulaLegacySecondVisit({
+      complete_visit: completeChoice,
+      system_img_url: record.images?.system_wiring,
     }),
-  })
+    includeCapturedDeferred: true,
+    acdbAlreadyCaptured: Boolean(record.images?.acdb),
+    systemAlreadyCaptured: Boolean(record.images?.system_wiring),
+    solarAlreadyCaptured: Boolean(record.images?.solar_meter_v1),
+    inverterAlreadyCaptured: Boolean(record.images?.inverter_qr && record.serialNumbers?.inverter_qr),
+  }).filter((slot) => record.images?.[slot.key])
   const hasSecondVisitPhotos =
     record.secondVisitComplete ||
     secondVisitSlots.some((slot) => record.images?.[slot.key])
 
   const secondVisitPending = Boolean(record.secondVisitPending)
 
-  const photoCount = Object.values(record.images || {}).filter(Boolean).length
+  const photoCount =
+    Object.values(record.images || {}).filter(Boolean).length +
+    (record.consentFormUrl ? 1 : 0) +
+    (record.simImgUrl ? 1 : 0)
 
   const renderPhotoGrid = (slots) =>
     slots.map((slot, index) => {
-      const imgRaw = record.images?.[slot.key]
+      const imgRaw = slot.image ?? record.images?.[slot.key]
       const imgData = imgRaw ? resolveUploadUrl(imgRaw) || imgRaw : null
-      const serial = record.serialNumbers?.[slot.key]
+      const serial = slot.serial ?? record.serialNumbers?.[slot.key]
+      const serialLabel = slot.serialLabel || 'Serial'
+      const isPdf = imgData && /\.pdf($|\?)/i.test(imgData)
 
       return (
         <div key={slot.id} className="col-lg-4 col-md-6">
@@ -262,35 +274,49 @@ const BiharUlaDetails = () => {
             </div>
             {imgData ? (
               <>
-                <div
-                  className="ula-photo-frame"
-                  onClick={() => setSelectedPhoto({ src: imgData, title: slot.title })}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') setSelectedPhoto({ src: imgData, title: slot.title })
-                  }}
-                >
-                  <img src={imgData} alt={slot.title} />
+                {isPdf ? (
+                  <a className="ula-photo-frame d-flex align-items-center justify-content-center text-decoration-none" href={imgData} target="_blank" rel="noreferrer">
+                    <span className="fs-12 fw-semibold">Open consent form</span>
+                  </a>
+                ) : (
                   <div
-                    className="position-absolute top-0 end-0 m-2 bg-dark bg-opacity-75 text-white rounded p-1"
-                    title="Enlarge"
+                    className="ula-photo-frame"
+                    onClick={() => setSelectedPhoto({ src: imgData, title: slot.title })}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setSelectedPhoto({ src: imgData, title: slot.title })
+                    }}
                   >
-                    <FiMaximize2 size={13} />
-                  </div>
-                </div>
-                {serial && (
-                  <div className="p-2 fs-11 border-top bg-light">
-                    <span className="text-muted">Serial: </span>
-                    <span className="font-monospace fw-semibold">{serial}</span>
+                    <img src={imgData} alt={slot.title} />
+                    <div
+                      className="position-absolute top-0 end-0 m-2 bg-dark bg-opacity-75 text-white rounded p-1"
+                      title="Enlarge"
+                    >
+                      <FiMaximize2 size={13} />
+                    </div>
                   </div>
                 )}
+                {serial ? (
+                  <div className="p-2 fs-11 border-top bg-light">
+                    <span className="text-muted">{serialLabel}: </span>
+                    <span className="font-monospace fw-semibold">{serial}</span>
+                  </div>
+                ) : null}
               </>
             ) : (
-              <div className="ula-photo-empty">
-                <FiCamera size={22} className="mb-2 opacity-50" />
-                <span className="fs-12">Not uploaded</span>
-              </div>
+              <>
+                <div className="ula-photo-empty">
+                  <FiCamera size={22} className="mb-2 opacity-50" />
+                  <span className="fs-12">Not uploaded</span>
+                </div>
+                {serial ? (
+                  <div className="p-2 fs-11 border-top bg-light">
+                    <span className="text-muted">{serialLabel}: </span>
+                    <span className="font-monospace fw-semibold">{serial}</span>
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         </div>
@@ -526,24 +552,79 @@ const BiharUlaDetails = () => {
             </h6>
             <div className="row g-3">
               {[
-                { label: 'Panel 1', key: 'panel1_qr' },
-                { label: 'Panel 2', key: 'panel2_qr' },
-                { label: 'Inverter', key: 'inverter_qr' },
-              ].map(({ label, key }) => (
-                <div key={key} className="col-md-4">
+                { label: 'Panel 1', value: record.serialNumbers?.panel1_qr },
+                { label: 'Panel 2', value: record.serialNumbers?.panel2_qr },
+                { label: 'Inverter', value: record.serialNumbers?.inverter_qr },
+                { label: 'IMEI', value: record.imeiNo },
+              ].map(({ label, value }) => (
+                <div key={label} className="col-md-4">
                   <div className="ula-serial-card">
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <span className="fs-12 fw-bold">{label}</span>
                       <span className="badge bg-soft-warning text-warning fs-10">QR</span>
                     </div>
                     <div className="ula-serial-value">
-                      {record.serialNumbers?.[key] || '—'}
+                      {value || '—'}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+
+          {(isAdmin || record.consentFormUrl || record.imeiNo || record.simImgUrl) ? (
+            <div className="ula-detail-section">
+              <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
+                <h6 className="fw-bold mb-0 d-flex align-items-center gap-2">
+                  <FiPaperclip size={16} className="text-primary" /> Consent, IMEI, and SIM
+                </h6>
+                {isAdmin ? (
+                  <UlaConsentUpload
+                    id={record.id}
+                    caNumber={record.caNumber}
+                    imei={record.imeiNo}
+                    consentUrl={record.consentFormUrl}
+                    simUrl={record.simImgUrl}
+                    disabled={actionId === record.id}
+                    onError={setActionError}
+                    onUploaded={(survey) => {
+                      setRecord((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              consentFormUrl: survey?.consent_form_url || '',
+                              imeiNo: survey?.imei_no || '',
+                              simImgUrl: survey?.sim_img_url || '',
+                            }
+                          : prev
+                      )
+                    }}
+                  />
+                ) : null}
+              </div>
+              <p className="fs-12 text-muted mb-3">Tap a photo to view full size</p>
+              <div className="row g-3">
+                {renderPhotoGrid([
+                  {
+                    id: 'consent_form',
+                    title: 'Consent form',
+                    badge: 'Document',
+                    badgeClass: 'bg-soft-primary text-primary',
+                    image: record.consentFormUrl,
+                  },
+                  {
+                    id: 'sim_img',
+                    title: 'SIM photo',
+                    badge: 'SIM',
+                    badgeClass: 'bg-soft-info text-info',
+                    image: record.simImgUrl,
+                    serial: record.imeiNo,
+                    serialLabel: 'IMEI',
+                  },
+                ])}
+              </div>
+            </div>
+          ) : null}
 
           <div className="ula-detail-section">
             <h6 className="fw-bold mb-1 d-flex align-items-center gap-2">
@@ -558,7 +639,7 @@ const BiharUlaDetails = () => {
               <h6 className="fw-bold mb-1 d-flex align-items-center gap-2">
                 <FiMapPin size={16} className="text-success" /> 2nd visit photos
               </h6>
-              <p className="fs-12 text-muted mb-3">Solar meter and complete system</p>
+              <p className="fs-12 text-muted mb-3">Photos captured on the 2nd visit</p>
               <div className="row g-3">{renderPhotoGrid(secondVisitSlots)}</div>
             </div>
           )}

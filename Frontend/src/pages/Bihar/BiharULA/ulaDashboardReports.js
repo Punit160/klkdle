@@ -48,7 +48,9 @@ export const surveyDayKey = (value) => {
 export const classifyUlaVisit = (row) => {
   const solarFirst = ulaSolarMeterOnFirstVisit(row)
   const inverterDone = ulaInverterCaptured(row)
-  const firstDone = Boolean(row?.firstVisitComplete ?? row?.first_visit_complete ?? row?.system_img)
+  const firstDone = Boolean(
+    row?.firstVisitComplete ?? row?.first_visit_complete ?? row?.panel_one_img ?? row?.system_img
+  )
   const secondDone = Boolean(
     row?.secondVisitComplete ??
       row?.second_visit_complete ??

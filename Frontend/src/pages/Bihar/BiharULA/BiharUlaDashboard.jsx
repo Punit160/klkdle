@@ -154,6 +154,10 @@ const GroupTable = ({ table }) => {
 const BiharUlaDashboard = () => {
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
+  const [allRows, setAllRows] = useState(null)
+  const [allLoading, setAllLoading] = useState(false)
+  const [allError, setAllError] = useState('')
+  const [reportScope, setReportScope] = useState('mine')
   const [allDistricts, setAllDistricts] = useState([])
   const [scope, setScope] = useState('mine')
   const [loading, setLoading] = useState(true)
@@ -171,6 +175,9 @@ const BiharUlaDashboard = () => {
     let cancelled = false
     setLoading(true)
     setError('')
+    setAllRows(null)
+    setAllError('')
+    setReportScope('mine')
     fetchUlaReport()
       .then(({ rows: loaded, scope: loadedScope, districts }) => {
         if (!cancelled) {
@@ -194,33 +201,44 @@ const BiharUlaDashboard = () => {
     }
   }, [refreshKey])
 
-  const districtOptions = useMemo(() => uniqueSorted(rows.map((row) => row.district)), [rows])
+  const isAdmin = userIsAdmin()
+  const seesAllSites = isAdmin && scope === 'all'
+  const reportSource = useMemo(
+    () => (seesAllSites || reportScope === 'mine' ? rows : (allRows || [])),
+    [seesAllSites, reportScope, rows, allRows]
+  )
+
+  const districtOptions = useMemo(() => uniqueSorted(reportSource.map((row) => row.district)), [reportSource])
   const blockOptions = useMemo(
     () =>
       uniqueSorted(
-        rows
+        reportSource
           .filter((row) => !filters.district || row.district === filters.district)
           .map((row) => row.block)
       ),
-    [rows, filters.district]
+    [reportSource, filters.district]
   )
   const panchayatOptions = useMemo(
     () =>
       uniqueSorted(
-        rows
+        reportSource
           .filter((row) => !filters.district || row.district === filters.district)
           .filter((row) => !filters.block || row.block === filters.block)
           .map((row) => row.panchayat)
       ),
-    [rows, filters.district, filters.block]
+    [reportSource, filters.district, filters.block]
   )
   const surveyorOptions = useMemo(
-    () => uniqueSorted(rows.flatMap((row) => [row.firstBy, row.secondBy])),
-    [rows]
+    () => uniqueSorted(reportSource.flatMap((row) => [row.firstBy, row.secondBy])),
+    [reportSource]
   )
 
-  const filtered = useMemo(() => filterUlaDashboardRows(rows, filters), [rows, filters])
-  const summary = useMemo(() => summarizeUlaRows(filtered), [filtered])
+  const personalFiltered = useMemo(
+    () => filterUlaDashboardRows(rows, seesAllSites || reportScope === 'mine' ? filters : EMPTY_FILTERS),
+    [rows, filters, seesAllSites, reportScope]
+  )
+  const filtered = useMemo(() => filterUlaDashboardRows(reportSource, filters), [reportSource, filters])
+  const summary = useMemo(() => summarizeUlaRows(personalFiltered), [personalFiltered])
   const myDistrictGroups = useMemo(
     () => groupUlaRows(filtered, (row) => row.district).slice(0, 12),
     [filtered]
@@ -255,19 +273,41 @@ const BiharUlaDashboard = () => {
     })
   }
 
+  const loadAllReport = () => {
+    setAllLoading(true)
+    setAllError('')
+    fetchUlaReport({ scope: 'all' })
+      .then(({ rows: loaded }) => setAllRows(loaded.map(mapReportRow)))
+      .catch((err) => {
+        setAllRows(null)
+        setAllError(getApiErrorMessage(err, 'Could not load the all-sites report.'))
+      })
+      .finally(() => setAllLoading(false))
+  }
+
+  const openReportScope = (next) => {
+    setReportScope(next)
+    setPage(1)
+    setFilters(EMPTY_FILTERS)
+    if (next === 'all' && allRows == null && !allLoading) loadAllReport()
+  }
+
   const openVisitReport = (visitKey) => {
+    if (!seesAllSites) setReportScope('mine')
     setFilter('visit', visitKey)
     setReport('register')
   }
 
   const openApprovalReport = (status) => {
+    if (!seesAllSites) setReportScope('mine')
     setFilter('approval', String(status))
     setReport('approval')
   }
 
   const exportTable = (format) => {
     const stamp = new Date().toISOString().slice(0, 10)
-    const base = `${slugFilePart(table.title)}-${stamp}`
+    const scopePart = seesAllSites || reportScope === 'all' ? 'all' : 'mine'
+    const base = `${slugFilePart(table.title)}-${scopePart}-${stamp}`
     if (format === 'csv') {
       downloadTextFile(`${base}.csv`, tableToCsv(table), 'text/csv;charset=utf-8')
       return
@@ -334,15 +374,15 @@ const BiharUlaDashboard = () => {
     }
   }
 
-  const isAdmin = userIsAdmin()
-  const seesAllSites = isAdmin && scope === 'all'
-
   const approvalSeries = [summary.pending, summary.approved, summary.rejected]
+  const viewingAllReport = !seesAllSites && reportScope === 'all'
+  const allReportReady = !viewingAllReport || (allRows != null && !allLoading)
+  const reportFilterActive = !viewingAllReport
 
   const completionPct = summary.total
     ? Math.round(((summary.completeFirst + summary.completeSecond) / summary.total) * 100)
     : 0
-  const recentSites = filtered.slice(0, 8)
+  const recentSites = personalFiltered.slice(0, 8)
 
   return (
     <div>
@@ -424,15 +464,15 @@ const BiharUlaDashboard = () => {
                   <div className="bihar-amc-section-body">
                     <div className="bihar-amc-stat-grid">
                       <StatButton icon={FiLayers} title="Sites" value={summary.total} subtitle={`${summary.districts} districts`} tone="primary" onClick={() => { setFilters(EMPTY_FILTERS); setReport('register'); setPage(1) }} />
-                      <StatButton icon={FiMapPin} title="2nd visit pending" value={summary.secondPending} subtitle="1st visit done" tone="warning" active={filters.visit === 'second_pending'} onClick={() => openVisitReport('second_pending')} />
-                      <StatButton icon={FiCheckCircle} title="Visits complete" value={summary.completeFirst + summary.completeSecond} subtitle={`${completionPct}% complete`} tone="success" onClick={() => setReport('overview')} />
-                      <StatButton icon={FiXCircle} title="1st visit incomplete" value={summary.incomplete} subtitle="Photos still missing" tone="danger" active={filters.visit === 'incomplete'} onClick={() => openVisitReport('incomplete')} />
+                      <StatButton icon={FiMapPin} title="2nd visit pending" value={summary.secondPending} subtitle="1st visit done" tone="warning" active={reportFilterActive && filters.visit === 'second_pending'} onClick={() => openVisitReport('second_pending')} />
+                      <StatButton icon={FiCheckCircle} title="Visits complete" value={summary.completeFirst + summary.completeSecond} subtitle={`${completionPct}% complete`} tone="success" onClick={() => { if (!seesAllSites) setReportScope('mine'); setReport('overview') }} />
+                      <StatButton icon={FiXCircle} title="1st visit incomplete" value={summary.incomplete} subtitle="Photos still missing" tone="danger" active={reportFilterActive && filters.visit === 'incomplete'} onClick={() => openVisitReport('incomplete')} />
                     </div>
                     <div className="bihar-amc-stat-grid">
-                      <StatButton icon={FiActivity} title="Pending approval" value={summary.pending} subtitle="Waiting for admin" tone="warning" active={filters.approval === '0'} onClick={() => openApprovalReport(0)} />
-                      <StatButton icon={FiCheckCircle} title="Approved" value={summary.approved} subtitle="Click to view sites" tone="success" active={filters.approval === '1'} onClick={() => openApprovalReport(1)} />
-                      <StatButton icon={FiXCircle} title="Rejected" value={summary.rejected} subtitle="Click to view sites" tone="danger" active={filters.approval === '2'} onClick={() => openApprovalReport(2)} />
-                      <StatButton icon={FiSun} title="Complete on 1st visit" value={summary.completeFirst} subtitle="Solar meter already captured" tone="info" active={filters.visit === 'complete_first'} onClick={() => openVisitReport('complete_first')} />
+                      <StatButton icon={FiActivity} title="Pending approval" value={summary.pending} subtitle="Waiting for admin" tone="warning" active={reportFilterActive && filters.approval === '0'} onClick={() => openApprovalReport(0)} />
+                      <StatButton icon={FiCheckCircle} title="Approved" value={summary.approved} subtitle="Click to view sites" tone="success" active={reportFilterActive && filters.approval === '1'} onClick={() => openApprovalReport(1)} />
+                      <StatButton icon={FiXCircle} title="Rejected" value={summary.rejected} subtitle="Click to view sites" tone="danger" active={reportFilterActive && filters.approval === '2'} onClick={() => openApprovalReport(2)} />
+                      <StatButton icon={FiSun} title="Complete on 1st visit" value={summary.completeFirst} subtitle="Solar meter already captured" tone="info" active={reportFilterActive && filters.visit === 'complete_first'} onClick={() => openVisitReport('complete_first')} />
                     </div>
 
                     <div className="bihar-amc-panel-grid">
@@ -522,17 +562,23 @@ const BiharUlaDashboard = () => {
                       </div>
                       <div>
                         <h5>Reports</h5>
-                        <p>District, block, surveyor, daily, and site register exports</p>
+                        <p>
+                          {seesAllSites
+                            ? 'District, block, surveyor, daily, and site register exports'
+                            : viewingAllReport
+                              ? 'Every surveyor in your company, the same report an admin sees'
+                              : 'Your own visits. Switch to All report for every surveyor.'}
+                        </p>
                       </div>
                     </div>
                     <div className="d-flex flex-wrap gap-2 ula-dash-no-print">
-                      <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => exportTable('csv')}>
+                      <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => exportTable('csv')} disabled={!allReportReady}>
                         <FiDownload size={13} /> CSV
                       </button>
-                      <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => exportTable('excel')}>
+                      <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => exportTable('excel')} disabled={!allReportReady}>
                         <FiDownload size={13} /> Excel
                       </button>
-                      <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => exportTable('json')}>
+                      <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => exportTable('json')} disabled={!allReportReady}>
                         <FiDownload size={13} /> JSON
                       </button>
                       <button type="button" className="btn btn-sm btn-light d-inline-flex align-items-center gap-1" onClick={() => window.print()}>
@@ -541,6 +587,31 @@ const BiharUlaDashboard = () => {
                     </div>
                   </div>
                   <div className="bihar-amc-section-body">
+                    {!seesAllSites ? (
+                      <div className="ula-dash-tabs ula-dash-no-print">
+                        <button type="button" className={reportScope === 'mine' ? 'is-active' : ''} onClick={() => openReportScope('mine')}>
+                          My report
+                        </button>
+                        <button type="button" className={reportScope === 'all' ? 'is-active' : ''} onClick={() => openReportScope('all')}>
+                          All report
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {viewingAllReport && allLoading ? (
+                      <div className="bihar-amc-empty">Loading all sites...</div>
+                    ) : null}
+                    {viewingAllReport && allError ? (
+                      <div className="bihar-amc-empty">
+                        <p className="text-danger mb-2">{allError}</p>
+                        <button type="button" className="btn btn-sm btn-primary" onClick={loadAllReport}>
+                          Try again
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {allReportReady ? (
+                    <>
                     <div className="ula-dash-filters ula-dash-no-print">
                       <input type="search" value={filters.q} placeholder="Search CA, name, village, serial" onChange={(event) => setFilter('q', event.target.value)} />
                       <select value={filters.district} onChange={(event) => setFilter('district', event.target.value)}>
@@ -594,7 +665,7 @@ const BiharUlaDashboard = () => {
                       <>
                         <div className="bihar-amc-panel mb-3">
                           <div className="bihar-amc-panel-head">
-                            <h6>{seesAllSites ? 'District-wise ULA progress' : 'Your district progress'}</h6>
+                            <h6>{seesAllSites || viewingAllReport ? 'District-wise ULA progress' : 'Your district progress'}</h6>
                           </div>
                           <div className="p-2 pb-0">
                             {myDistrictGroups.length ? (
@@ -805,6 +876,8 @@ const BiharUlaDashboard = () => {
                         <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
                       </div>
                     )}
+                    </>
+                    ) : null}
                   </div>
                 </div>
               </div>

@@ -348,6 +348,9 @@ model BiharUlaSurvey {
   approval_date       DateTime? @db.Timestamp(0)
   approval_remarks    String?   @db.Text
   approval_by         String?   @db.VarChar(255)
+  consent_form        String?   @db.VarChar(255)
+  imei_no             String?   @db.VarChar(255)
+  sim_img             String?   @db.VarChar(255)
   created_at          DateTime? @default(now()) @db.Timestamp(0)
   updated_at          DateTime? @default(now()) @db.Timestamp(0)
 

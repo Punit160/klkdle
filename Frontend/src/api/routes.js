@@ -198,6 +198,7 @@ export const api = {
     downloadImagesZip: (id) => `/api/bihar/ula/${id}/download-images`,
     secondVisit: (id) => `/api/bihar/ula/${id}/second-visit`,
     approval: (id) => `/api/bihar/ula/${id}/approval`,
+    consentForm: (id) => `/api/bihar/ula/${id}/consent-form`,
   },
 }
 

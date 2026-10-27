@@ -25,7 +25,7 @@ const resolveJwtUserCompanyId = (req) =>
 
 const buildUlaExistingRecordSummary = (row) => {
   if (!row) return null;
-  const first_visit_complete = Boolean(String(row.system_img ?? "").trim());
+  const first_visit_complete = firstVisitSaved(row);
   const second_visit_complete = secondVisitIsComplete(row);
   const solar_meter_on_first_visit = solarMeterCapturedOnFirstVisit(row);
   const visits_complete = siteVisitsAreComplete(row);
@@ -38,6 +38,7 @@ const buildUlaExistingRecordSummary = (row) => {
     first_visit_complete,
     second_visit_complete,
     solar_meter_on_first_visit,
+    complete_visit: completeVisitFlag(row),
     visits_complete,
     visit_status,
   };
@@ -213,6 +214,8 @@ const ULA_ZIP_IMAGE_FIELDS = [
   "solar_meter_img",
   "solar_meter_img2",
   "system_img2",
+  "consent_form",
+  "sim_img",
 ];
 
 const zipEntryNameFromStored = (stored, fallbackBase) => {
@@ -238,6 +241,20 @@ const solarMeterCapturedOnFirstVisit = (row) =>
 const inverterCaptured = (row) =>
   Boolean(String(row?.inverter_no ?? "").trim() && String(row?.inverter_img ?? "").trim());
 
+const flagIsTrue = (value) => value === true || value === 1 || value === "1";
+const flagIsFalse = (value) => value === false || value === 0 || value === "0";
+
+/** true, false, or null when this survey was saved before the complete-visit choice. */
+const completeVisitFlag = (row) => {
+  const flag = parseSurveyRemarksMeta(row?.remarks).complete_visit;
+  if (flagIsTrue(flag)) return true;
+  if (flagIsFalse(flag)) return false;
+  return null;
+};
+
+const firstVisitSaved = (row) =>
+  Boolean(String(row?.panel_one_img ?? "").trim() || String(row?.system_img ?? "").trim());
+
 /** Older rows captured the inverter on the 1st visit and have no flag. */
 const inverterOnFirstVisit = (row) => {
   const flag = parseSurveyRemarksMeta(row?.remarks).inverter_on_first_visit;
@@ -246,18 +263,21 @@ const inverterOnFirstVisit = (row) => {
   return inverterCaptured(row);
 };
 
-/** First visit, inverter, and solar meter (on visit 1 or visit 2) finish the site. */
+/** ACDB, system, inverter, and a solar meter photo finish the site. */
 const siteVisitsAreComplete = (row) => {
-  const firstVisitDone = Boolean(String(row?.system_img ?? "").trim());
+  const acdb = Boolean(String(row?.acdb_img ?? "").trim());
+  const system = Boolean(String(row?.system_img ?? "").trim());
   return (
-    firstVisitDone &&
+    firstVisitSaved(row) &&
+    acdb &&
+    system &&
     inverterCaptured(row) &&
     (solarMeterCapturedOnFirstVisit(row) || secondVisitPhotosDone(row))
   );
 };
 
 const isSecondVisitPendingRow = (row) =>
-  Boolean(String(row?.system_img ?? "").trim()) && !siteVisitsAreComplete(row);
+  firstVisitSaved(row) && !siteVisitsAreComplete(row);
 
 const companiesMatch = (left, right) => {
   const a = String(left ?? "").trim();
@@ -419,9 +439,15 @@ const serializeSurvey = (req, row, nameMap = new Map()) => {
     solar_meter_img_url: url("solar_meter_img"),
     solar_meter_img2_url: url("solar_meter_img2"),
     system_img2_url: url("system_img2"),
-    first_visit_complete: Boolean(row.system_img),
+    consent_form: row.consent_form || null,
+    consent_form_url: url("consent_form"),
+    imei_no: row.imei_no || null,
+    sim_img: row.sim_img || null,
+    sim_img_url: url("sim_img"),
+    first_visit_complete: firstVisitSaved(row),
     second_visit_complete: secondVisitIsComplete(row),
     solar_meter_on_first_visit: solarMeterCapturedOnFirstVisit(row),
+    complete_visit: completeVisitFlag(row),
     inverter_on_first_visit: inverterOnFirstVisit(row),
     second_visit_required: isSecondVisitPendingRow(row),
     visits_complete: siteVisitsAreComplete(row),
@@ -978,8 +1004,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       inverter_no,
       latitude,
       longitude,
-      solar_meter_on_first_visit,
-      inverter_on_first_visit,
+      complete_visit,
       remarks: visit1NoteBody,
     } = req.body;
 
@@ -1010,11 +1035,12 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     const caNoNormalized = caParsed.value;
     const panelOneNormalized = normalizeUlaSerialNumber(panel_one_no);
     const panelTwoNormalized = normalizeUlaSerialNumber(panel_two_no);
-    const inverterWanted =
-      String(inverter_on_first_visit).toLowerCase() === "true" ||
-      inverter_on_first_visit === "1" ||
-      Boolean(normalizeUlaSerialNumber(inverter_no)) ||
-      Boolean(req.files?.inverter_img?.[0]);
+    const completeVisit =
+      String(complete_visit).toLowerCase() === "true" ||
+      complete_visit === "1" ||
+      complete_visit === 1 ||
+      complete_visit === true;
+    const inverterWanted = completeVisit;
     const inverterNormalized = inverterWanted ? normalizeUlaSerialNumber(inverter_no) : null;
 
     if (!panelOneNormalized || !panelTwoNormalized) {
@@ -1085,8 +1111,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       "panel_one_img",
       "panel_two_img",
       "smart_meter_img",
-      "acdb_img",
-      "system_img",
+      ...(completeVisit ? ["acdb_img", "system_img", "solar_meter_img", "inverter_img"] : []),
     ];
 
     const missing = required.filter((key) => !stored[key]);
@@ -1104,16 +1129,11 @@ export const createBiharUlaFirstVisit = async (req, res) => {
       });
     }
 
-    if (
-      String(solar_meter_on_first_visit).toLowerCase() === "true" ||
-      solar_meter_on_first_visit === "1"
-    ) {
-      if (!stored.solar_meter_img) {
-        return res.status(422).json({
-          success: false,
-          message: "Solar meter photo is required when solar meter is available on 1st visit.",
-        });
-      }
+    if (completeVisit && !stored.solar_meter_img) {
+      return res.status(422).json({
+        success: false,
+        message: "Solar meter photo is required when Complete visit is selected.",
+      });
     }
 
     if (inverterWanted && !stored.inverter_img) {
@@ -1144,9 +1164,9 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         inverter_img: inverterWanted ? stored.inverter_img : null,
         inverter_no: inverterWanted ? inverterNormalized : null,
         smart_meter_img: stored.smart_meter_img,
-        acdb_img: stored.acdb_img,
-        system_img: stored.system_img,
-        solar_meter_img: stored.solar_meter_img || null,
+        acdb_img: completeVisit ? stored.acdb_img : null,
+        system_img: completeVisit ? stored.system_img : null,
+        solar_meter_img: completeVisit ? stored.solar_meter_img || null : null,
         latitude: gpsParsed.latitude,
         longitude: gpsParsed.longitude,
         user_id: clip(String(userId).trim(), 50),
@@ -1154,6 +1174,7 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         remarks: mergeSurveyRemarksMeta(null, {
           structure_img: structurePath,
           surveyor_name: surveyorName,
+          complete_visit: Boolean(completeVisit),
           inverter_on_first_visit: Boolean(inverterWanted),
           ...(clip(visit1NoteBody, 500)
             ? { visit1_note: clip(visit1NoteBody, 500) }
@@ -1231,7 +1252,7 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
       });
     }
 
-    if (!String(existing.system_img ?? "").trim()) {
+    if (!firstVisitSaved(existing)) {
       return res.status(422).json({
         success: false,
         message: "1st visit is not completed for this CA yet.",
@@ -1241,22 +1262,49 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
     if (siteVisitsAreComplete(existing)) {
       return res.status(409).json({
         success: false,
-        message: solarMeterCapturedOnFirstVisit(existing)
-          ? "2nd visit is not required. The solar meter and inverter were already captured on the 1st visit."
-          : "2nd visit is already completed for this record.",
+        message: completeVisitFlag(existing) === true
+          ? "2nd visit is not required. Complete visit was already saved on the 1st visit."
+          : solarMeterCapturedOnFirstVisit(existing)
+            ? "2nd visit is not required. The solar meter and inverter were already captured on the 1st visit."
+            : "2nd visit is already completed for this record.",
       });
     }
 
-    const needsSolar = !solarMeterCapturedOnFirstVisit(existing);
+    const deferred = completeVisitFlag(existing) === false;
+    const needsAcdb = deferred && !String(existing.acdb_img ?? "").trim();
+    const needsSystem = deferred && !String(existing.system_img ?? "").trim();
+    const needsDeferredSolar = deferred && !solarMeterCapturedOnFirstVisit(existing);
+    const needsSolar = !deferred && !solarMeterCapturedOnFirstVisit(existing);
     const needsInverter = !inverterCaptured(existing);
     const { latitude2, longitude2, inverter_no, remarks: visit2NoteBody } = req.body;
     const files = req.files || {};
 
+    const acdbFile = files.acdb_img?.[0];
+    const systemPhotoFile = files.system_img?.[0];
+    const deferredSolarFile = files.solar_meter_img?.[0];
     const solarFile = files.solar_meter_img2?.[0];
     const systemFile = files.system_img2?.[0];
     const inverterFile = files.inverter_img?.[0];
     const inverterNormalized = normalizeUlaSerialNumber(inverter_no);
 
+    if (needsAcdb && !acdbFile) {
+      return res.status(422).json({
+        success: false,
+        message: "ACDB photo is required on the 2nd visit when it was not captured on the 1st visit.",
+      });
+    }
+    if (needsSystem && !systemPhotoFile) {
+      return res.status(422).json({
+        success: false,
+        message: "System photo is required on the 2nd visit when it was not captured on the 1st visit.",
+      });
+    }
+    if (needsDeferredSolar && !deferredSolarFile) {
+      return res.status(422).json({
+        success: false,
+        message: "Solar meter photo is required on the 2nd visit when Complete visit was left off.",
+      });
+    }
     if (needsSolar && (!solarFile || !systemFile)) {
       return res.status(422).json({
         success: false,
@@ -1309,7 +1357,10 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
     }
 
     const caFolderKey = sanitizeUlaCaFolder(existing.ca_no);
-    const [solar_meter_img2, system_img2, inverter_img] = await Promise.all([
+    const [acdb_img, system_img, solar_meter_img, solar_meter_img2, system_img2, inverter_img] = await Promise.all([
+      acdbFile ? persistFileField(acdbFile, caFolderKey, "acdb_img") : null,
+      systemPhotoFile ? persistFileField(systemPhotoFile, caFolderKey, "system_img") : null,
+      deferredSolarFile ? persistFileField(deferredSolarFile, caFolderKey, "solar_meter_img") : null,
       solarFile ? persistFileField(solarFile, caFolderKey, "solar_meter_img2") : null,
       systemFile ? persistFileField(systemFile, caFolderKey, "system_img2") : null,
       inverterFile ? persistFileField(inverterFile, caFolderKey, "inverter_img") : null,
@@ -1320,6 +1371,9 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
     const updated = await prisma.biharUlaSurvey.update({
       where: { id: BigInt(id) },
       data: {
+        ...(acdb_img ? { acdb_img } : {}),
+        ...(system_img ? { system_img } : {}),
+        ...(solar_meter_img ? { solar_meter_img } : {}),
         ...(solar_meter_img2 ? { solar_meter_img2 } : {}),
         ...(system_img2 ? { system_img2 } : {}),
         ...(inverter_img ? { inverter_img, inverter_no: inverterNormalized } : {}),
@@ -1437,8 +1491,8 @@ const countValue = (value) => Number(value || 0);
 /** District totals for every surveyor. Field users see their company; admins see every company. */
 const findUlaDistrictSummary = async (companyId) => {
   const filled = (column) => `\`${column}\` IS NOT NULL AND TRIM(\`${column}\`) <> ''`;
-  const firstDone = filled("system_img");
-  const complete = `(${firstDone}) AND (${filled("inverter_no")}) AND (${filled("inverter_img")}) AND ((${filled("solar_meter_img")}) OR ((${filled("system_img2")}) AND (${filled("solar_meter_img2")})))`;
+  const firstDone = `(${filled("panel_one_img")} OR ${filled("system_img")})`;
+  const complete = `(${firstDone}) AND (${filled("acdb_img")}) AND (${filled("system_img")}) AND (${filled("inverter_no")}) AND (${filled("inverter_img")}) AND ((${filled("solar_meter_img")}) OR ((${filled("system_img2")}) AND (${filled("solar_meter_img2")})))`;
   const companySql = companyId ? Prisma.sql`WHERE company_id = ${String(companyId)}` : Prisma.empty;
   const rows = await prisma.$queryRaw`
     SELECT
@@ -1463,7 +1517,7 @@ const findUlaDistrictSummary = async (companyId) => {
   }));
 };
 
-/** Admin sees every site. A field user sees only surveys they did (1st or 2nd visit). */
+/** Admin sees every site. A field user sees their own surveys, or every company site when scope=all. */
 export const getBiharUlaReport = async (req, res) => {
   try {
     const portalCompanyId = req.portalCompanyId
@@ -1478,24 +1532,40 @@ export const getBiharUlaReport = async (req, res) => {
     }
 
     const adminView = Boolean(portalCompanyId) || (await requesterIsAdmin(req));
-    const where = portalCompanyId
-      ? { company_id: portalCompanyId }
-      : adminView
-        ? {}
-        : { OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }] };
+    const wantAll = String(req.query.scope || "").trim().toLowerCase() === "all";
+    const fieldCompanyId = adminView || portalCompanyId
+      ? ""
+      : (resolveJwtUserCompanyId(req) || await resolveUserCompanyFromDb(jwtUserId));
+    let where;
+    let scope = adminView ? "all" : "mine";
+    if (portalCompanyId) {
+      where = { company_id: portalCompanyId };
+    } else if (adminView) {
+      where = {};
+    } else if (wantAll) {
+      if (!fieldCompanyId) {
+        return res.status(422).json({
+          success: false,
+          message: "Company is required to open the all-sites report.",
+        });
+      }
+      where = { company_id: fieldCompanyId };
+      scope = "all";
+    } else {
+      where = { OR: [{ user_id: jwtUserId }, { user_id2: jwtUserId }] };
+    }
 
     const rows = await prisma.biharUlaSurvey.findMany({
       where,
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
     });
     const data = await enrichSurveysWithUserNames(req, rows);
-    const summaryCompanyId = portalCompanyId
-      || (adminView ? "" : (resolveJwtUserCompanyId(req) || await resolveUserCompanyFromDb(jwtUserId)));
+    const summaryCompanyId = portalCompanyId || (adminView ? "" : fieldCompanyId);
     const districts = await findUlaDistrictSummary(summaryCompanyId);
     return res.json({
       success: true,
       meta: {
-        scope: adminView ? "all" : "mine",
+        scope,
         total: data.length,
         districts,
       },
@@ -1600,6 +1670,64 @@ export const updateBiharUlaApproval = async (req, res) => {
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Failed to update ULA approval.",
+    });
+  }
+};
+
+export const uploadBiharUlaConsentForm = async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!/^\d+$/.test(id)) {
+      return res.status(422).json({
+        success: false,
+        message: "Valid ULA record id is required.",
+      });
+    }
+
+    const existing = await prisma.biharUlaSurvey.findUnique({
+      where: { id: BigInt(id) },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "ULA record not found." });
+    }
+
+    const consentFile = req.files?.consent_form?.[0];
+    const simFile = req.files?.sim_img?.[0];
+    const imei = clip(String(req.body?.imei_no || "").trim(), 255) || null;
+    const caFolder = sanitizeUlaCaFolder(existing.ca_no);
+    const [consentForm, simImg] = await Promise.all([
+      consentFile ? persistFileField(consentFile, caFolder, "consent_form") : null,
+      simFile ? persistFileField(simFile, caFolder, "sim_img") : null,
+    ]);
+    const nextConsent = consentForm || existing.consent_form || null;
+    const nextSim = simImg || existing.sim_img || null;
+    if (!nextConsent && !nextSim && !imei) {
+      return res.status(422).json({
+        success: false,
+        message: "Add a consent form, an IMEI number, or a SIM photo.",
+      });
+    }
+
+    const updated = await prisma.biharUlaSurvey.update({
+      where: { id: BigInt(id) },
+      data: {
+        consent_form: nextConsent,
+        sim_img: nextSim,
+        imei_no: imei,
+        updated_at: new Date(),
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Consent form, IMEI, and SIM photo saved.",
+      data: await serializeSurveyResponse(req, updated),
+    });
+  } catch (error) {
+    console.error("BIHAR ULA CONSENT FORM ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to upload the consent form.",
     });
   }
 };
