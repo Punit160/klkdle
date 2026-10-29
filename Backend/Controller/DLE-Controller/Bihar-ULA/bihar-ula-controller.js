@@ -782,6 +782,139 @@ const excludeSurveyIdFilter = (excludeSurveyId) => {
   }
 };
 
+const ulaActiveValueKey = (kind, raw) => {
+  const value =
+    kind === "panel" || kind === "inverter"
+      ? normalizeUlaSerialNumber(raw)
+      : String(raw ?? "").trim();
+  if (!value || value === "-") return null;
+  return `${kind}:${value}`;
+};
+
+const ulaActiveValueKeysForRow = (row) => {
+  const keys = [
+    ulaActiveValueKey("ca", row?.ca_no),
+    ulaActiveValueKey("phone", row?.beneficiary_contact),
+    ulaActiveValueKey("panel", row?.panel_one_no),
+    ulaActiveValueKey("panel", row?.panel_two_no),
+    ulaActiveValueKey("inverter", row?.inverter_no),
+  ].filter(Boolean);
+  return [...new Set(keys)];
+};
+
+const ulaActiveValueLabel = (key) => {
+  if (String(key).startsWith("ca:")) return "CA number";
+  if (String(key).startsWith("phone:")) return "beneficiary contact";
+  if (String(key).startsWith("panel:")) return "panel serial number";
+  if (String(key).startsWith("inverter:")) return "inverter serial number";
+  return "value";
+};
+
+let ulaActiveValueTableReady = false;
+
+/** One active CA, phone, panel serial, or inverter serial. Rejected surveys release their values. */
+const ensureUlaActiveValueTable = async () => {
+  if (ulaActiveValueTableReady) return;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS bihar_ula_active_value (
+      value_key VARCHAR(320) NOT NULL,
+      survey_id BIGINT UNSIGNED NOT NULL,
+      PRIMARY KEY (value_key),
+      KEY bihar_ula_active_value_survey_idx (survey_id)
+    )
+  `);
+  await prisma.$executeRawUnsafe(`
+    INSERT IGNORE INTO bihar_ula_active_value (value_key, survey_id)
+    SELECT CONCAT('ca:', ca_key), survey_id
+    FROM (
+      SELECT TRIM(ca_no) AS ca_key, MIN(id) AS survey_id
+      FROM bihar_ula_site_survey
+      WHERE approval_status <> 2 AND ca_no IS NOT NULL AND TRIM(ca_no) <> ''
+      GROUP BY TRIM(ca_no)
+    ) grouped
+  `);
+  await prisma.$executeRawUnsafe(`
+    INSERT IGNORE INTO bihar_ula_active_value (value_key, survey_id)
+    SELECT CONCAT('phone:', phone_key), survey_id
+    FROM (
+      SELECT TRIM(beneficiary_contact) AS phone_key, MIN(id) AS survey_id
+      FROM bihar_ula_site_survey
+      WHERE approval_status <> 2
+        AND beneficiary_contact IS NOT NULL
+        AND TRIM(beneficiary_contact) <> ''
+        AND TRIM(beneficiary_contact) <> '-'
+      GROUP BY TRIM(beneficiary_contact)
+    ) grouped
+  `);
+  await prisma.$executeRawUnsafe(`
+    INSERT IGNORE INTO bihar_ula_active_value (value_key, survey_id)
+    SELECT value_key, MIN(survey_id)
+    FROM (
+      SELECT CONCAT('panel:', TRIM(panel_one_no)) AS value_key, id AS survey_id
+      FROM bihar_ula_site_survey
+      WHERE approval_status <> 2 AND panel_one_no IS NOT NULL AND TRIM(panel_one_no) <> ''
+      UNION ALL
+      SELECT CONCAT('panel:', TRIM(panel_two_no)) AS value_key, id AS survey_id
+      FROM bihar_ula_site_survey
+      WHERE approval_status <> 2 AND panel_two_no IS NOT NULL AND TRIM(panel_two_no) <> ''
+    ) panels
+    GROUP BY value_key
+  `);
+  await prisma.$executeRawUnsafe(`
+    INSERT IGNORE INTO bihar_ula_active_value (value_key, survey_id)
+    SELECT CONCAT('inverter:', inverter_key), survey_id
+    FROM (
+      SELECT TRIM(inverter_no) AS inverter_key, MIN(id) AS survey_id
+      FROM bihar_ula_site_survey
+      WHERE approval_status <> 2 AND inverter_no IS NOT NULL AND TRIM(inverter_no) <> ''
+      GROUP BY TRIM(inverter_no)
+    ) grouped
+  `);
+  ulaActiveValueTableReady = true;
+};
+
+const isDuplicateKeyError = (error) =>
+  error?.code === "P2002" || /Duplicate entry/i.test(String(error?.message || ""));
+
+const duplicateUlaValueError = async (tx, key) => {
+  const rows = await tx.$queryRaw`
+    SELECT s.ca_no
+    FROM bihar_ula_active_value v
+    LEFT JOIN bihar_ula_site_survey s ON s.id = v.survey_id
+    WHERE v.value_key = ${key}
+    LIMIT 1
+  `;
+  const ca = rows?.[0]?.ca_no || "another site";
+  const message = String(key).startsWith("ca:")
+    ? "This CA number is already registered. The 2nd visit updates that same site and does not create a new entry."
+    : String(key).startsWith("panel:")
+      ? `This panel serial number is already registered for CA ${ca}. A panel number can be used only once.`
+      : `This ${ulaActiveValueLabel(key)} is already registered for CA ${ca}.`;
+  const error = new Error(message);
+  error.statusCode = 409;
+  return error;
+};
+
+const syncUlaActiveValues = async (tx, row) => {
+  const id = BigInt(row.id);
+  await tx.$executeRaw`DELETE FROM bihar_ula_active_value WHERE survey_id = ${id}`;
+  if (Number(row.approval_status ?? 0) === AMC_DOC_APPROVAL.REJECTED) return;
+  for (const key of ulaActiveValueKeysForRow(row)) {
+    try {
+      await tx.$executeRaw`
+        INSERT INTO bihar_ula_active_value (value_key, survey_id)
+        VALUES (${key}, ${id})
+      `;
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      throw await duplicateUlaValueError(tx, key);
+    }
+  }
+};
+
+const ulaDuplicateConflictMessage = () =>
+  "This CA number, contact, or equipment serial is already registered. The 2nd visit updates the same site and does not create a new entry.";
+
 const findUlaRegistrationConflicts = async ({
   caNo,
   beneficiaryContact,
@@ -1144,7 +1277,23 @@ export const createBiharUlaFirstVisit = async (req, res) => {
     }
 
     const surveyorName = await resolveUserDisplayName(userId);
-    const created = await prisma.biharUlaSurvey.create({
+    await ensureUlaActiveValueTable();
+    const created = await prisma.$transaction(async (tx) => {
+      const already = await tx.biharUlaSurvey.findFirst({
+        where: {
+          ca_no: clip(caNoNormalized, 100),
+          approval_status: { not: AMC_DOC_APPROVAL.REJECTED },
+        },
+        select: { id: true, ca_no: true },
+      });
+      if (already) {
+        const error = new Error(
+          "This CA number is already registered. The 2nd visit updates that same site and does not create a new entry."
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+      const row = await tx.biharUlaSurvey.create({
       data: {
         company_id: clip(companyIdResolved, 100),
         ca_no: clip(caNoNormalized, 100),
@@ -1182,6 +1331,9 @@ export const createBiharUlaFirstVisit = async (req, res) => {
         }),
       },
     });
+      await syncUlaActiveValues(tx, row);
+      return row;
+    });
 
     return res.status(201).json({
       success: true,
@@ -1191,14 +1343,10 @@ export const createBiharUlaFirstVisit = async (req, res) => {
   } catch (error) {
     console.error("BIHAR ULA CREATE ERROR:", error);
     const code = error?.code;
-    if (code === "P2002") {
-      const target = error?.meta?.target;
-      const fields = Array.isArray(target) ? target.join(", ") : String(target || "");
+    if (code === "P2002" || isDuplicateKeyError(error)) {
       return res.status(409).json({
         success: false,
-        message: fields
-          ? `Duplicate value for unique field(s): ${fields}.`
-          : "This CA, contact, or equipment serial is already registered for another survey.",
+        message: ulaDuplicateConflictMessage(),
       });
     }
     if (code === "P2000") {
@@ -1368,7 +1516,9 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
 
     const surveyorName2 = await resolveUserDisplayName(userId);
     const secondVisitAt = new Date();
-    const updated = await prisma.biharUlaSurvey.update({
+    await ensureUlaActiveValueTable();
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.biharUlaSurvey.update({
       where: { id: BigInt(id) },
       data: {
         ...(acdb_img ? { acdb_img } : {}),
@@ -1391,6 +1541,9 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
         updated_at: new Date(),
       },
     });
+      await syncUlaActiveValues(tx, row);
+      return row;
+    });
 
     return res.json({
       success: true,
@@ -1399,9 +1552,10 @@ export const updateBiharUlaSecondVisit = async (req, res) => {
     });
   } catch (error) {
     console.error("BIHAR ULA 2ND VISIT ERROR:", error);
-    return res.status(500).json({
+    const status = error?.statusCode && Number(error.statusCode) < 600 ? Number(error.statusCode) : 500;
+    return res.status(status).json({
       success: false,
-      message: error.message || "Failed to save ULA 2nd visit.",
+      message: error.statusCode ? error.message : error.message || "Failed to save ULA 2nd visit.",
     });
   }
 };
@@ -1415,6 +1569,7 @@ const surveyMatchesPortalCompany = (row, portalCompanyId) =>
 
 export const listBiharUlaSurveys = async (req, res) => {
   try {
+    await ensureUlaActiveValueTable();
     const jwtUserId = String(resolveJwtUserId(req) || "").trim();
     const portalCompanyId = req.portalCompanyId
       ? String(req.portalCompanyId).trim()
@@ -1630,26 +1785,29 @@ export const updateBiharUlaApproval = async (req, res) => {
     });
 
     await ensureUlaApprovalColumns();
-    if (ulaClientHasApprovalField()) {
-      await prisma.biharUlaSurvey.update({
+    await ensureUlaActiveValueTable();
+    const updated = await prisma.$transaction(async (tx) => {
+      if (ulaClientHasApprovalField()) {
+        await tx.biharUlaSurvey.update({
+          where: { id: BigInt(id) },
+          data,
+        });
+      } else {
+        await tx.$executeRaw`
+          UPDATE bihar_ula_site_survey
+          SET approval_status = ${data.approval_status},
+              approval_remarks = ${data.approval_remarks},
+              approval_by = ${data.approval_by},
+              approval_date = ${data.approval_date},
+              updated_at = ${data.updated_at}
+          WHERE id = ${BigInt(id)}
+        `;
+      }
+      const row = await tx.biharUlaSurvey.findUnique({
         where: { id: BigInt(id) },
-        data,
       });
-    } else {
-      await ensureUlaApprovalColumns();
-      await prisma.$executeRaw`
-        UPDATE bihar_ula_site_survey
-        SET approval_status = ${data.approval_status},
-            approval_remarks = ${data.approval_remarks},
-            approval_by = ${data.approval_by},
-            approval_date = ${data.approval_date},
-            updated_at = ${data.updated_at}
-        WHERE id = ${BigInt(id)}
-      `;
-    }
-
-    const updated = await prisma.biharUlaSurvey.findUnique({
-      where: { id: BigInt(id) },
+      await syncUlaActiveValues(tx, { ...row, approval_status: data.approval_status });
+      return row;
     });
 
     const status = Number(data.approval_status);
@@ -2027,9 +2185,14 @@ export const updateBiharUlaSurveyPortal = async (req, res) => {
 
     data.updated_at = new Date();
 
-    const updated = await prisma.biharUlaSurvey.update({
-      where: { id: BigInt(id) },
-      data,
+    await ensureUlaActiveValueTable();
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.biharUlaSurvey.update({
+        where: { id: BigInt(id) },
+        data,
+      });
+      await syncUlaActiveValues(tx, row);
+      return row;
     });
 
     return res.json({
@@ -2040,14 +2203,10 @@ export const updateBiharUlaSurveyPortal = async (req, res) => {
   } catch (error) {
     console.error("BIHAR ULA PORTAL UPDATE ERROR:", error);
     const code = error?.code;
-    if (code === "P2002") {
-      const target = error?.meta?.target;
-      const fields = Array.isArray(target) ? target.join(", ") : String(target || "");
+    if (code === "P2002" || isDuplicateKeyError(error) || error?.statusCode === 409) {
       return res.status(409).json({
         success: false,
-        message: fields
-          ? `Duplicate value for unique field(s): ${fields}.`
-          : "This CA, contact, or equipment serial is already registered for another survey.",
+        message: error?.statusCode === 409 ? error.message : ulaDuplicateConflictMessage(),
       });
     }
     return res.status(500).json({

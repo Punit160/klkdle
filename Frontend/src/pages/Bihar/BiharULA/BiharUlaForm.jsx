@@ -585,8 +585,10 @@ const BiharUlaForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting) return
     setSubmitError('')
     setSubmitSuccess(false)
+    const savingExistingSite = Boolean(isSecondVisitMode && effectiveRecordId)
 
     if (caVisitStatus === 'complete') {
       setSubmitError('Site visits have already been completed for this CA.')
@@ -612,7 +614,7 @@ const BiharUlaForm = () => {
       return
     }
 
-    if (visitType !== '2nd Visit') {
+    if (!savingExistingSite) {
       if (!selectedDistrict?.value) {
         setSubmitError('Please select district from the list.')
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -716,7 +718,7 @@ const BiharUlaForm = () => {
       return
     }
 
-    if (visitType !== '2nd Visit') {
+    if (!savingExistingSite) {
       try {
         const uniqueCheck = await checkUlaRegistrationUnique({
           caNumber,
@@ -748,7 +750,7 @@ const BiharUlaForm = () => {
       }
     }
 
-    if (visitType === '2nd Visit') {
+    if (savingExistingSite) {
       try {
         const uniqueCheck = await checkUlaRegistrationUnique({
           inverterNo: serialNumbers.inverter_qr,
@@ -784,10 +786,18 @@ const BiharUlaForm = () => {
       return
     }
 
+    if (isSecondVisitMode && !effectiveRecordId) {
+      setSubmitError(
+        'Open 2nd visit from the existing site. A 2nd visit does not create a new CA entry.'
+      )
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      if (visitType === '2nd Visit' && effectiveRecordId) {
+      if (savingExistingSite) {
         await submitUlaSecondVisit({
           recordId: effectiveRecordId,
           images,
@@ -974,6 +984,7 @@ const BiharUlaForm = () => {
                 placeholder="e.g. 1029384756"
                 value={caNumber}
                 onChange={(e) => {
+                  if (isSecondVisitFromQuery) return
                   setCaNumber(sanitizeCaNumberInput(e.target.value))
                   if (uniqueFieldErrors.ca_no) {
                     setUniqueFieldErrors((prev) => ({ ...prev, ca_no: '' }))
@@ -988,7 +999,7 @@ const BiharUlaForm = () => {
                   }
                 }}
                 required
-                disabled={caVisitStatus === 'complete'}
+                disabled={caVisitStatus === 'complete' || isSecondVisitMode}
                 pattern="\d*"
               />
             </div>
@@ -1702,7 +1713,7 @@ const BiharUlaForm = () => {
               {isSubmitting && <FiLoader className="spin" size={14} />}
               {isSubmitting
                 ? 'Submitting...'
-                : visitType === '2nd Visit'
+                : isSecondVisitMode
                   ? 'Save 2nd visit'
                   : 'Save 1st visit'}
             </button>
