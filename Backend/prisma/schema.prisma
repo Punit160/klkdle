@@ -367,6 +367,15 @@ model BiharUlaSurvey {
   @@map("bihar_ula_site_survey")
 }
 
+/// Active CA, phone, panel, and inverter values. Rejected surveys release their keys.
+model BiharUlaActiveValue {
+  value_key String @id @db.VarChar(320)
+  survey_id BigInt @db.UnsignedBigInt
+
+  @@index([survey_id], map: "bihar_ula_active_value_survey_idx")
+  @@map("bihar_ula_active_value")
+}
+
 model BiharUlaSiteInspection {
   id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
   company_id      String    @db.VarChar(100)
