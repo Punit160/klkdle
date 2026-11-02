@@ -41,6 +41,19 @@ export const biharUlaSecondVisitUpload = objectUploadFields(
 /** External portal correction — any subset of visit 1 / 2 photos (all optional). */
 const portalEditFields = [...visit1Fields, ...visit2Fields];
 
+const inspectionPhotoFields = [
+  "mms_foundation",
+  "shadow_pv",
+  "la_foundation",
+  "rms",
+  "rms_sim",
+];
+
+export const biharUlaInspectionUpload = objectUploadFields(
+  inspectionPhotoFields.map((name) => ({ name, maxCount: 1, prefix: "biharula" })),
+  { maxFileSize: ULA_MAX_FILE_BYTES }
+);
+
 export const biharUlaConsentFormUpload = objectUploadFields(
   [
     { name: "consent_form", maxCount: 1, prefix: "biharula" },

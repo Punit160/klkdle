@@ -367,6 +367,34 @@ model BiharUlaSurvey {
   @@map("bihar_ula_site_survey")
 }
 
+model BiharUlaSiteInspection {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  company_id      String    @db.VarChar(100)
+  user_id         String?   @db.VarChar(50)
+  survey_id       BigInt?   @db.UnsignedBigInt
+  ca_no           String    @db.VarChar(100)
+  consumer_name   String    @db.VarChar(255)
+  mobile          String?   @db.VarChar(20)
+  district        String?   @db.VarChar(255)
+  block           String?   @db.VarChar(255)
+  panchayat       String?   @db.VarChar(255)
+  village         String?   @db.VarChar(255)
+  latitude        String?   @db.VarChar(50)
+  longitude       String?   @db.VarChar(50)
+  inspection_date DateTime  @db.Date
+  answers         String    @db.LongText
+  approval_status Int       @default(0) @db.TinyInt
+  approval_date   DateTime? @db.Timestamp(0)
+  approval_remarks String?  @db.Text
+  approval_by     String?   @db.VarChar(255)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+  updated_at      DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([company_id])
+  @@index([ca_no, inspection_date])
+  @@map("bihar_ula_site_inspections")
+}
+
 
 model UpKusmcAmc {
   id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt

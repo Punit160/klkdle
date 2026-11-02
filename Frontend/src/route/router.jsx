@@ -34,6 +34,9 @@ import { legacyPages, pages } from "../api/routes"
 
 
 import BiharUlaForm from "../pages/Bihar/BiharULA/BiharUlaForm"
+import BiharUlaInspectionForm from "../pages/Bihar/BiharULA/BiharUlaInspectionForm"
+import BiharUlaInspectionList from "../pages/Bihar/BiharULA/BiharUlaInspectionList"
+import BiharUlaInspectionDetails from "../pages/Bihar/BiharULA/BiharUlaInspectionDetails"
 import BiharUlaList from "../pages/Bihar/BiharULA/BiharUlaList"
 import BiharUlaDetails from "../pages/Bihar/BiharULA/BiharUlaDetails"
 import BiharUlaDashboard from "../pages/Bihar/BiharULA/BiharUlaDashboard"
@@ -85,6 +88,9 @@ export const router = createBrowserRouter([
       moduleRoute("bihar", pages.bihar.lightAmcList, <LightAmcList region="bihar" />),
       moduleRoute("bihar", pages.bihar.lightAmcDetails, <LightAmcDetails region="bihar" />),
       moduleRoute("bihar", pages.bihar.ulaForm, <BiharUlaForm />),
+      moduleRoute("bihar", pages.bihar.ulaInspection, <BiharUlaInspectionForm />),
+      moduleRoute("bihar", pages.bihar.ulaInspectionList, <BiharUlaInspectionList />),
+      moduleRoute("bihar", pages.bihar.ulaInspectionDetails, <BiharUlaInspectionDetails />),
       moduleRoute("bihar", pages.bihar.ulaList, <BiharUlaList />),
       moduleRoute("bihar", pages.bihar.ulaDetails, <BiharUlaDetails />),
       moduleRoute("bihar", pages.bihar.ulaDashboard, <BiharUlaDashboard />),

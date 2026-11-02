@@ -284,6 +284,30 @@ export const PORTAL_PERMISSION_CATALOG = [
 
   },
 
+  {
+
+    key: "portal.bihar.ula_inspection.add",
+
+    label: "Bihar ULA site inspection — add",
+
+    module: "bihar_ula_inspection",
+
+    description: "Submit a Bihar ULA site inspection after the ULA visits are complete.",
+
+  },
+
+  {
+
+    key: "portal.bihar.ula_inspection.read",
+
+    label: "Bihar ULA site inspection — view",
+
+    module: "bihar_ula_inspection",
+
+    description: "View Bihar ULA site inspections in this app.",
+
+  },
+
 ];
 
 

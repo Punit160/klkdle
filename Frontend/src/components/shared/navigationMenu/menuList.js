@@ -107,6 +107,8 @@ export const menuList = [
                 dropdownMenu: [
                     { id: 1, name: "ULA Dashboard", path: pages.bihar.ulaDashboard },
                     { id: 2, name: "ULA Form", path: pages.bihar.ulaForm },
+                    { id: 4, name: "ULA Site Inspection", path: pages.bihar.ulaInspection },
+                    { id: 5, name: "ULA Inspection Table", path: pages.bihar.ulaInspectionList },
                     { id: 3, name: "ULA Data Table", path: pages.bihar.ulaList },
                 ],
             },

@@ -40,6 +40,9 @@ export const pages = {
     ulaList: '/bihar/ula/list',
     ulaDashboard: '/bihar/ula/dashboard',
     ulaDetails: '/bihar/ula/details',
+    ulaInspection: '/bihar/ula/inspection',
+    ulaInspectionList: '/bihar/ula/inspection/list',
+    ulaInspectionDetails: '/bihar/ula/inspection/details',
   },
 
   up: {
@@ -199,6 +202,11 @@ export const api = {
     secondVisit: (id) => `/api/bihar/ula/${id}/second-visit`,
     approval: (id) => `/api/bihar/ula/${id}/approval`,
     consentForm: (id) => `/api/bihar/ula/${id}/consent-form`,
+    inspectionList: '/api/bihar/ula/inspection/list',
+    inspectionSite: '/api/bihar/ula/inspection/site',
+    inspectionStore: '/api/bihar/ula/inspection/store',
+    inspectionView: (id) => `/api/bihar/ula/inspection/${id}`,
+    inspectionApproval: (id) => `/api/bihar/ula/inspection/${id}/approval`,
   },
 }
 

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS `bihar_ula_site_inspections` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `company_id` VARCHAR(100) NOT NULL,
+  `user_id` VARCHAR(50) NULL,
+  `survey_id` BIGINT UNSIGNED NULL,
+  `ca_no` VARCHAR(100) NOT NULL,
+  `consumer_name` VARCHAR(255) NOT NULL,
+  `mobile` VARCHAR(20) NULL,
+  `district` VARCHAR(255) NULL,
+  `block` VARCHAR(255) NULL,
+  `panchayat` VARCHAR(255) NULL,
+  `village` VARCHAR(255) NULL,
+  `latitude` VARCHAR(50) NULL,
+  `longitude` VARCHAR(50) NULL,
+  `inspection_date` DATE NOT NULL,
+  `answers` LONGTEXT NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bihar_ula_site_inspections_ca_no_key` (`ca_no`),
+  KEY `bihar_ula_site_inspections_company_id_idx` (`company_id`)
+);
