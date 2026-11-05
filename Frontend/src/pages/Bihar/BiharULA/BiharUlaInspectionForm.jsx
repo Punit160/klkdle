@@ -112,13 +112,13 @@ const BiharUlaInspectionForm = () => {
         params: { ca_no: ca, inspection_date: date },
       })
       const body = res?.data || {}
-      if (!body.found || !body.visits_complete) {
+      if (!body.found) {
         loadedKeyRef.current = ''
         setSite(null)
         setCanInspect(false)
         setExistingId('')
         setBlockMessage('')
-        setLookupError(body.message || 'ULA site visits are not complete for this CA.')
+        setLookupError(body.message || 'No Bihar ULA site is registered for this CA number.')
         return
       }
       loadedKeyRef.current = key
@@ -284,7 +284,7 @@ const BiharUlaInspectionForm = () => {
                   <SectionHeading
                     icon={<FiUser size={16} />}
                     title="Site details"
-                    subtitle="Taken from the completed Bihar ULA visits"
+                    subtitle="Taken from the Bihar ULA site"
                   />
                   <div className="ula-saved-panel">
                     <div className="row g-3">

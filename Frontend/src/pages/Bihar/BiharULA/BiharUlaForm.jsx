@@ -45,11 +45,6 @@ import {
   isValidIndianMobile,
 } from './ulaHelpers'
 import { resolveUploadUrl } from '../../../utils/uploadUrl'
-import {
-  captureCurrentLocation,
-  distanceBetweenCoordinatesMeters,
-  ULA_GPS_SITE_TOLERANCE_METERS,
-} from '../../../utils/geolocation'
 import { getApiErrorMessage } from '../../../utils/apiError'
 import '../../../styles/camera-capture.css'
 import '../../../styles/bihar-ula.css'
@@ -115,7 +110,6 @@ const BiharUlaForm = () => {
   const [dateTime, setDateTime] = useState('')
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
-  const [isLocating, setIsLocating] = useState(false)
   const [gpsError, setGpsError] = useState('')
 
   const [visitType, setVisitType] = useState(isSecondVisitMode ? '2nd Visit' : '1st Visit')
@@ -477,42 +471,6 @@ const BiharUlaForm = () => {
       .finally(() => setIsLoadingRecord(false))
   }, [isSecondVisitMode, effectiveRecordId, loadedSurvey?.id])
 
-  const handleDetectGps = () => {
-    if (!navigator.geolocation) {
-      setGpsError('Location is not supported on this device.')
-      return
-    }
-    setIsLocating(true)
-    setGpsError('')
-
-    const applyPosition = (pos) => {
-      setLatitude(pos.coords.latitude.toFixed(6))
-      setLongitude(pos.coords.longitude.toFixed(6))
-      refreshDateTime()
-      setGpsError('')
-      setIsLocating(false)
-    }
-
-    const failGps = () => {
-      setIsLocating(false)
-      setGpsError(
-        'GPS timed out. Turn on location, move to open sky if needed, then tap Auto Detect GPS again.'
-      )
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      applyPosition,
-      () => {
-        navigator.geolocation.getCurrentPosition(applyPosition, failGps, {
-          enableHighAccuracy: false,
-          timeout: 20000,
-          maximumAge: 0,
-        })
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-    )
-  }
-
   // Panel 1 / Panel 2 / Inverter: serial from QR on capture, or manual entry below
   const applyScannedSerial = (slot, detectedCode, sourceLabel, { overwrite = false } = {}) => {
     if (!slot?.key || !detectedCode) return false
@@ -673,45 +631,10 @@ const BiharUlaForm = () => {
       return
     }
 
-    let saveLatitude = ''
-    let saveLongitude = ''
-    setIsLocating(true)
-    setGpsError('')
-    try {
-      const fresh = await captureCurrentLocation({
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      })
-      saveLatitude = Number(fresh.latitude).toFixed(6)
-      saveLongitude = Number(fresh.longitude).toFixed(6)
-      setLatitude(saveLatitude)
-      setLongitude(saveLongitude)
-      refreshDateTime()
-    } catch (err) {
-      setGpsError(err?.message || 'Could not read current location. Turn on GPS and try again.')
-      setSubmitError(
-        'Current GPS is required. A location from when the form was opened is not saved.'
-      )
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    } finally {
-      setIsLocating(false)
-    }
-
-    const movedPhoto = visibleSlots.find((slot) => {
-      const pin = photoGps[slot.key]
-      if (!pin || !images[slot.key]) return false
-      return (
-        distanceBetweenCoordinatesMeters(
-          { latitude: saveLatitude, longitude: saveLongitude },
-          pin
-        ) > ULA_GPS_SITE_TOLERANCE_METERS
-      )
-    })
-    if (movedPhoto) {
-      const message =
-        'You are more than 200 m from where the photos were taken. Recapture the photos at the site. The location from when the form opened is not used.'
+    const saveLatitude = String(latitude || '').trim()
+    const saveLongitude = String(longitude || '').trim()
+    if (!saveLatitude || !saveLongitude) {
+      const message = 'Take a site photo first. Latitude and longitude are filled from the photo.'
       setGpsError(message)
       setSubmitError(message)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1090,17 +1013,7 @@ const BiharUlaForm = () => {
 
           {/* Latitude & Longitude */}
           <div className="col-lg-8 col-md-6">
-            <div className="d-flex justify-content-between align-items-center mb-1">
-              <FormLabelHi en="GPS Coordinates (Lat & Long)" hi={ULA_FORM_LABELS_HI.gps} />
-              <button
-                type="button"
-                className="btn btn-link btn-sm p-0 fs-11 text-decoration-none"
-                onClick={handleDetectGps}
-                disabled={isLocating}
-              >
-                {isLocating ? 'Detecting GPS...' : 'Auto Detect GPS'}
-              </button>
-            </div>
+            <FormLabelHi en="GPS Coordinates (Lat & Long)" hi={ULA_FORM_LABELS_HI.gps} />
             <div className="input-group">
               <span className="input-group-text bg-light text-muted">
                 <FiMapPin size={14} />
@@ -1112,7 +1025,7 @@ const BiharUlaForm = () => {
                 value={latitude}
                 readOnly
                 aria-readonly="true"
-                title="Use Auto Detect GPS — coordinates cannot be typed manually"
+                title="Filled when you take a photo"
               />
               <input
                 type="text"
@@ -1121,11 +1034,11 @@ const BiharUlaForm = () => {
                 value={longitude}
                 readOnly
                 aria-readonly="true"
-                title="Use Auto Detect GPS — coordinates cannot be typed manually"
+                title="Filled when you take a photo"
               />
             </div>
             <div className="fs-11 text-muted mt-1">
-              GPS is read when each photo is taken, and again when you save. A pin from when the form opened is not used.
+              Latitude and longitude are filled when you take a photo.
             </div>
             {gpsError ? <div className="fs-12 text-danger mt-1">{gpsError}</div> : null}
           </div>
@@ -1416,21 +1329,11 @@ const BiharUlaForm = () => {
             <SectionHeading
               icon={<FiMapPin size={16} />}
               title="2nd visit GPS & time"
-              subtitle="GPS is taken at each photo and again when you save"
+              subtitle="Latitude and longitude are filled when you take a photo"
             />
             <div className="row g-3 mb-2">
               <div className="col-lg-8">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <label className="form-label mb-0">GPS (Lat & Long)</label>
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm p-0 fs-11 text-decoration-none"
-                    onClick={handleDetectGps}
-                    disabled={isLocating}
-                  >
-                    {isLocating ? 'Detecting…' : 'Auto Detect GPS'}
-                  </button>
-                </div>
+                <label className="form-label mb-1">GPS (Lat & Long)</label>
                 <div className="input-group">
                   <span className="input-group-text bg-light text-muted">
                     <FiMapPin size={14} />

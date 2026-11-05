@@ -230,10 +230,7 @@ const sitePayload = (row) => ({
 
 const findSurveyByCa = async (caNo) =>
   prisma.biharUlaSurvey.findFirst({
-    where: {
-      ca_no: caNo,
-      approval_status: { not: AMC_DOC_APPROVAL.REJECTED },
-    },
+    where: { ca_no: caNo },
     orderBy: { id: "desc" },
   });
 
@@ -269,24 +266,11 @@ export const lookupBiharUlaInspectionSite = async (req, res) => {
       });
     }
 
-    const complete = siteVisitsAreComplete(survey);
-    if (!complete) {
-      return res.json({
-        success: true,
-        found: true,
-        visits_complete: false,
-        can_inspect: false,
-        message:
-          "ULA site visits are not complete for this CA. Finish the 1st and 2nd visit before the site inspection.",
-        site: sitePayload(survey),
-      });
-    }
-
     const month = monthKeyOf(req.query.inspection_date) || monthKeyOf(new Date());
     const open = await inspectionInMonth(caNo, month, false);
     const rejected = open ? null : await inspectionInMonth(caNo, month, true);
     const label = monthLabel(month);
-    let message = "ULA site visits are complete. Site details are shown below.";
+    let message = "Bihar ULA site found. Site details are shown below.";
     if (open) {
       message = `This CA already has a site inspection for ${label}. One inspection is allowed each month. Another inspection in the same month is allowed only after an admin rejects it.`;
     } else if (rejected) {
@@ -296,7 +280,7 @@ export const lookupBiharUlaInspectionSite = async (req, res) => {
     return res.json({
       success: true,
       found: true,
-      visits_complete: true,
+      visits_complete: siteVisitsAreComplete(survey),
       can_inspect: !open,
       month,
       message,
@@ -338,10 +322,10 @@ export const storeBiharUlaInspection = async (req, res) => {
     }
 
     const survey = await findSurveyByCa(caNo);
-    if (!survey || !siteVisitsAreComplete(survey)) {
+    if (!survey) {
       return res.status(422).json({
         success: false,
-        message: "Site inspection opens only after the Bihar ULA visits for this CA are complete.",
+        message: "No Bihar ULA site is registered for this CA number.",
       });
     }
 

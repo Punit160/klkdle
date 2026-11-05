@@ -93,7 +93,7 @@ const stateHubConfig = {
       { label: 'Field AMC', path: pages.bihar.lightAmc, desc: 'Submit light AMC with GPS' },
       { label: 'ULA Dashboard', path: pages.bihar.ulaDashboard, desc: 'Your ULA work, or every site for admin' },
       { label: 'ULA Form', path: pages.bihar.ulaForm, desc: 'Submit Bihar ULA readings' },
-      { label: 'ULA Site Inspection', path: pages.bihar.ulaInspection, desc: 'Inspect a site after ULA visits are complete' },
+      { label: 'ULA Site Inspection', path: pages.bihar.ulaInspection, desc: 'Inspect any Bihar ULA site' },
       { label: 'ULA Inspection Table', path: pages.bihar.ulaInspectionList, desc: 'View site inspections and open a site' },
       { label: 'ULA Data', path: pages.bihar.ulaList, desc: 'View ULA submissions' },
     ],
