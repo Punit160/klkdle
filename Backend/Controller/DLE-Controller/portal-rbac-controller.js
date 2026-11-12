@@ -368,7 +368,8 @@ export const setUserRolesController = async (req, res) => {
     const { role_ids: roleIds = [] } = req.body;
 
     const targetUser = await findUserById(targetUserId);
-    if (!targetUser || String(targetUser.company_id || "").trim() !== companyId) {
+    const targetCompany = String(targetUser?.company_id || "").trim();
+    if (!targetUser || (targetCompany && targetCompany !== companyId)) {
       return res.status(404).json({
         success: false,
         message: "User not found in your company.",

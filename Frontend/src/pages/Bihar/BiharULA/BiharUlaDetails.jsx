@@ -28,6 +28,7 @@ import {
   updateUlaApproval,
 } from './ulaHelpers'
 import { userIsAdmin } from '../../../utils/userRoles'
+import { UlaSitePaymentEditor } from './BiharUlaPayments'
 import {
   AMC_DOC_APPROVAL,
   getAmcApprovalBadgeClass,
@@ -444,6 +445,8 @@ const BiharUlaDetails = () => {
               </div>
             </div>
           </div>
+
+          {isAdmin ? <UlaSitePaymentEditor surveyId={record.id} /> : null}
 
           <div className="ula-detail-section">
             <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">

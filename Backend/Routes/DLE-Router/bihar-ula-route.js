@@ -25,6 +25,13 @@ import {
   uploadBiharUlaConsentForm,
 } from "../../Controller/DLE-Controller/Bihar-ULA/bihar-ula-controller.js";
 import {
+  addBiharUlaSiteExpense,
+  deleteBiharUlaSiteExpense,
+  getBiharUlaSitePayment,
+  listBiharUlaPayments,
+  updateBiharUlaSitePayment,
+} from "../../Controller/DLE-Controller/Bihar-ULA/bihar-ula-payment-controller.js";
+import {
   getBiharUlaInspection,
   listBiharUlaInspections,
   lookupBiharUlaInspectionSite,
@@ -39,6 +46,11 @@ const ulaAdd = requireBiharUlaAdd();
 const inspectionAdd = requireBiharUlaInspectionAdd();
 const inspectionRead = requireBiharUlaInspectionRead();
 
+router.get("/payments", requireUserMasterAdmin, listBiharUlaPayments);
+router.get("/payments/:surveyId", requireUserMasterAdmin, getBiharUlaSitePayment);
+router.patch("/payments/:surveyId", requireUserMasterAdmin, updateBiharUlaSitePayment);
+router.post("/payments/:surveyId/expenses", requireUserMasterAdmin, addBiharUlaSiteExpense);
+router.delete("/payments/expenses/:expenseId", requireUserMasterAdmin, deleteBiharUlaSiteExpense);
 router.get("/inspection/list", inspectionRead, listBiharUlaInspections);
 router.get("/inspection/site", inspectionAdd, lookupBiharUlaInspectionSite);
 router.get("/inspection/:id", inspectionRead, getBiharUlaInspection);

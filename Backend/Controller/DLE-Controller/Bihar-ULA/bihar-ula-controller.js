@@ -9,6 +9,7 @@ import {
   readStoredFileBuffer,
 } from "../../../Utils/objectStorage.js";
 import { resolveJwtUserId } from "../../../Utils/requestUser.js";
+import { attachUlaPaymentFields } from "./bihar-ula-payment-controller.js";
 import { findUserById } from "../../../Model/DLE-Model/dle-user-model.js";
 import { isUserMasterAdmin } from "../../../Utils/userRoles.js";
 import {
@@ -1614,6 +1615,9 @@ export const listBiharUlaSurveys = async (req, res) => {
     const rows = await prisma.biharUlaSurvey.findMany(findArgs);
 
     let data = await enrichSurveysWithUserNames(req, rows);
+    if (adminView && data.length) {
+      data = await attachUlaPaymentFields(data);
+    }
     const approvalFilter = req.query.approval_status;
     if (approvalFilter != null && String(approvalFilter).trim() !== "") {
       const status = Number(approvalFilter);

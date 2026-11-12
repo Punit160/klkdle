@@ -45,6 +45,7 @@ import {
   tableToExcelHtml,
 } from './ulaDashboardReports'
 import { userIsAdmin } from '../../../utils/userRoles'
+import BiharUlaPayments from './BiharUlaPayments'
 import {
   AMC_DOC_APPROVAL,
   getAmcApprovalBadgeClass,
@@ -445,6 +446,11 @@ const BiharUlaDashboard = () => {
 
           {!loading && !error && (
             <>
+              {isAdmin ? (
+                <div className="col-12 bihar-amc-section">
+                  <BiharUlaPayments />
+                </div>
+              ) : null}
               <div className="col-12 bihar-amc-section">
                 <div className="bihar-amc-section-card">
                   <div className="bihar-amc-section-head">

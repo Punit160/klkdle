@@ -48,6 +48,13 @@ import '../../../styles/bihar-ula.css'
 
 const PER_PAGE = 15
 
+const inr = (value) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0)
+
 const BiharUlaList = () => {
   const navigate = useNavigate()
   const { refreshKey, isRemoved, isExpanded, handleRefresh, handleExpand, handleDelete } =
@@ -115,6 +122,13 @@ const BiharUlaList = () => {
               expectedPhotoCount: expectedUlaPhotoCount(row),
               approvalStatus: Number(row.approval_status ?? 0),
               approvalRemarks: row.approval_remarks || '',
+              centralReceived: Boolean(row.central_received),
+              stateReceived: Boolean(row.state_received),
+              fullPayment: Boolean(row.full_payment),
+              paymentCollected: Number(row.payment_collected || 0),
+              paymentPending: Number(row.payment_pending ?? 43000),
+              paymentExpense: Number(row.payment_expense || 0),
+              paymentBalance: Number(row.payment_balance || 0),
             }})
           )
         }
@@ -572,6 +586,11 @@ const BiharUlaList = () => {
                         <th>Visit date & time</th>
                         <th>GPS</th>
                         <th>Photos</th>
+                        {isAdmin ? <th>Central</th> : null}
+                        {isAdmin ? <th>State</th> : null}
+                        {isAdmin ? <th>Collected</th> : null}
+                        {isAdmin ? <th>Pending</th> : null}
+                        {isAdmin ? <th>Expense</th> : null}
                         <th className="ula-view-col">View</th>
                         {isAdmin ? <th className="ula-actions-col">Actions</th> : null}
                       </tr>
@@ -579,14 +598,14 @@ const BiharUlaList = () => {
                     <tbody>
                       {loading && (
                         <tr>
-                          <td colSpan={isAdmin ? 10 : 9} className="text-center py-5 text-muted">
+                          <td colSpan={isAdmin ? 15 : 9} className="text-center py-5 text-muted">
                             Loading ULA records…
                           </td>
                         </tr>
                       )}
                       {!loading && paginatedRecords.length === 0 && (
                         <tr>
-                          <td colSpan={isAdmin ? 10 : 9} className="text-center py-5">
+                          <td colSpan={isAdmin ? 15 : 9} className="text-center py-5">
                             <div className="text-muted mb-2">
                               {records.length
                                 ? 'No records match these filters.'
@@ -757,6 +776,15 @@ const BiharUlaList = () => {
                                   )}
                                 </button>
                               </td>
+                              {isAdmin ? (
+                                <>
+                                  <td>{row.centralReceived ? 'Received' : 'Pending'}</td>
+                                  <td>{row.stateReceived ? 'Received' : 'Pending'}</td>
+                                  <td>{inr(row.paymentCollected)}</td>
+                                  <td>{inr(row.paymentPending)}</td>
+                                  <td>{inr(row.paymentExpense)}</td>
+                                </>
+                              ) : null}
                               <td className="ula-view-col">
                                 <button
                                   type="button"

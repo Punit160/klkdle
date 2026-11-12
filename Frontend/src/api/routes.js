@@ -207,6 +207,10 @@ export const api = {
     inspectionStore: '/api/bihar/ula/inspection/store',
     inspectionView: (id) => `/api/bihar/ula/inspection/${id}`,
     inspectionApproval: (id) => `/api/bihar/ula/inspection/${id}/approval`,
+    payments: '/api/bihar/ula/payments',
+    payment: (id) => `/api/bihar/ula/payments/${id}`,
+    paymentExpenses: (id) => `/api/bihar/ula/payments/${id}/expenses`,
+    paymentExpense: (id) => `/api/bihar/ula/payments/expenses/${id}`,
   },
 }
 

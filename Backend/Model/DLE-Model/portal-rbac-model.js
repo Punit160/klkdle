@@ -1,4 +1,5 @@
 import prisma from "../../Config/Prisma.js";
+import { USER_ROLE_ADMIN } from "../../Utils/userRoles.js";
 import {
   PORTAL_PERMISSION_CATALOG,
   PORTAL_SUPER_PERMISSION,
@@ -258,7 +259,8 @@ export const setPortalRoleMembers = async (roleId, companyId, userIds) => {
     const users = await prisma.user.findMany({
       where: {
         id: { in: uniqueUserIds.map((id) => BigInt(id)) },
-        company_id: cid,
+        role: { not: USER_ROLE_ADMIN },
+        OR: [{ company_id: cid }, { company_id: null }, { company_id: "" }],
       },
       select: { id: true },
     });

@@ -258,27 +258,30 @@ export const getAllUsers = async () => {
   return users;
 };
 
-export const findUsersByCompanyId = async (companyId, { search, limit = 100 } = {}) => {
+export const findUsersByCompanyId = async (companyId, { search } = {}) => {
   const cid = String(companyId || "").trim();
   if (!cid) return [];
 
   const where = {
-    company_id: cid,
     role: { not: USER_ROLE_ADMIN },
+    OR: [{ company_id: cid }, { company_id: null }, { company_id: "" }],
   };
   const q = String(search || "").trim();
   if (q) {
-    where.OR = [
-      { name: { contains: q } },
-      { email: { contains: q } },
-      { contact_no: { contains: q } },
+    where.AND = [
+      {
+        OR: [
+          { name: { contains: q } },
+          { email: { contains: q } },
+          { contact_no: { contains: q } },
+        ],
+      },
     ];
   }
 
   return prisma.user.findMany({
     where,
     orderBy: { name: "asc" },
-    take: Math.min(Number(limit) || 100, 200),
     select: {
       id: true,
       name: true,
