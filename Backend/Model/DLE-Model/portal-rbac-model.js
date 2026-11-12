@@ -260,12 +260,13 @@ export const setPortalRoleMembers = async (roleId, companyId, userIds) => {
       where: {
         id: { in: uniqueUserIds.map((id) => BigInt(id)) },
         role: { not: USER_ROLE_ADMIN },
+        approval_status: 1,
         OR: [{ company_id: cid }, { company_id: null }, { company_id: "" }],
       },
       select: { id: true },
     });
     if (users.length !== uniqueUserIds.length) {
-      const error = new Error("One or more users are invalid for this company.");
+      const error = new Error("Only approved users in this company can be assigned to a role.");
       error.statusCode = 422;
       throw error;
     }

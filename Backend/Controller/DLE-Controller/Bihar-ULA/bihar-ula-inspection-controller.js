@@ -202,12 +202,9 @@ const detailPayload = (req, row, names) => ({
   answers: publicAnswers(req, row.answers),
 });
 
-const canReadInspection = async (req, row) => {
+const canReadInspection = async (req) => {
   const userId = String(resolveJwtUserId(req) || "");
-  if (userId && (await requesterIsAdmin(req))) return true;
-  if (userId && String(row.user_id || "") === userId) return true;
-  const portalCompanyId = req.portalCompanyId ? String(req.portalCompanyId).trim() : "";
-  return Boolean(portalCompanyId && String(row.company_id || "") === portalCompanyId);
+  return Boolean(userId);
 };
 
 const sitePayload = (row) => ({
@@ -251,18 +248,6 @@ export const lookupBiharUlaInspectionSite = async (req, res) => {
         found: false,
         visits_complete: false,
         message: "No Bihar ULA site is registered for this CA number.",
-      });
-    }
-
-    const admin = await requesterIsAdmin(req);
-    const userId = String(resolveJwtUserId(req) || "");
-    const companyId = companyIdOf(req);
-    const sameCompany = companyId && String(survey.company_id || "") === companyId;
-    const ownVisit = userId && (String(survey.user_id || "") === userId || String(survey.user_id2 || "") === userId);
-    if (!admin && !sameCompany && !ownVisit) {
-      return res.status(403).json({
-        success: false,
-        message: "You do not have access to this ULA site.",
       });
     }
 
@@ -469,7 +454,7 @@ export const getBiharUlaInspection = async (req, res) => {
       return res.status(422).json({ success: false, message: "Valid inspection id is required." });
     }
     const row = await prisma.biharUlaSiteInspection.findUnique({ where: { id: BigInt(id) } });
-    if (!row || !(await canReadInspection(req, row))) {
+    if (!row || !(await canReadInspection(req))) {
       return res.status(404).json({ success: false, message: "Site inspection not found." });
     }
     const names = await userNameMap([row]);

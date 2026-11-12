@@ -446,7 +446,12 @@ const BiharUlaDetails = () => {
             </div>
           </div>
 
-          {isAdmin ? <UlaSitePaymentEditor surveyId={record.id} /> : null}
+          {isAdmin ? (
+            <UlaSitePaymentEditor
+              surveyId={record.id}
+              counted={record.approvalStatus === AMC_DOC_APPROVAL.APPROVED}
+            />
+          ) : null}
 
           <div className="ula-detail-section">
             <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">

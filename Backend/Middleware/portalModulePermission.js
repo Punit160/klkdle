@@ -52,13 +52,6 @@ export const requireBiharUlaRead = () => requirePortalPermission("portal.bihar.u
 export const requireBiharUlaAdd = () => requirePortalPermission("portal.bihar.ula.add");
 export const requireBiharUlaReport = () =>
   requirePortalPermission("portal.bihar.ula.dashboard");
-export const requireBiharUlaInspectionAdd = () =>
-  requirePortalPermission("portal.bihar.ula_inspection.add");
-export const requireBiharUlaInspectionRead = () =>
-  requireAnyPortalPermission([
-    "portal.bihar.ula_inspection.read",
-    "portal.bihar.ula_inspection.add",
-  ]);
 
 export const requireLightAmcRead = async (req, res, next) => {
   const region = await resolveLightAmcRegion(req);

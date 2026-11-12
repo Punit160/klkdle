@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import ReactApexChart from 'react-apexcharts'
 import { FiActivity, FiPlus, FiTrash2 } from 'react-icons/fi'
-import Pagination from '@/components/shared/Pagination'
-import { api, pages } from '../../../api/routes'
+import { api } from '../../../api/routes'
 import localApi from '../../../api/localApi'
 import { getApiErrorMessage } from '../../../utils/apiError'
 
@@ -28,9 +27,6 @@ const Stat = ({ title, value, subtitle, tone = 'primary' }) => (
 
 const BiharUlaPayments = () => {
   const [summary, setSummary] = useState(null)
-  const [rows, setRows] = useState([])
-  const [meta, setMeta] = useState({ page: 1, total_pages: 1, total: 0 })
-  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -39,12 +35,9 @@ const BiharUlaPayments = () => {
     setLoading(true)
     setError('')
     localApi
-      .get(api.biharUla.payments, { params: { page, limit: 12 } })
+      .get(api.biharUla.payments, { params: { page: 1, limit: 1 } })
       .then((res) => {
-        if (cancelled) return
-        setSummary(res.data?.summary || null)
-        setRows(res.data?.data || [])
-        setMeta(res.data?.meta || { page: 1, total_pages: 1, total: 0 })
+        if (!cancelled) setSummary(res.data?.summary || null)
       })
       .catch((err) => {
         if (!cancelled) setError(getApiErrorMessage(err, 'Could not load site payments.'))
@@ -55,7 +48,18 @@ const BiharUlaPayments = () => {
     return () => {
       cancelled = true
     }
-  }, [page])
+  }, [])
+
+  const sites = Number(summary?.sites) || 0
+  const centralAmount = Number(summary?.central_amount) || 33000
+  const stateAmount = Number(summary?.state_amount) || 10000
+  const centralReceived = Number(summary?.central_received_count) || 0
+  const stateReceived = Number(summary?.state_received_count) || 0
+  const centralPending = Math.max(sites - centralReceived, 0)
+  const statePending = Math.max(sites - stateReceived, 0)
+  const collected = Number(summary?.collected) || 0
+  const pending = Number(summary?.pending) || 0
+  const expense = Number(summary?.expense) || 0
 
   return (
     <div className="bihar-amc-section-card">
@@ -66,74 +70,99 @@ const BiharUlaPayments = () => {
           </div>
           <div>
             <h5>Payments and expenses</h5>
-            <p>Collected, pending, and expense for every ULA site</p>
+            <p>Collected, pending, and expense for approved ULA sites</p>
           </div>
         </div>
       </div>
       <div className="bihar-amc-section-body">
         {error ? <div className="alert alert-warning py-2 fs-13">{error}</div> : null}
         <div className="bihar-amc-stat-grid">
-          <Stat title="Amount to receive" value={inr(summary?.expected)} subtitle="Central ₹33,000 + State ₹10,000" tone="primary" />
-          <Stat title="Collected" value={inr(summary?.collected)} subtitle="Payments marked received" tone="success" />
-          <Stat title="Pending" value={inr(summary?.pending)} subtitle={`${summary?.pending_payment_count ?? 0} sites not fully paid`} tone="warning" />
-          <Stat title="Full payment" value={summary?.full_payment_count ?? 0} subtitle="Both parts received" tone="success" />
+          <Stat title="Amount to receive" value={inr(summary?.expected)} subtitle="Approved sites × ₹43,000" tone="primary" />
+          <Stat title="Collected" value={inr(summary?.collected)} subtitle="Received on approved sites" tone="success" />
+          <Stat title="Pending" value={inr(summary?.pending)} subtitle={`${summary?.pending_payment_count ?? 0} approved sites not fully paid`} tone="warning" />
+          <Stat title="Full payment" value={summary?.full_payment_count ?? 0} subtitle="Approved sites with both parts" tone="success" />
         </div>
         <div className="bihar-amc-stat-grid">
           <Stat title="Central received" value={summary?.central_received_count ?? 0} subtitle="₹33,000 each" tone="info" />
           <Stat title="State received" value={summary?.state_received_count ?? 0} subtitle="₹10,000 each" tone="info" />
-          <Stat title="Expense" value={inr(summary?.expense)} subtitle="All site expenses" tone="danger" />
-          <Stat title="Collected minus expense" value={inr(summary?.balance)} subtitle="Revenue against expense" tone="primary" />
+          <Stat title="Expense" value={inr(summary?.expense)} subtitle="Expenses on approved sites" tone="danger" />
+          <Stat title="Collected minus expense" value={inr(summary?.balance)} subtitle="Approved sites" tone="primary" />
         </div>
-        <div className="table-responsive mt-3">
-          <table className="table bihar-amc-table mb-0">
-            <thead>
-              <tr>
-                <th>CA</th>
-                <th>Location</th>
-                <th>Central</th>
-                <th>State</th>
-                <th>Collected</th>
-                <th>Pending</th>
-                <th>Expense</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={7}><div className="bihar-amc-empty">Loading payments…</div></td></tr>
-              ) : null}
-              {!loading && rows.length === 0 ? (
-                <tr><td colSpan={7}><div className="bihar-amc-empty">No ULA sites yet.</div></td></tr>
-              ) : null}
-              {!loading && rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <Link className="fw-semibold" to={`${pages.bihar.ulaDetails}?id=${row.id}`}>
-                      {row.ca_no || '—'}
-                    </Link>
-                    <div className="fs-11 text-muted">{row.consumer_name || '—'}</div>
-                  </td>
-                  <td className="fs-12 text-muted">{[row.district, row.block, row.village].filter(Boolean).join(' / ') || '—'}</td>
-                  <td>{row.central_received ? 'Received' : 'Pending'}</td>
-                  <td>{row.state_received ? 'Received' : 'Pending'}</td>
-                  <td>{inr(row.collected)}</td>
-                  <td>{inr(row.pending)}</td>
-                  <td>{inr(row.expense)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {meta.total_pages > 1 ? (
-          <div className="mt-3">
-            <Pagination currentPage={page} totalPages={meta.total_pages} onPageChange={setPage} />
-          </div>
+        {loading ? <div className="bihar-amc-empty">Loading payment report…</div> : null}
+        {!loading && sites === 0 ? <div className="bihar-amc-empty">No approved ULA sites yet.</div> : null}
+        {!loading && sites > 0 ? (
+          <>
+            <div className="bihar-amc-panel-grid mt-3">
+              <div className="bihar-amc-panel">
+                <div className="bihar-amc-panel-head">
+                  <h6>Collected and pending</h6>
+                </div>
+                <div className="p-3">
+                  <ReactApexChart
+                    type="donut"
+                    height={280}
+                    series={[collected, pending]}
+                    options={{
+                      labels: ['Collected', 'Pending'],
+                      colors: ['#25b865', '#e49e3d'],
+                      legend: { position: 'bottom', fontSize: '12px' },
+                      dataLabels: { enabled: true },
+                      plotOptions: { pie: { donut: { size: '72%' } } },
+                      tooltip: { y: { formatter: (value) => inr(value) } },
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="bihar-amc-panel">
+                <div className="bihar-amc-panel-head">
+                  <h6>Central, state, and expense</h6>
+                </div>
+                <div className="p-2 pb-0">
+                  <ReactApexChart
+                    type="bar"
+                    height={280}
+                    series={[{
+                      name: 'Amount',
+                      data: [
+                        centralReceived * centralAmount,
+                        centralPending * centralAmount,
+                        stateReceived * stateAmount,
+                        statePending * stateAmount,
+                        expense,
+                      ],
+                    }]}
+                    options={{
+                      chart: { toolbar: { show: false } },
+                      plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } },
+                      colors: ['#3454d1', '#e49e3d', '#17a2b8', '#94a3b8', '#ea4d4d'],
+                      xaxis: {
+                        categories: ['Central received', 'Central pending', 'State received', 'State pending', 'Expense'],
+                        labels: { rotate: -25, style: { fontSize: '11px', colors: '#64748b' } },
+                      },
+                      yaxis: { labels: { formatter: (value) => inr(value) } },
+                      grid: { borderColor: '#eef2f6', strokeDashArray: 4 },
+                      dataLabels: { enabled: false },
+                      legend: { show: false },
+                      tooltip: { y: { formatter: (value) => inr(value) } },
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="bihar-amc-footer-stats">
+              <div className="bihar-amc-footer-stat"><span>Approved sites</span><strong>{sites}</strong></div>
+              <div className="bihar-amc-footer-stat"><span>Full payment</span><strong>{summary?.full_payment_count ?? 0}</strong></div>
+              <div className="bihar-amc-footer-stat"><span>Central received</span><strong>{centralReceived}</strong></div>
+              <div className="bihar-amc-footer-stat"><span>State received</span><strong>{stateReceived}</strong></div>
+            </div>
+          </>
         ) : null}
       </div>
     </div>
   )
 }
 
-export const UlaSitePaymentEditor = ({ surveyId }) => {
+export const UlaSitePaymentEditor = ({ surveyId, counted = true }) => {
   const [row, setRow] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -202,6 +231,9 @@ export const UlaSitePaymentEditor = ({ surveyId }) => {
     <div className="ula-detail-section">
       <h6 className="fw-bold mb-3">Payments and expenses</h6>
       {error ? <div className="alert alert-warning py-2 fs-13">{error}</div> : null}
+      {row && !counted ? (
+        <p className="fs-12 text-muted mb-2">This amount is included in the totals after the site is approved.</p>
+      ) : null}
       {row ? (
         <>
           <div className="row g-3 mb-3">

@@ -7,8 +7,6 @@ import {
 } from "../../Middleware/biharUlaUploadMiddleware.js";
 import {
   requireBiharUlaAdd,
-  requireBiharUlaInspectionAdd,
-  requireBiharUlaInspectionRead,
   requireBiharUlaRead,
   requireBiharUlaReport,
 } from "../../Middleware/portalModulePermission.js";
@@ -43,19 +41,17 @@ const router = express.Router();
 
 const ulaRead = requireBiharUlaRead();
 const ulaAdd = requireBiharUlaAdd();
-const inspectionAdd = requireBiharUlaInspectionAdd();
-const inspectionRead = requireBiharUlaInspectionRead();
 
 router.get("/payments", requireUserMasterAdmin, listBiharUlaPayments);
 router.get("/payments/:surveyId", requireUserMasterAdmin, getBiharUlaSitePayment);
 router.patch("/payments/:surveyId", requireUserMasterAdmin, updateBiharUlaSitePayment);
 router.post("/payments/:surveyId/expenses", requireUserMasterAdmin, addBiharUlaSiteExpense);
 router.delete("/payments/expenses/:expenseId", requireUserMasterAdmin, deleteBiharUlaSiteExpense);
-router.get("/inspection/list", inspectionRead, listBiharUlaInspections);
-router.get("/inspection/site", inspectionAdd, lookupBiharUlaInspectionSite);
-router.get("/inspection/:id", inspectionRead, getBiharUlaInspection);
+router.get("/inspection/list", listBiharUlaInspections);
+router.get("/inspection/site", lookupBiharUlaInspectionSite);
+router.get("/inspection/:id", getBiharUlaInspection);
 router.patch("/inspection/:id/approval", requireUserMasterAdmin, updateBiharUlaInspectionApproval);
-router.post("/inspection/store", inspectionAdd, biharUlaInspectionUpload, storeBiharUlaInspection);
+router.post("/inspection/store", biharUlaInspectionUpload, storeBiharUlaInspection);
 router.get("/list", ulaRead, listBiharUlaSurveys);
 router.get("/report", requireBiharUlaReport(), getBiharUlaReport);
 router.get("/check-unique", ulaAdd, checkBiharUlaUniqueController);

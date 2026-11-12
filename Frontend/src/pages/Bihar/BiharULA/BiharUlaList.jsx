@@ -777,13 +777,23 @@ const BiharUlaList = () => {
                                 </button>
                               </td>
                               {isAdmin ? (
-                                <>
-                                  <td>{row.centralReceived ? 'Received' : 'Pending'}</td>
-                                  <td>{row.stateReceived ? 'Received' : 'Pending'}</td>
-                                  <td>{inr(row.paymentCollected)}</td>
-                                  <td>{inr(row.paymentPending)}</td>
-                                  <td>{inr(row.paymentExpense)}</td>
-                                </>
+                                row.approvalStatus === AMC_DOC_APPROVAL.APPROVED ? (
+                                  <>
+                                    <td>{row.centralReceived ? 'Received' : 'Pending'}</td>
+                                    <td>{row.stateReceived ? 'Received' : 'Pending'}</td>
+                                    <td>{inr(row.paymentCollected)}</td>
+                                    <td>{inr(row.paymentPending)}</td>
+                                    <td>{inr(row.paymentExpense)}</td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                    <td>—</td>
+                                  </>
+                                )
                               ) : null}
                               <td className="ula-view-col">
                                 <button

@@ -1,5 +1,6 @@
 import prisma from "../../../Config/Prisma.js";
 import { findUserById } from "../../../Model/DLE-Model/dle-user-model.js";
+import { AMC_DOC_APPROVAL } from "../../../Utils/amcApproval.js";
 import { resolveJwtUserId } from "../../../Utils/requestUser.js";
 
 export const ULA_CENTRAL_PAYMENT = 33000;
@@ -28,16 +29,22 @@ const surveyIdOf = (value) => {
   return BigInt(id);
 };
 
-const siteWhere = (search) => {
+const approvedSiteWhere = (search) => {
+  const approved = { approval_status: AMC_DOC_APPROVAL.APPROVED };
   const q = String(search || "").trim();
-  if (!q) return {};
+  if (!q) return approved;
   return {
-    OR: [
-      { ca_no: { contains: q } },
-      { ca_name: { contains: q } },
-      { beneficiary_name: { contains: q } },
-      { district: { contains: q } },
-      { village: { contains: q } },
+    AND: [
+      approved,
+      {
+        OR: [
+          { ca_no: { contains: q } },
+          { ca_name: { contains: q } },
+          { beneficiary_name: { contains: q } },
+          { district: { contains: q } },
+          { village: { contains: q } },
+        ],
+      },
     ],
   };
 };
@@ -91,16 +98,38 @@ export const listBiharUlaPayments = async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 15, 1), 50);
-    const where = siteWhere(req.query.search);
-    const [siteCount, centralCount, stateCount, fullCount, expenseSum, total, rows] =
+    const approvedIds = (
+      await prisma.biharUlaSurvey.findMany({
+        where: { approval_status: AMC_DOC_APPROVAL.APPROVED },
+        select: { id: true },
+      })
+    ).map((row) => row.id);
+    const siteCount = approvedIds.length;
+    const paymentScope = { survey_id: { in: approvedIds } };
+    const where = approvedSiteWhere(req.query.search);
+    const [centralCount, stateCount, fullCount, expenseSum, total, rows] =
       await Promise.all([
-        prisma.biharUlaSurvey.count(),
-        prisma.biharUlaSitePayment.count({ where: { central_received: 1 } }),
-        prisma.biharUlaSitePayment.count({ where: { state_received: 1 } }),
-        prisma.biharUlaSitePayment.count({
-          where: { central_received: 1, state_received: 1 },
-        }),
-        prisma.biharUlaSiteExpense.aggregate({ _sum: { amount: true } }),
+        siteCount
+          ? prisma.biharUlaSitePayment.count({
+              where: { ...paymentScope, central_received: 1 },
+            })
+          : 0,
+        siteCount
+          ? prisma.biharUlaSitePayment.count({
+              where: { ...paymentScope, state_received: 1 },
+            })
+          : 0,
+        siteCount
+          ? prisma.biharUlaSitePayment.count({
+              where: { ...paymentScope, central_received: 1, state_received: 1 },
+            })
+          : 0,
+        siteCount
+          ? prisma.biharUlaSiteExpense.aggregate({
+              where: paymentScope,
+              _sum: { amount: true },
+            })
+          : { _sum: { amount: null } },
         prisma.biharUlaSurvey.count({ where }),
         prisma.biharUlaSurvey.findMany({
           where,

@@ -264,6 +264,7 @@ export const findUsersByCompanyId = async (companyId, { search } = {}) => {
 
   const where = {
     role: { not: USER_ROLE_ADMIN },
+    approval_status: 1,
     OR: [{ company_id: cid }, { company_id: null }, { company_id: "" }],
   };
   const q = String(search || "").trim();

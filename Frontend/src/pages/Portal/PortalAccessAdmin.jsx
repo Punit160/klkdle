@@ -30,7 +30,6 @@ const MODULE_LABELS = {
   up_offgrid_amc: 'UP off grid AMC',
   up_ongrid_amc: 'UP on grid AMC',
   bihar_ula: 'Bihar ULA',
-  bihar_ula_inspection: 'Bihar ULA site inspection',
   other: 'Other',
 }
 
@@ -326,8 +325,9 @@ const PortalAccessAdmin = () => {
     setSaving(true)
     setError('')
     try {
+      const approvedIds = new Set(companyUsers.map((user) => user.id))
       await localApi.put(app.portal.roleMembers(bulkRoleId), {
-        user_ids: bulkMemberUserIds,
+        user_ids: bulkMemberUserIds.filter((id) => approvedIds.has(id)),
       })
       await loadAll()
       await loadRoleMembers(bulkRoleId)

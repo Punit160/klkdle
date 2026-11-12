@@ -375,6 +375,12 @@ export const setUserRolesController = async (req, res) => {
         message: "User not found in your company.",
       });
     }
+    if (Number(targetUser.approval_status) !== 1) {
+      return res.status(422).json({
+        success: false,
+        message: "Only approved users can be assigned to a role.",
+      });
+    }
 
     if (!Array.isArray(roleIds)) {
       return res.status(422).json({

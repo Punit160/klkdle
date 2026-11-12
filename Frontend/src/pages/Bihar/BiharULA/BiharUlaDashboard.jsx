@@ -446,11 +446,6 @@ const BiharUlaDashboard = () => {
 
           {!loading && !error && (
             <>
-              {isAdmin ? (
-                <div className="col-12 bihar-amc-section">
-                  <BiharUlaPayments />
-                </div>
-              ) : null}
               <div className="col-12 bihar-amc-section">
                 <div className="bihar-amc-section-card">
                   <div className="bihar-amc-section-head">
@@ -887,6 +882,11 @@ const BiharUlaDashboard = () => {
                   </div>
                 </div>
               </div>
+              {isAdmin ? (
+                <div className="col-12 bihar-amc-section">
+                  <BiharUlaPayments />
+                </div>
+              ) : null}
             </>
           )}
         </div>
