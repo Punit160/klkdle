@@ -25,9 +25,9 @@ const ITEMS = [
   { key: 'mms_foundation', sno: 2, label: 'MMS Structure Foundation (300mm x 300mm x 300mm)', options: OK_PENDING, photo: true },
   { key: 'pv_panel', sno: 3, label: 'PV Panel', options: OK_PENDING },
   { key: 'shadow_pv', sno: 4, label: 'Shadow on PV Panel', options: OK_PENDING, photo: true },
-  { key: 'inverter', sno: 5, label: 'Inverter', options: OK_PENDING },
-  { key: 'acdb', sno: 6, label: 'ACDB', options: OK_PENDING },
-  { key: 'solar_meter', sno: 7, label: 'Solar Meter', options: OK_PENDING },
+  { key: 'inverter', sno: 5, label: 'Inverter', options: OK_PENDING, serial: true, photo: true },
+  { key: 'acdb', sno: 6, label: 'ACDB', options: OK_PENDING, photo: true },
+  { key: 'solar_meter', sno: 7, label: 'Solar Meter', options: OK_PENDING, serial: true, photo: true },
   { key: 'plant_status', sno: 8, label: 'Plant Status', options: ['HEALTHY', 'NOT HEALTHY', 'PENDING'] },
   { key: 'la', sno: 9, label: 'LA (Lightning Arrester)', options: OK_PENDING },
   { key: 'la_foundation', sno: 10, label: 'LA Foundation', options: OK_PENDING, photo: true },
@@ -47,12 +47,36 @@ const ITEMS = [
     remarksRequired: true,
   },
   { key: 'rms', sno: 20, label: 'RMS', options: OK_PENDING, photo: true },
-  { key: 'rms_sim', sno: 21, label: 'RMS SIM', options: OK_PENDING, photo: true },
+  { key: 'rms_sim', sno: 21, label: 'RMS SIM', options: OK_PENDING, serial: true, photo: true },
   { key: 'portal_upload', sno: 22, label: 'Portal Upload', options: OK_PENDING },
 ]
 
+const GROUPS = [
+  { title: 'Structure and panels', from: 1, to: 4 },
+  { title: 'Plant equipment', from: 5, to: 8 },
+  { title: 'Lightning arrester', from: 9, to: 11 },
+  { title: 'Cables and earthing', from: 12, to: 19 },
+  { title: 'RMS and portal', from: 20, to: 22 },
+]
+
 const emptyAnswers = () =>
-  Object.fromEntries(ITEMS.map((item) => [item.key, { status: '', remarks: '' }]))
+  Object.fromEntries(ITEMS.map((item) => [item.key, { status: '', remarks: '', serial: '' }]))
+
+const statusTone = (option, selected) => {
+  if (!selected) return 'btn-outline-secondary'
+  const value = String(option).toUpperCase()
+  if (value === 'OK' || value === 'HEALTHY' || value === 'ABOVE STRUCTURE') return 'btn-success'
+  if (value === 'NOT OK' || value === 'NOT HEALTHY' || value === 'BELOW STRUCTURE') return 'btn-danger'
+  return 'btn-warning'
+}
+
+const pointComplete = (item, answer, photo) => {
+  if (!answer?.status) return false
+  if (item.serial && !String(answer.serial || '').trim()) return false
+  if (item.remarksRequired && !String(answer.remarks || '').trim()) return false
+  if (item.photo && !photo) return false
+  return true
+}
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -151,6 +175,10 @@ const BiharUlaInspectionForm = () => {
     setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], remarks } }))
   }
 
+  const setSerial = (key, serial) => {
+    setAnswers((prev) => ({ ...prev, [key]: { ...prev[key], serial } }))
+  }
+
   const submit = async (event) => {
     event.preventDefault()
     if (!site || !canInspect || submitting) return
@@ -162,6 +190,10 @@ const BiharUlaInspectionForm = () => {
       }
       if (item.remarksRequired && !String(answers[item.key]?.remarks || '').trim()) {
         setSubmitError('Remarks are compulsory for the distance between earth electrodes.')
+        return
+      }
+      if (item.serial && !String(answers[item.key]?.serial || '').trim()) {
+        setSubmitError(`Serial number is compulsory for ${item.sno}. ${item.label}.`)
         return
       }
       if (item.photo && !photos[item.key]) {
@@ -180,7 +212,11 @@ const BiharUlaInspectionForm = () => {
           Object.fromEntries(
             ITEMS.map((item) => [
               item.key,
-              { status: answers[item.key].status, remarks: answers[item.key].remarks || '' },
+              {
+                status: answers[item.key].status,
+                remarks: answers[item.key].remarks || '',
+                serial: answers[item.key].serial || '',
+              },
             ])
           )
         )
@@ -350,83 +386,97 @@ const BiharUlaInspectionForm = () => {
                       <SectionHeading
                         icon={<FiClipboard size={16} />}
                         title="Inspection parameters"
-                        subtitle="Choose a status for every point. Photos are required where marked."
+                        subtitle={`${ITEMS.filter((item) => pointComplete(item, answers[item.key], photos[item.key])).length} of ${ITEMS.length} points complete. Serial number and photo are required where marked.`}
                       />
-                      <div className="row g-3">
-                        {ITEMS.map((item) => {
-                          const answer = answers[item.key] || { status: '', remarks: '' }
-                          return (
-                            <div key={item.key} className="col-lg-4 col-md-6">
-                              <div className="card border h-100 mb-0 shadow-none">
-                                <div className="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center gap-2">
-                                  <span className="fs-12 fw-bold text-dark" title={item.label}>
-                                    {item.sno}. {item.label}
-                                  </span>
-                                  {item.photo ? (
-                                    <span className="badge bg-soft-primary text-primary fs-11">Photo</span>
-                                  ) : item.remarksRequired ? (
-                                    <span className="badge bg-soft-warning text-warning fs-11">Remarks</span>
-                                  ) : null}
+                      {GROUPS.map((group) => (
+                        <section key={group.title} className="ula-inspect-group">
+                          <h6>{group.title}</h6>
+                          {ITEMS.filter((item) => item.sno >= group.from && item.sno <= group.to).map((item) => {
+                            const answer = answers[item.key] || { status: '', remarks: '', serial: '' }
+                            const complete = pointComplete(item, answer, photos[item.key])
+                            return (
+                              <article
+                                key={item.key}
+                                className={`ula-inspect-point${complete ? ' is-complete' : ''}`}
+                              >
+                                <div className="ula-inspect-point-head">
+                                  <span className="ula-inspect-sno">{item.sno}</span>
+                                  <div>
+                                    <strong>{item.label}</strong>
+                                    <span className="ula-inspect-tags">
+                                      {item.serial ? <em>Serial</em> : null}
+                                      {item.photo ? <em>Photo</em> : null}
+                                      {item.remarksRequired ? <em>Remarks</em> : null}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="card-body p-3">
-                                  <div className="d-flex flex-wrap gap-2 mb-3">
+                                <div className={`ula-inspect-body${item.photo ? ' has-photo' : ''}`}>
+                                  <div className="d-flex flex-wrap gap-2">
                                     {item.options.map((option) => (
                                       <button
                                         key={option}
                                         type="button"
-                                        className={`btn btn-sm ${
-                                          answer.status === option
-                                            ? 'btn-primary'
-                                            : 'btn-outline-secondary'
-                                        }`}
+                                        className={`btn btn-sm ${statusTone(option, answer.status === option)}`}
                                         onClick={() => setStatus(item.key, option)}
                                       >
                                         {option}
                                       </button>
                                     ))}
                                   </div>
-                                  <label className="form-label fs-12 mb-1">
-                                    {item.remarksRequired
-                                      ? 'Remarks (distance between electrodes)'
-                                      : 'Remarks if any'}
-                                  </label>
-                                  <input
-                                    className="form-control form-control-sm"
-                                    value={answer.remarks}
-                                    onChange={(e) => setRemarks(item.key, e.target.value)}
-                                    placeholder={
-                                      item.remarksRequired
-                                        ? 'Enter the distance between electrodes'
-                                        : 'Optional remarks'
-                                    }
-                                  />
-                                  {item.photo ? (
-                                    <div className="mt-3">
-                                      <CameraCapture
-                                        label="Open camera to capture"
-                                        hint="Camera only"
-                                        previewDataUrl={photos[item.key] || ''}
-                                        freshGps
-                                        stampCaNumber={site.ca_no}
-                                        stampMetadata={{
-                                          caNumber: site.ca_no,
-                                          fullSiteStamp: false,
-                                        }}
-                                        onCaptureDataUrl={(dataUrl) => {
-                                          setPhotos((prev) => ({ ...prev, [item.key]: dataUrl }))
-                                        }}
-                                        onClear={() =>
-                                          setPhotos((prev) => ({ ...prev, [item.key]: '' }))
+                                  <div className="ula-inspect-fields">
+                                    {item.serial ? (
+                                      <div>
+                                        <label className="form-label fs-12 mb-1">Serial number</label>
+                                        <input
+                                          className="form-control form-control-sm"
+                                          value={answer.serial || ''}
+                                          onChange={(e) => setSerial(item.key, e.target.value)}
+                                          placeholder="Type the serial number"
+                                          maxLength={100}
+                                        />
+                                      </div>
+                                    ) : null}
+                                    <div>
+                                      <label className="form-label fs-12 mb-1">
+                                        {item.remarksRequired ? 'Remarks (distance between electrodes)' : 'Remarks if any'}
+                                      </label>
+                                      <input
+                                        className="form-control form-control-sm"
+                                        value={answer.remarks}
+                                        onChange={(e) => setRemarks(item.key, e.target.value)}
+                                        placeholder={
+                                          item.remarksRequired
+                                            ? 'Enter the distance between electrodes'
+                                            : 'Optional remarks'
                                         }
                                       />
                                     </div>
+                                  </div>
+                                  {item.photo ? (
+                                    <CameraCapture
+                                      label="Open camera"
+                                      hint="Camera only"
+                                      previewDataUrl={photos[item.key] || ''}
+                                      freshGps
+                                      stampCaNumber={site.ca_no}
+                                      stampMetadata={{
+                                        caNumber: site.ca_no,
+                                        fullSiteStamp: false,
+                                      }}
+                                      onCaptureDataUrl={(dataUrl) => {
+                                        setPhotos((prev) => ({ ...prev, [item.key]: dataUrl }))
+                                      }}
+                                      onClear={() =>
+                                        setPhotos((prev) => ({ ...prev, [item.key]: '' }))
+                                      }
+                                    />
                                   ) : null}
                                 </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                              </article>
+                            )
+                          })}
+                        </section>
+                      ))}
                       {submitError ? (
                         <div className="alert alert-danger mt-3 mb-0">{submitError}</div>
                       ) : null}

@@ -514,6 +514,58 @@ export const PORTAL_API_ROUTE_CATALOG = [
     description: "Same approve/reject call the DLE admin screen uses.",
   },
   {
+    module: "bihar_ula_inspection",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/ula/inspection/list",
+    description: "Bihar ULA site inspections for this company, including serial numbers and photo counts.",
+  },
+  {
+    module: "bihar_ula_inspection",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/ula/inspection/site",
+    description: "Look up a Bihar ULA site by CA before inspection. Query: ca_no, optional inspection_date.",
+  },
+  {
+    module: "bihar_ula_inspection",
+    scope: "read",
+    method: "GET",
+    path: "/api/bihar/ula/inspection/:id",
+    description:
+      "One site inspection. Answers include status, remarks, serial number, and photo URL. Inverter and solar meter have serial and photo. ACDB has a photo. RMS SIM has serial and photo.",
+  },
+  {
+    module: "bihar_ula_inspection",
+    scope: "write",
+    method: "POST",
+    path: "/api/bihar/ula/inspection/store",
+    description:
+      "Submit a site inspection. Multipart: ca_no, inspection_date, answers JSON, and photos named inverter, acdb, solar_meter, rms_sim, mms_foundation, shadow_pv, la_foundation, rms. Answers for inverter, solar_meter, and rms_sim must include serial.",
+  },
+  {
+    module: "bihar_ula_inspection",
+    scope: "approve",
+    method: "POST",
+    path: "/api/bihar/ula/inspection/approval/status",
+    description:
+      "Approve or reject a site inspection. Body: id, approval_status 1 (approve) or 2 (reject). Remarks are required when rejecting.",
+  },
+  {
+    module: "bihar_ula_inspection",
+    scope: "approve",
+    method: "POST",
+    path: "/api/bihar/ula/inspection/:id/approval",
+    description: "Same approve/reject as /inspection/approval/status, with the inspection id in the URL.",
+  },
+  {
+    module: "bihar_ula_inspection",
+    scope: "approve",
+    method: "PATCH",
+    path: "/api/bihar/ula/inspection/:id/approval",
+    description: "Same approve/reject call the inspection view uses.",
+  },
+  {
     module: "attendance",
     scope: "read",
     method: "GET",

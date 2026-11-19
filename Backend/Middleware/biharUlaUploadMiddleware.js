@@ -44,6 +44,9 @@ const portalEditFields = [...visit1Fields, ...visit2Fields];
 const inspectionPhotoFields = [
   "mms_foundation",
   "shadow_pv",
+  "inverter",
+  "acdb",
+  "solar_meter",
   "la_foundation",
   "rms",
   "rms_sim",

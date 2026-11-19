@@ -25,17 +25,25 @@ import { buildMapsUrl } from './ulaHelpers'
 import UlaPhotoLightbox from './UlaPhotoLightbox'
 import '../../../styles/bihar-ula.css'
 
+const GROUPS = [
+  { title: 'Structure and panels', from: 1, to: 4 },
+  { title: 'Plant equipment', from: 5, to: 8 },
+  { title: 'Lightning arrester', from: 9, to: 11 },
+  { title: 'Cables and earthing', from: 12, to: 19 },
+  { title: 'RMS and portal', from: 20, to: 22 },
+]
+
 const ITEMS = [
   { key: 'mms_structure', sno: 1, label: 'MMS Structure' },
-  { key: 'mms_foundation', sno: 2, label: 'MMS Structure Foundation (300mm x 300mm x 300mm)' },
+  { key: 'mms_foundation', sno: 2, label: 'MMS Structure Foundation (300mm x 300mm x 300mm)', photo: true },
   { key: 'pv_panel', sno: 3, label: 'PV Panel' },
-  { key: 'shadow_pv', sno: 4, label: 'Shadow on PV Panel' },
-  { key: 'inverter', sno: 5, label: 'Inverter' },
-  { key: 'acdb', sno: 6, label: 'ACDB' },
-  { key: 'solar_meter', sno: 7, label: 'Solar Meter' },
+  { key: 'shadow_pv', sno: 4, label: 'Shadow on PV Panel', photo: true },
+  { key: 'inverter', sno: 5, label: 'Inverter', serial: true, photo: true },
+  { key: 'acdb', sno: 6, label: 'ACDB', photo: true },
+  { key: 'solar_meter', sno: 7, label: 'Solar Meter', serial: true, photo: true },
   { key: 'plant_status', sno: 8, label: 'Plant Status' },
   { key: 'la', sno: 9, label: 'LA (Lightning Arrester)' },
-  { key: 'la_foundation', sno: 10, label: 'LA Foundation' },
+  { key: 'la_foundation', sno: 10, label: 'LA Foundation', photo: true },
   { key: 'la_height', sno: 11, label: 'Height of LA' },
   { key: 'dc_cable', sno: 12, label: 'DC Cable' },
   { key: 'dc_cable_dressing', sno: 13, label: 'DC Cable Dressing' },
@@ -44,9 +52,9 @@ const ITEMS = [
   { key: 'earthing_cable', sno: 16, label: 'Earthing Cable' },
   { key: 'earthing_cable_dressing', sno: 17, label: 'Earthing Cable Dressing' },
   { key: 'earthing_electrode', sno: 18, label: 'Earthing (Earth Electrode)' },
-  { key: 'earth_distance', sno: 19, label: 'Distance Between Each Earth Electrode (Minimum 1 Meter Distance)' },
-  { key: 'rms', sno: 20, label: 'RMS' },
-  { key: 'rms_sim', sno: 21, label: 'RMS SIM' },
+  { key: 'earth_distance', sno: 19, label: 'Distance Between Each Earth Electrode (Minimum 1 Meter Distance)', remarks: true },
+  { key: 'rms', sno: 20, label: 'RMS', photo: true },
+  { key: 'rms_sim', sno: 21, label: 'RMS SIM', serial: true, photo: true },
   { key: 'portal_upload', sno: 22, label: 'Portal Upload' },
 ]
 
@@ -281,43 +289,60 @@ const BiharUlaInspectionDetails = () => {
 
               <div className="ula-detail-section">
                 <h6 className="fw-bold mb-3">Inspection parameters</h6>
-                <div className="d-flex flex-column gap-3">
-                  {ITEMS.map((item) => {
-                    const answer = answers[item.key] || {}
-                    return (
-                      <div key={item.key} className="border rounded p-3">
-                        <div className="d-flex flex-wrap justify-content-between gap-2">
-                          <div className="fw-semibold">
-                            {item.sno}. {item.label}
+                {GROUPS.map((group) => (
+                  <section key={group.title} className="ula-inspect-group">
+                    <h6>{group.title}</h6>
+                    {ITEMS.filter((item) => item.sno >= group.from && item.sno <= group.to).map((item) => {
+                      const answer = answers[item.key] || {}
+                      return (
+                        <article key={item.key} className="ula-inspect-point">
+                          <div className="ula-inspect-point-head">
+                            <span className="ula-inspect-sno">{item.sno}</span>
+                            <div>
+                              <strong>{item.label}</strong>
+                              <span className="ula-inspect-tags">
+                                <em>{answer.status || '—'}</em>
+                                {item.serial ? <em>Serial</em> : null}
+                                {item.photo ? <em>Photo</em> : null}
+                              </span>
+                            </div>
                           </div>
-                          <span className="badge bg-light text-dark">{answer.status || '—'}</span>
-                        </div>
-                        {answer.remarks ? (
-                          <div className="fs-13 text-muted mt-2">Remarks: {answer.remarks}</div>
-                        ) : null}
-                        {answer.photo_url ? (
-                          <button
-                            type="button"
-                            className="btn btn-link p-0 mt-2"
-                            onClick={() =>
-                              setPhoto({
-                                src: answer.photo_url,
-                                title: item.label,
-                              })
-                            }
-                          >
-                            <img
-                              src={answer.photo_url}
-                              alt={item.label}
-                              className="ula-clickable-photo"
-                              style={{ width: 160, height: 110, objectFit: 'cover', borderRadius: 8 }}
-                            />
-                          </button>
-                        ) : null}
-                      </div>
-                    )
-                  })}
-                </div>
+                          <div className="ula-inspect-read">
+                            {item.serial ? (
+                              <div className="fs-13">Serial number: {answer.serial || '—'}</div>
+                            ) : null}
+                            {answer.remarks || item.remarks ? (
+                              <div className="fs-13 text-muted">Remarks: {answer.remarks || '—'}</div>
+                            ) : null}
+                            {item.photo ? (
+                              answer.photo_url ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-link p-0"
+                                  onClick={() =>
+                                    setPhoto({
+                                      src: answer.photo_url,
+                                      title: item.label,
+                                    })
+                                  }
+                                >
+                                  <img
+                                    src={answer.photo_url}
+                                    alt={item.label}
+                                    className="ula-clickable-photo"
+                                    style={{ width: 160, height: 110, objectFit: 'cover', borderRadius: 8 }}
+                                  />
+                                </button>
+                              ) : (
+                                <div className="fs-13 text-muted">Photo: —</div>
+                              )
+                            ) : null}
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </section>
+                ))}
               </div>
             </div>
           </div>

@@ -5,7 +5,10 @@ import {
   requireExternalApproveApi,
   requirePortalApiScope,
 } from "../../Middleware/portalExternalAuth.js";
-import { biharUlaPortalEditUpload } from "../../Middleware/biharUlaUploadMiddleware.js";
+import {
+  biharUlaInspectionUpload,
+  biharUlaPortalEditUpload,
+} from "../../Middleware/biharUlaUploadMiddleware.js";
 import {
   downloadBiharUlaImagesZip,
   getBiharUlaReport,
@@ -14,6 +17,13 @@ import {
   updateBiharUlaApproval,
   updateBiharUlaSurveyPortal,
 } from "../../Controller/DLE-Controller/Bihar-ULA/bihar-ula-controller.js";
+import {
+  getBiharUlaInspection,
+  listBiharUlaInspections,
+  lookupBiharUlaInspectionSite,
+  storeBiharUlaInspection,
+  updateBiharUlaInspectionApproval,
+} from "../../Controller/DLE-Controller/Bihar-ULA/bihar-ula-inspection-controller.js";
 /** External portal Bihar ULA reads — API key + secret. */
 const router = express.Router();
 
@@ -42,6 +52,27 @@ const pendingApproval = (req, res, next) => {
   return listBiharUlaSurveys(req, res, next);
 };
 
+const inspectionApprovalFromBody = (req, res, next) => {
+  const id = String(req.body?.id || req.body?.inspection_id || "").trim();
+  if (!id) {
+    return res.status(422).json({ success: false, message: "Inspection id is required." });
+  }
+  req.params.id = id;
+  return updateBiharUlaInspectionApproval(req, res, next);
+};
+
+router.get("/inspection/list", ...readStack, listBiharUlaInspections);
+router.get("/inspection/site", ...readStack, lookupBiharUlaInspectionSite);
+router.post(
+  "/inspection/store",
+  ...writeStack,
+  biharUlaInspectionUpload,
+  storeBiharUlaInspection
+);
+router.post("/inspection/approval/status", ...approveStack, inspectionApprovalFromBody);
+router.post("/inspection/:id/approval", ...approveStack, updateBiharUlaInspectionApproval);
+router.patch("/inspection/:id/approval", ...approveStack, updateBiharUlaInspectionApproval);
+router.get("/inspection/:id", ...readStack, getBiharUlaInspection);
 router.get("/list", ...readStack, listBiharUlaSurveys);
 router.get("/report", ...readStack, getBiharUlaReport);
 router.get("/approval/list", ...readStack, listBiharUlaSurveys);

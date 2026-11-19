@@ -13,6 +13,7 @@ const MODULE_LABELS = {
   up_ongrid_amc: 'UP on grid AMC',
   light_amc: 'Field AMC (shared routes)',
   bihar_ula: 'Bihar ULA',
+  bihar_ula_inspection: 'Bihar ULA Inspection',
   attendance: 'Attendance (all company users)',
   integration: 'Integration',
 }
@@ -117,6 +118,7 @@ const ExternalApiIntegrationManual = ({
   const readCurl = auth?.examples?.read_curl
   const attendanceListCurl = auth?.examples?.attendance_list_curl
   const ulaEditCurl = auth?.examples?.ula_edit_curl
+  const ulaInspectionCurl = auth?.examples?.ula_inspection_curl
   const approveCurl = auth?.examples?.approve_curl
 
   if (!catalog) {
@@ -199,6 +201,17 @@ const ExternalApiIntegrationManual = ({
             scope). Replace RECORD_ID; send only fields to change. Optional multipart for photos.
           </p>
           <CopyBlock text={fillCurl(ulaEditCurl, { apiKey: previewKey, secret: previewSec, base })} />
+        </>
+      )}
+
+      {ulaInspectionCurl && (
+        <>
+          <p className="fs-12 text-muted mb-1">
+            Read — Bihar ULA site inspections (serial number and photo on inverter, solar meter, and RMS SIM; photo on ACDB). Needs <strong>read</strong> or <strong>all</strong> scope.
+          </p>
+          <CopyBlock
+            text={fillCurl(ulaInspectionCurl, { apiKey: previewKey, secret: previewSec, base })}
+          />
         </>
       )}
 

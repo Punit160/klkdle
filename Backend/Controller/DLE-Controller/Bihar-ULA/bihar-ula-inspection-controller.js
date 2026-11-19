@@ -14,9 +14,9 @@ export const ULA_INSPECTION_ITEMS = [
   { key: "mms_foundation", label: "MMS Structure Foundation (300mmx300mmx300mm)", options: OK_PENDING, photo: true },
   { key: "pv_panel", label: "PV Panel", options: OK_PENDING },
   { key: "shadow_pv", label: "Shadow on PV Panel", options: OK_PENDING, photo: true },
-  { key: "inverter", label: "Inverter", options: OK_PENDING },
-  { key: "acdb", label: "ACDB", options: OK_PENDING },
-  { key: "solar_meter", label: "Solar Meter", options: OK_PENDING },
+  { key: "inverter", label: "Inverter", options: OK_PENDING, serial: true, photo: true },
+  { key: "acdb", label: "ACDB", options: OK_PENDING, photo: true },
+  { key: "solar_meter", label: "Solar Meter", options: OK_PENDING, serial: true, photo: true },
   { key: "plant_status", label: "Plant Status", options: ["HEALTHY", "NOT HEALTHY", "PENDING"] },
   { key: "la", label: "LA (Lightning Arrester)", options: OK_PENDING },
   { key: "la_foundation", label: "LA Foundation", options: OK_PENDING, photo: true },
@@ -30,7 +30,7 @@ export const ULA_INSPECTION_ITEMS = [
   { key: "earthing_electrode", label: "Earthing (Earth Electrode)", options: OK_PENDING },
   { key: "earth_distance", label: "Distance Between Each Earth Electrode (Minimum 1 Meter Distance)", options: OK_PENDING, remarksRequired: true },
   { key: "rms", label: "RMS", options: OK_PENDING, photo: true },
-  { key: "rms_sim", label: "RMS SIM", options: OK_PENDING, photo: true },
+  { key: "rms_sim", label: "RMS SIM", options: OK_PENDING, serial: true, photo: true },
   { key: "portal_upload", label: "Portal Upload", options: OK_PENDING },
 ];
 
@@ -92,6 +92,7 @@ const publicAnswers = (req, answers) => {
     next[item.key] = {
       status: String(entry.status || ""),
       remarks: String(entry.remarks || ""),
+      serial: String(entry.serial || ""),
       photo: photo || "",
       photo_url: photo ? resolveStoredFileUrl(req, photo) || photo : "",
     };
@@ -202,9 +203,20 @@ const detailPayload = (req, row, names) => ({
   answers: publicAnswers(req, row.answers),
 });
 
-const canReadInspection = async (req) => {
-  const userId = String(resolveJwtUserId(req) || "");
-  return Boolean(userId);
+const portalCompanyBlocks = (req, companyId) => {
+  if (resolveJwtUserId(req)) return false;
+  const portalCompanyId = String(req.portalCompanyId || "").trim();
+  if (!portalCompanyId) return false;
+  const rowCompany = String(companyId || "").trim();
+  return Boolean(rowCompany && rowCompany !== portalCompanyId);
+};
+
+const canReadInspection = (req, row) => {
+  if (resolveJwtUserId(req)) return true;
+  const portalCompanyId = String(req.portalCompanyId || "").trim();
+  return Boolean(
+    portalCompanyId && String(row?.company_id || "").trim() === portalCompanyId
+  );
 };
 
 const sitePayload = (row) => ({
@@ -242,7 +254,7 @@ export const lookupBiharUlaInspectionSite = async (req, res) => {
     }
 
     const survey = await findSurveyByCa(caNo);
-    if (!survey) {
+    if (!survey || portalCompanyBlocks(req, survey.company_id)) {
       return res.json({
         success: true,
         found: false,
@@ -298,7 +310,8 @@ const persistInspectionPhoto = async (file, caNo, key) => {
 export const storeBiharUlaInspection = async (req, res) => {
   try {
     const userId = resolveJwtUserId(req);
-    if (!userId) {
+    const portalCompanyId = String(req.portalCompanyId || "").trim();
+    if (!userId && !portalCompanyId) {
       return res.status(401).json({ success: false, message: "Login required." });
     }
     const caNo = digitsOnly(req.body?.ca_no, 20);
@@ -307,7 +320,7 @@ export const storeBiharUlaInspection = async (req, res) => {
     }
 
     const survey = await findSurveyByCa(caNo);
-    if (!survey) {
+    if (!survey || portalCompanyBlocks(req, survey.company_id)) {
       return res.status(422).json({
         success: false,
         message: "No Bihar ULA site is registered for this CA number.",
@@ -348,6 +361,13 @@ export const storeBiharUlaInspection = async (req, res) => {
           message: "Remarks are compulsory for the distance between earth electrodes.",
         });
       }
+      const serial = clip(entry.serial, 100);
+      if (item.serial && !serial) {
+        return res.status(422).json({
+          success: false,
+          message: `Serial number is compulsory for ${item.label}.`,
+        });
+      }
       const uploaded = files[item.key]?.[0];
       const photo = uploaded ? await persistInspectionPhoto(uploaded, caNo, item.key) : "";
       if (item.photo && !photo) {
@@ -356,14 +376,14 @@ export const storeBiharUlaInspection = async (req, res) => {
           message: `Photo is compulsory for ${item.label}.`,
         });
       }
-      next[item.key] = { status, remarks, photo: photo || "" };
+      next[item.key] = { status, remarks, serial, photo: photo || "" };
     }
 
     const inspectionDate = new Date(`${inspectionDateText}T00:00:00.000Z`);
 
     const data = {
-      company_id: clip(survey.company_id || companyIdOf(req), 100),
-      user_id: clip(String(userId), 50),
+      company_id: clip(survey.company_id || portalCompanyId || companyIdOf(req), 100),
+      user_id: clip(String(userId || "portal"), 50),
       survey_id: survey.id,
       ca_no: caNo,
       consumer_name: clip(survey.ca_name || survey.beneficiary_name || caNo, 255),
@@ -454,7 +474,7 @@ export const getBiharUlaInspection = async (req, res) => {
       return res.status(422).json({ success: false, message: "Valid inspection id is required." });
     }
     const row = await prisma.biharUlaSiteInspection.findUnique({ where: { id: BigInt(id) } });
-    if (!row || !(await canReadInspection(req))) {
+    if (!row || !canReadInspection(req, row)) {
       return res.status(404).json({ success: false, message: "Site inspection not found." });
     }
     const names = await userNameMap([row]);
@@ -475,7 +495,7 @@ export const updateBiharUlaInspectionApproval = async (req, res) => {
       return res.status(422).json({ success: false, message: "Valid inspection id is required." });
     }
     const existing = await prisma.biharUlaSiteInspection.findUnique({ where: { id: BigInt(id) } });
-    if (!existing) {
+    if (!existing || portalCompanyBlocks(req, existing.company_id)) {
       return res.status(404).json({ success: false, message: "Site inspection not found." });
     }
 
@@ -496,6 +516,7 @@ export const updateBiharUlaInspectionApproval = async (req, res) => {
       const actor = await findUserById(actorId);
       approvalBy = String(actor?.name || actorId);
     }
+    if (!approvalBy && req.portalCompanyId) approvalBy = "external portal";
 
     const data = buildAmcApprovalUpdateData({
       approval_status,
