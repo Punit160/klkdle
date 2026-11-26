@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { FiCheck, FiEye, FiPlus, FiRefreshCw, FiSearch, FiX } from 'react-icons/fi'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { FiCheck, FiDownload, FiEye, FiPlus, FiRefreshCw, FiSearch, FiX } from 'react-icons/fi'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 import PageHeader from '@/components/shared/pageHeader/PageHeader'
@@ -16,6 +16,7 @@ import {
   getAmcApprovalLabel,
 } from '../../../utils/amcApproval'
 import { getApiErrorMessage } from '../../../utils/apiError'
+import { downloadTextFile, tableToCsv, tableToExcelHtml } from './ulaDashboardReports'
 import '../../../styles/bihar-ula.css'
 
 const PER_PAGE = 15
@@ -26,8 +27,19 @@ const formatDate = (value) => {
   return `${match[3]}-${match[2]}-${match[1]}`
 }
 
+const dayKey = (value) => {
+  const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : ''
+}
+
+const uniqueSorted = (values) =>
+  [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  )
+
 const BiharUlaInspectionList = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { refreshKey, isExpanded, handleRefresh, handleExpand, handleDelete } =
     useCardTitleActions()
   const isAdmin = userIsAdmin()
@@ -35,8 +47,17 @@ const BiharUlaInspectionList = () => {
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState('')
   const [search, setSearch] = useState('')
-  const [approvalFilter, setApprovalFilter] = useState('pending')
+  const [approvalFilter, setApprovalFilter] = useState(() => {
+    const approval = searchParams.get('approval')
+    if (approval === 'all') return ''
+    if (approval === 'approved' || approval === 'rejected' || approval === 'pending') return approval
+    return 'pending'
+  })
   const [districtFilter, setDistrictFilter] = useState('')
+  const [blockFilter, setBlockFilter] = useState('')
+  const [inspectorFilter, setInspectorFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [actionId, setActionId] = useState(null)
   const [rejectTarget, setRejectTarget] = useState(null)
@@ -83,10 +104,19 @@ const BiharUlaInspectionList = () => {
   }, [records])
 
   const districtOptions = useMemo(
-    () =>
-      [...new Set(records.map((row) => String(row.district || '').trim()).filter(Boolean))].sort(
-        (a, b) => a.localeCompare(b)
-      ),
+    () => uniqueSorted(records.map((row) => row.district)),
+    [records]
+  )
+
+  const blockOptions = useMemo(() => {
+    const source = districtFilter
+      ? records.filter((row) => String(row.district || '').trim() === districtFilter)
+      : records
+    return uniqueSorted(source.map((row) => row.block))
+  }, [records, districtFilter])
+
+  const inspectorOptions = useMemo(
+    () => uniqueSorted(records.map((row) => row.user_name)),
     [records]
   )
 
@@ -103,6 +133,11 @@ const BiharUlaInspectionList = () => {
       if (approvalFilter === 'approved' && status !== AMC_DOC_APPROVAL.APPROVED) return false
       if (approvalFilter === 'rejected' && status !== AMC_DOC_APPROVAL.REJECTED) return false
       if (districtFilter && String(row.district || '').trim() !== districtFilter) return false
+      if (blockFilter && String(row.block || '').trim() !== blockFilter) return false
+      if (inspectorFilter && String(row.user_name || '').trim() !== inspectorFilter) return false
+      const day = dayKey(row.inspection_date)
+      if (fromDate && (!day || day < fromDate)) return false
+      if (toDate && (!day || day > toDate)) return false
       if (!query) return true
       const hay = [row.ca_no, row.consumer_name, row.district, row.block, row.village, row.user_name]
         .filter(Boolean)
@@ -110,11 +145,11 @@ const BiharUlaInspectionList = () => {
         .toLowerCase()
       return hay.includes(query)
     })
-  }, [records, search, approvalFilter, districtFilter])
+  }, [records, search, approvalFilter, districtFilter, blockFilter, inspectorFilter, fromDate, toDate])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, approvalFilter, districtFilter])
+  }, [search, approvalFilter, districtFilter, blockFilter, inspectorFilter, fromDate, toDate])
 
   const paginatedRecords = useMemo(() => {
     const start = (currentPage - 1) * PER_PAGE
@@ -122,6 +157,62 @@ const BiharUlaInspectionList = () => {
   }, [filteredRecords, currentPage])
 
   const totalPages = Math.ceil(filteredRecords.length / PER_PAGE) || 1
+
+  const exportRows = (format) => {
+    if (!filteredRecords.length) {
+      Swal.fire('Nothing to export', 'No inspections match these filters.', 'info')
+      return
+    }
+    const table = {
+      title: 'Bihar ULA site inspections',
+      headers: [
+        'CA number',
+        'Consumer',
+        'Mobile',
+        'District',
+        'Block',
+        'Panchayat',
+        'Village',
+        'Inspection date',
+        'Inspected by',
+        'Photos',
+        'Status',
+        'Approval remarks',
+        'Latitude',
+        'Longitude',
+      ],
+      rows: filteredRecords.map((row) => [
+        row.ca_no || '',
+        row.consumer_name || '',
+        row.mobile || '',
+        row.district || '',
+        row.block || '',
+        row.panchayat || '',
+        row.village || '',
+        formatDate(row.inspection_date),
+        row.user_name || '',
+        row.photo_count || 0,
+        getAmcApprovalLabel(row.approval_status),
+        row.approval_remarks || '',
+        row.latitude || '',
+        row.longitude || '',
+      ]),
+    }
+    const stamp = new Date().toISOString().slice(0, 10)
+    if (format === 'excel') {
+      downloadTextFile(
+        `bihar-ula-inspections-${stamp}.xls`,
+        tableToExcelHtml(table),
+        'application/vnd.ms-excel'
+      )
+      return
+    }
+    downloadTextFile(
+      `bihar-ula-inspections-${stamp}.csv`,
+      tableToCsv(table),
+      'text/csv;charset=utf-8'
+    )
+  }
 
   const patchStatus = (id, status, remarks) => {
     setRecords((prev) =>
@@ -247,7 +338,10 @@ const BiharUlaInspectionList = () => {
                     </select>
                     <select
                       value={districtFilter}
-                      onChange={(event) => setDistrictFilter(event.target.value)}
+                      onChange={(event) => {
+                        setDistrictFilter(event.target.value)
+                        setBlockFilter('')
+                      }}
                       aria-label="Filter by district"
                     >
                       <option value="">All districts</option>
@@ -257,6 +351,42 @@ const BiharUlaInspectionList = () => {
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={blockFilter}
+                      onChange={(event) => setBlockFilter(event.target.value)}
+                      aria-label="Filter by block"
+                    >
+                      <option value="">All blocks</option>
+                      {blockOptions.map((block) => (
+                        <option key={block} value={block}>
+                          {block}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={inspectorFilter}
+                      onChange={(event) => setInspectorFilter(event.target.value)}
+                      aria-label="Filter by inspector"
+                    >
+                      <option value="">All inspectors</option>
+                      {inspectorOptions.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(event) => setFromDate(event.target.value)}
+                      aria-label="From date"
+                    />
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(event) => setToDate(event.target.value)}
+                      aria-label="To date"
+                    />
                   </div>
                   <div className="ula-search-wrap">
                     <div className="input-group input-group-sm">
@@ -273,6 +403,20 @@ const BiharUlaInspectionList = () => {
                     </div>
                   </div>
                   <div className="d-flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-light d-inline-flex align-items-center gap-1"
+                      onClick={() => exportRows('csv')}
+                    >
+                      <FiDownload size={13} /> CSV
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-light d-inline-flex align-items-center gap-1"
+                      onClick={() => exportRows('excel')}
+                    >
+                      <FiDownload size={13} /> Excel
+                    </button>
                     <button
                       type="button"
                       className="btn btn-sm btn-light d-inline-flex align-items-center gap-1"

@@ -22,7 +22,7 @@ import {
   syncSslAmcDashboardPermissionKeys,
   roleHasSoftwareRestrictedPermissions,
 } from "../../Utils/portalPermissionCatalog.js";
-import { isUserMasterAdmin } from "../../Utils/userRoles.js";
+import { isUserMasterAdmin, USER_ROLE_VLE } from "../../Utils/userRoles.js";
 import { resolveJwtUserId } from "../../Utils/requestUser.js";
 
 export const resolvePortalAccessActor = async (req, options = {}) => {
@@ -373,6 +373,12 @@ export const setUserRolesController = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "User not found in your company.",
+      });
+    }
+    if (Number(targetUser.role) === USER_ROLE_VLE) {
+      return res.status(422).json({
+        success: false,
+        message: "A VLE uses the same portal access as their DLE. Assign the role to that DLE.",
       });
     }
     if (Number(targetUser.approval_status) !== 1) {

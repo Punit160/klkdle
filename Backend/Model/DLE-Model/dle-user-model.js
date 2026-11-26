@@ -1,11 +1,18 @@
 import prisma from "../../Config/Prisma.js";
-import { USER_ROLE_ADMIN, USER_ROLE_DEFAULT } from "../../Utils/userRoles.js";
+import {
+  USER_ROLE_ADMIN,
+  USER_ROLE_DEFAULT,
+  USER_ROLE_DLE,
+  USER_ROLE_VLE,
+  VLE_TEAM_LIMIT,
+} from "../../Utils/userRoles.js";
 
 export const serializeUserRecord = (user) => {
   if (!user) return null;
   const { password, ...rest } = user;
   const out = { ...rest };
   if (out.id != null) out.id = out.id.toString();
+  if (out.parent_user_id != null) out.parent_user_id = out.parent_user_id.toString();
   out.role = Number(out.role ?? USER_ROLE_DEFAULT);
   return out;
 };
@@ -263,7 +270,7 @@ export const findUsersByCompanyId = async (companyId, { search } = {}) => {
   if (!cid) return [];
 
   const where = {
-    role: { not: USER_ROLE_ADMIN },
+    role: USER_ROLE_DLE,
     approval_status: 1,
     OR: [{ company_id: cid }, { company_id: null }, { company_id: "" }],
   };
@@ -498,6 +505,200 @@ export const adminUpdateUser = async (id, body) => {
 
   return prisma.user.update({
     where: { id: BigInt(id) },
+    data,
+  });
+};
+
+const vleTeamWhere = (parentId) => ({
+  parent_user_id: BigInt(parentId),
+  role: USER_ROLE_VLE,
+});
+
+export const countVlesForDle = async (parentId) =>
+  prisma.user.count({
+    where: {
+      ...vleTeamWhere(parentId),
+      approval_status: { not: 2 },
+    },
+  });
+
+export const listVlesForDle = async (parentId) =>
+  prisma.user.findMany({
+    where: vleTeamWhere(parentId),
+    orderBy: { id: "desc" },
+  });
+
+export const listAllVles = async () =>
+  prisma.user.findMany({
+    where: { role: USER_ROLE_VLE },
+    orderBy: { id: "desc" },
+  });
+
+export const listDlesForAssignment = async () => {
+  const [dles, counts] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: USER_ROLE_DLE },
+      select: { id: true, name: true, email: true, approval_status: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.user.groupBy({
+      by: ["parent_user_id"],
+      where: {
+        role: USER_ROLE_VLE,
+        approval_status: { not: 2 },
+        parent_user_id: { not: null },
+      },
+      _count: { _all: true },
+    }),
+  ]);
+  const usedByParent = new Map(
+    counts
+      .filter((row) => row.parent_user_id != null)
+      .map((row) => [row.parent_user_id.toString(), row._count._all])
+  );
+  return dles.map((dle) => ({
+    id: dle.id.toString(),
+    name: dle.name,
+    email: dle.email,
+    approval_status: Number(dle.approval_status ?? 0),
+    used: usedByParent.get(dle.id.toString()) || 0,
+    limit: VLE_TEAM_LIMIT,
+  }));
+};
+
+export const moveVleToDle = async (vle, dle) => {
+  if (String(vle.parent_user_id) === String(dle.id)) return vle;
+  const used = await countVlesForDle(dle.id);
+  if (used >= VLE_TEAM_LIMIT) {
+    fail(422, "This DLE already has 5 VLEs.");
+  }
+  return prisma.user.update({
+    where: { id: vle.id },
+    data: {
+      parent_user_id: dle.id,
+      company_id: dle.company_id ?? null,
+      state: dle.state ?? null,
+      district: dle.district ?? null,
+      block: dle.block ?? null,
+      panchayat: dle.panchayat ?? null,
+      updated_at: new Date(),
+    },
+  });
+};
+
+export const findUserNamesByIds = async (ids) => {
+  const unique = [
+    ...new Set(
+      (ids || [])
+        .filter((id) => id != null && String(id).trim() !== "")
+        .map((id) => String(id))
+    ),
+  ];
+  if (!unique.length) return new Map();
+  const rows = await prisma.user.findMany({
+    where: { id: { in: unique.map((id) => BigInt(id)) } },
+    select: { id: true, name: true },
+  });
+  return new Map(rows.map((row) => [row.id.toString(), row.name]));
+};
+
+const fail = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  throw error;
+};
+
+export const createVleForDle = async (dle, body) => {
+  const name = String(body.name || "").trim();
+  const email = String(body.email || "").trim().toLowerCase();
+  const contactNo = String(body.contact_no || "").trim();
+  const password = String(body.password || "").trim();
+
+  if (!name || !email || !contactNo || !password) {
+    fail(422, "Name, email, contact number, and password are required.");
+  }
+  if (contactNo.length > 20) {
+    fail(422, "Contact number must be 20 characters or fewer.");
+  }
+
+  const existing = await findUserByEmail(email);
+  if (existing) fail(409, "Email already registered.");
+
+  const parentId = dle.id;
+  const used = await countVlesForDle(parentId);
+  if (used >= VLE_TEAM_LIMIT) {
+    fail(422, "A DLE can add up to 5 VLEs.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.user.count({
+      where: {
+        ...vleTeamWhere(parentId),
+        approval_status: { not: 2 },
+      },
+    });
+    if (current >= VLE_TEAM_LIMIT) {
+      fail(422, "A DLE can add up to 5 VLEs.");
+    }
+
+    return tx.user.create({
+      data: {
+        name,
+        email,
+        contact_no: contactNo,
+        password,
+        company_id: dle.company_id ?? null,
+        state: dle.state ?? null,
+        district: dle.district ?? null,
+        block: dle.block ?? null,
+        panchayat: dle.panchayat ?? null,
+        role: USER_ROLE_VLE,
+        parent_user_id: parentId,
+        status: 1,
+        approval_status: 1,
+      },
+    });
+  });
+};
+
+export const updateVleForDle = async (dle, vleId, body, { anyTeam = false } = {}) => {
+  const existing = await findUserById(vleId);
+  if (!existing || Number(existing.role) !== USER_ROLE_VLE) {
+    fail(404, "VLE not found.");
+  }
+  if (!anyTeam && String(existing.parent_user_id) !== String(dle.id)) {
+    fail(404, "VLE not found on your team.");
+  }
+
+  const data = { updated_at: new Date() };
+  if (body.name !== undefined) {
+    const name = String(body.name || "").trim();
+    if (!name) fail(422, "Name is required.");
+    data.name = name;
+  }
+  if (body.email !== undefined) {
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!email) fail(422, "Email is required.");
+    const taken = await findUserByEmail(email);
+    if (taken && String(taken.id) !== String(existing.id)) {
+      fail(409, "Email already registered.");
+    }
+    data.email = email;
+  }
+  if (body.contact_no !== undefined) {
+    const contactNo = String(body.contact_no || "").trim();
+    if (!contactNo) fail(422, "Contact number is required.");
+    if (contactNo.length > 20) {
+      fail(422, "Contact number must be 20 characters or fewer.");
+    }
+    data.contact_no = contactNo;
+  }
+  if (body.password !== undefined && String(body.password).trim()) {
+    data.password = String(body.password).trim();
+  }
+
+  return prisma.user.update({
+    where: { id: existing.id },
     data,
   });
 };

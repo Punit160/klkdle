@@ -41,6 +41,8 @@ import {
   slugFilePart,
   summarizeUlaRows,
   surveyDayKey,
+  istDayKey,
+  istTodayKey,
   tableToCsv,
   tableToExcelHtml,
 } from './ulaDashboardReports'
@@ -89,6 +91,10 @@ const mapReportRow = (row) => {
     village: row.village || '',
     surveyDay: surveyDayKey(row.survey_date || row.created_at),
     surveyDateLabel: formatSurveyDateDisplay(row.survey_date || row.created_at),
+    firstWorkDay: istDayKey(row.created_at || row.survey_date),
+    secondWorkDay: row.second_visit_at ? istDayKey(row.second_visit_at) : '',
+    createdAt: row.created_at || '',
+    secondVisitAt: row.second_visit_at || '',
     firstBy: resolveUlaSurveyorDisplayName(row),
     secondBy: secondBy === '—' ? '' : secondBy,
     visitKey: visit.key,
@@ -171,6 +177,7 @@ const BiharUlaDashboard = () => {
   const [rejectTarget, setRejectTarget] = useState(null)
   const [rejectRemarks, setRejectRemarks] = useState('')
   const [rejectRemarksError, setRejectRemarksError] = useState('')
+  const [todayKind, setTodayKind] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -384,6 +391,52 @@ const BiharUlaDashboard = () => {
     ? Math.round(((summary.completeFirst + summary.completeSecond) / summary.total) * 100)
     : 0
   const recentSites = personalFiltered.slice(0, 8)
+  const todayKey = istTodayKey()
+  const formatWorkTime = (value) => {
+    if (!value) return '—'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '—'
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date)
+  }
+  const todayWork = rows.flatMap((row) => {
+    const items = []
+    if (row.firstWorkDay === todayKey) {
+      items.push({
+        key: `${row.id}-1`,
+        row,
+        kind: '1st visit',
+        by: row.firstBy,
+        at: row.createdAt,
+      })
+    }
+    if (row.secondWorkDay === todayKey) {
+      items.push({
+        key: `${row.id}-2`,
+        row,
+        kind: '2nd visit',
+        by: row.secondBy || row.firstBy,
+        at: row.secondVisitAt,
+      })
+    }
+    return items
+  }).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+  const todayFirst = todayWork.filter((item) => item.kind === '1st visit')
+  const todaySecond = todayWork.filter((item) => item.kind === '2nd visit')
+  const visibleToday = todayKind ? todayWork.filter((item) => item.kind === todayKind) : todayWork
+  const todayBySurveyor = [...todayWork.reduce((map, item) => {
+    const name = item.by || '—'
+    const entry = map.get(name) || { name, total: 0, first: 0, second: 0 }
+    entry.total += 1
+    if (item.kind === '1st visit') entry.first += 1
+    else entry.second += 1
+    map.set(name, entry)
+    return map
+  }, new Map()).values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
 
   return (
     <div>
@@ -474,6 +527,109 @@ const BiharUlaDashboard = () => {
                       <StatButton icon={FiCheckCircle} title="Approved" value={summary.approved} subtitle="Click to view sites" tone="success" active={reportFilterActive && filters.approval === '1'} onClick={() => openApprovalReport(1)} />
                       <StatButton icon={FiXCircle} title="Rejected" value={summary.rejected} subtitle="Click to view sites" tone="danger" active={reportFilterActive && filters.approval === '2'} onClick={() => openApprovalReport(2)} />
                       <StatButton icon={FiSun} title="Complete on 1st visit" value={summary.completeFirst} subtitle="Solar meter already captured" tone="info" active={reportFilterActive && filters.visit === 'complete_first'} onClick={() => openVisitReport('complete_first')} />
+                    </div>
+
+                    <div className="bihar-amc-panel mb-3">
+                      <div className="bihar-amc-panel-head">
+                        <h6>Today&apos;s work</h6>
+                        <span className="fs-12 text-muted">{todayWork.length} visit{todayWork.length === 1 ? '' : 's'}</span>
+                      </div>
+                      <div className="ula-today-stats">
+                        <StatButton
+                          icon={FiLayers}
+                          title="Total visits"
+                          value={todayWork.length}
+                          subtitle="1st and 2nd visits today"
+                          tone="primary"
+                          active={!todayKind}
+                          onClick={() => setTodayKind('')}
+                        />
+                        <StatButton
+                          icon={FiSun}
+                          title="1st visit"
+                          value={todayFirst.length}
+                          subtitle="Saved today"
+                          tone="info"
+                          active={todayKind === '1st visit'}
+                          onClick={() => setTodayKind('1st visit')}
+                        />
+                        <StatButton
+                          icon={FiMapPin}
+                          title="2nd visit"
+                          value={todaySecond.length}
+                          subtitle="Completed today"
+                          tone="success"
+                          active={todayKind === '2nd visit'}
+                          onClick={() => setTodayKind('2nd visit')}
+                        />
+                      </div>
+                      <div className="table-responsive mb-3">
+                        <table className="table bihar-amc-table mb-0">
+                          <thead>
+                            <tr>
+                              <th>Surveyor</th>
+                              <th>Total visits</th>
+                              <th>1st visit</th>
+                              <th>2nd visit</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {todayBySurveyor.length === 0 ? (
+                              <tr>
+                                <td colSpan={4}><div className="bihar-amc-empty">No ULA visits today.</div></td>
+                              </tr>
+                            ) : (
+                              todayBySurveyor.map((item) => (
+                                <tr key={item.name}>
+                                  <td className="fw-semibold">{item.name}</td>
+                                  <td>{item.total}</td>
+                                  <td>{item.first}</td>
+                                  <td>{item.second}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table bihar-amc-table mb-0">
+                          <thead>
+                            <tr>
+                              <th>Time</th>
+                              <th>Visit</th>
+                              <th>CA</th>
+                              <th>Location</th>
+                              <th>Surveyor</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {visibleToday.length === 0 ? (
+                              <tr>
+                                <td colSpan={5}><div className="bihar-amc-empty">{todayKind ? `No ${todayKind}s today.` : 'No ULA visits today.'}</div></td>
+                              </tr>
+                            ) : (
+                              visibleToday.map((item) => (
+                                <tr
+                                  key={item.key}
+                                  className="ula-clickable-row"
+                                  onClick={() => navigate(`${pages.bihar.ulaDetails}?id=${item.row.id}`)}
+                                >
+                                  <td>{formatWorkTime(item.at)}</td>
+                                  <td>{item.kind}</td>
+                                  <td>
+                                    <div className="fw-semibold">{item.row.caNumber || '—'}</div>
+                                    <div className="fs-11 text-muted">{item.row.caName || '—'}</div>
+                                  </td>
+                                  <td className="fs-12 text-muted">
+                                    {[item.row.village, item.row.block, item.row.district].filter(Boolean).join(' / ') || '—'}
+                                  </td>
+                                  <td>{item.by || '—'}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
 
                     <div className="bihar-amc-panel-grid">

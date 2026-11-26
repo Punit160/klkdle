@@ -21,6 +21,7 @@ import {
   PORTAL_UP_OFFGRID_AMC_READ,
   PORTAL_UP_ONGRID_AMC_ADD,
   PORTAL_UP_ONGRID_AMC_READ,
+  PORTAL_VLE_ADD,
 } from '../constants/portalPermissions'
 import { userCanAccessPortalModule } from './portalAccess'
 
@@ -64,6 +65,7 @@ export const PAGE_PATH_PORTAL_PERMISSIONS = {
   [pages.up.ongridAmc]: [PORTAL_UP_ONGRID_AMC_ADD],
   [pages.up.ongridAmcList]: [PORTAL_UP_ONGRID_AMC_READ],
   [pages.up.ongridAmcDetails]: [PORTAL_UP_ONGRID_AMC_READ],
+  [pages.myTeam]: [PORTAL_VLE_ADD],
 }
 
 export const userCanAccessPagePath = (user, path) => {

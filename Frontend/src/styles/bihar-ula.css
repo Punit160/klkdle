@@ -7,6 +7,19 @@
   padding: 16px 16px 0;
 }
 
+.ula-today-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px 0;
+}
+
+@media (max-width: 767px) {
+  .ula-today-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 991px) {
   .ula-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -71,7 +84,12 @@ button.ula-stat-card.is-active {
   flex: 1 1 100%;
 }
 
-.ula-filters select {
+.ula-clickable-row {
+  cursor: pointer;
+}
+
+.ula-filters select,
+.ula-filters input[type='date'] {
   border: 1px solid var(--bs-border-color, #e2e8f0);
   border-radius: 8px;
   padding: 6px 10px;

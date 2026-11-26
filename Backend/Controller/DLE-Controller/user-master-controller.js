@@ -2,6 +2,7 @@ import {
   adminCreateUser,
   adminUpdateUser,
   findUserById,
+  findUserNamesByIds,
   listUsersForMaster,
   serializeUserRecord,
 } from "../../Model/DLE-Model/dle-user-model.js";
@@ -10,7 +11,7 @@ import {
   getUserPortalRoleAssignments,
   setUserPortalRoles,
 } from "../../Model/DLE-Model/portal-rbac-model.js";
-import { USER_ROLE_ADMIN } from "../../Utils/userRoles.js";
+import { USER_ROLE_ADMIN, USER_ROLE_VLE } from "../../Utils/userRoles.js";
 import {
   mapUserUploadFilesToPaths,
   parseUserMasterMultipartBody,
@@ -38,6 +39,12 @@ export const listUsersMasterController = async (req, res) => {
     const portalRolesByUser = await getPortalRoleNamesByUserIds(
       result.rows.map((row) => row.id)
     );
+    const parentRoleNames = await getPortalRoleNamesByUserIds(
+      result.rows.map((row) => row.parent_user_id)
+    );
+    const parentNames = await findUserNamesByIds(
+      result.rows.map((row) => row.parent_user_id)
+    );
 
     return res.json({
       success: true,
@@ -51,7 +58,11 @@ export const listUsersMasterController = async (req, res) => {
         const user = serializeUserRecord(row);
         return {
           ...user,
-          portal_role_names: portalRolesByUser.get(String(user.id)) || [],
+          portal_role_names:
+            Number(user.role) === USER_ROLE_VLE
+              ? parentRoleNames.get(String(user.parent_user_id || "")) || []
+              : portalRolesByUser.get(String(user.id)) || [],
+          parent_name: parentNames.get(String(user.parent_user_id || "")) || "",
         };
       }),
     });
@@ -82,11 +93,13 @@ export const getUserMasterController = async (req, res) => {
       );
     }
 
+    const parentNames = await findUserNamesByIds([user.parent_user_id]);
     return res.json({
       success: true,
       data: {
         ...serializeUserRecord(user),
         password: user.password ?? "",
+        parent_name: parentNames.get(String(user.parent_user_id || "")) || "",
         portal_role_ids: portal_roles.map((r) => r.role_id),
         portal_roles,
       },
@@ -138,7 +151,11 @@ export const updateUserMasterController = async (req, res) => {
     const body = mergeUserMasterRequestBody(req);
     const user = await adminUpdateUser(req.params.id, body);
 
-    if (body.portal_role_ids != null && user.company_id) {
+    if (
+      body.portal_role_ids != null &&
+      user.company_id &&
+      Number(user.role) !== USER_ROLE_VLE
+    ) {
       const roleIds = Array.isArray(body.portal_role_ids)
         ? body.portal_role_ids.map(String)
         : [];

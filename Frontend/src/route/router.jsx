@@ -36,12 +36,14 @@ import { legacyPages, pages } from "../api/routes"
 import BiharUlaForm from "../pages/Bihar/BiharULA/BiharUlaForm"
 import BiharUlaInspectionForm from "../pages/Bihar/BiharULA/BiharUlaInspectionForm"
 import BiharUlaInspectionList from "../pages/Bihar/BiharULA/BiharUlaInspectionList"
+import BiharUlaInspectionDashboard from "../pages/Bihar/BiharULA/BiharUlaInspectionDashboard"
 import BiharUlaInspectionDetails from "../pages/Bihar/BiharULA/BiharUlaInspectionDetails"
 import BiharUlaList from "../pages/Bihar/BiharULA/BiharUlaList"
 import BiharUlaDetails from "../pages/Bihar/BiharULA/BiharUlaDetails"
 import BiharUlaDashboard from "../pages/Bihar/BiharULA/BiharUlaDashboard"
 import PortalAccessAdmin from "../pages/Portal/PortalAccessAdmin"
 import UserMaster from "../pages/Admin/UserMaster"
+import VleTeam from "../pages/Admin/VleTeam"
 
 const legacyRedirects = Object.entries(legacyPages).map(([from, to]) => ({
   path: from.replace(/^\/+/, "").replace(/\/+$/, ""),
@@ -74,6 +76,14 @@ export const router = createBrowserRouter([
       { path: pages.dailyWork.slice(1), element: <DailyWorkReport /> },
       { path: pages.portalAccess.slice(1), element: <PortalAccessAdmin /> },
       { path: pages.userMaster.slice(1), element: <UserMaster /> },
+      {
+        path: pages.myTeam.slice(1),
+        element: (
+          <PortalModuleRoute pagePath={pages.myTeam}>
+            <VleTeam />
+          </PortalModuleRoute>
+        ),
+      },
       { path: pages.idCard.slice(1), element: <DLECard /> },
       { path: pages.certificate.slice(1), element: <DLECertificate /> },
 
@@ -89,6 +99,7 @@ export const router = createBrowserRouter([
       moduleRoute("bihar", pages.bihar.lightAmcDetails, <LightAmcDetails region="bihar" />),
       moduleRoute("bihar", pages.bihar.ulaForm, <BiharUlaForm />),
       moduleRoute("bihar", pages.bihar.ulaInspection, <BiharUlaInspectionForm />),
+      moduleRoute("bihar", pages.bihar.ulaInspectionDashboard, <BiharUlaInspectionDashboard />),
       moduleRoute("bihar", pages.bihar.ulaInspectionList, <BiharUlaInspectionList />),
       moduleRoute("bihar", pages.bihar.ulaInspectionDetails, <BiharUlaInspectionDetails />),
       moduleRoute("bihar", pages.bihar.ulaList, <BiharUlaList />),

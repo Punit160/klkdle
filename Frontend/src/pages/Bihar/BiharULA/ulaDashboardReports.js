@@ -45,6 +45,42 @@ export const surveyDayKey = (value) => {
   return `${year}-${month}-${day}`
 }
 
+/** Calendar day in India. A stored date (midnight UTC) stays on that date; a real timestamp uses IST. */
+export const istDayKey = (value) => {
+  if (!value) return ''
+  const raw = String(value)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  if (/^\d{4}-\d{2}-\d{2}T00:00:00(?:\.000)?Z$/.test(raw)) return raw.slice(0, 10)
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+export const istTodayKey = () => istDayKey(new Date())
+
+/** One row per visit day so a 2nd visit done later appears on that day. */
+export const expandUlaWorkRows = (rows) => {
+  const out = []
+  rows.forEach((row) => {
+    const firstDay = row.firstWorkDay || row.surveyDay
+    out.push({ ...row, surveyDay: firstDay })
+    if (row.secondWorkDay && row.secondWorkDay !== firstDay) {
+      out.push({
+        ...row,
+        surveyDay: row.secondWorkDay,
+        visitKey: 'complete_second',
+        visitLabel: '2nd visit',
+      })
+    }
+  })
+  return out
+}
+
 export const classifyUlaVisit = (row) => {
   const solarFirst = ulaSolarMeterOnFirstVisit(row)
   const inverterDone = ulaInverterCaptured(row)
@@ -245,7 +281,7 @@ export const reportTableFor = (reportId, rows) => {
     return {
       title: 'Daily report',
       headers: GROUP_HEADERS,
-      rows: groupUlaRows(rows, (row) => row.surveyDay || 'No date')
+      rows: groupUlaRows(expandUlaWorkRows(rows), (row) => row.surveyDay || 'No date')
         .sort((a, b) => String(b.label).localeCompare(String(a.label)))
         .map(bucketCells),
     }
@@ -254,7 +290,7 @@ export const reportTableFor = (reportId, rows) => {
     return {
       title: 'Monthly report',
       headers: GROUP_HEADERS,
-      rows: groupUlaRows(rows, (row) => (row.surveyDay ? row.surveyDay.slice(0, 7) : 'No date'))
+      rows: groupUlaRows(expandUlaWorkRows(rows), (row) => (row.surveyDay ? row.surveyDay.slice(0, 7) : 'No date'))
         .sort((a, b) => String(b.label).localeCompare(String(a.label)))
         .map(bucketCells),
     }

@@ -17,7 +17,7 @@ import { app } from '../../api/routes'
 import { getUser } from '../../utils/auth'
 import { resolveUploadUrl } from '../../utils/uploadUrl'
 import { isSoftwareAssignablePortalRole } from '../../constants/portalPermissions'
-import { approvalStatusLabel, userIsAdmin, USER_ROLE_DEFAULT } from '../../utils/userRoles'
+import { approvalStatusLabel, roleLabel, userIsAdmin, USER_ROLE_DEFAULT, USER_ROLE_VLE } from '../../utils/userRoles'
 
 const emptyForm = () => ({
   id: '',
@@ -138,7 +138,7 @@ const STATE_FILTER_OPTIONS = [
 
 const buildUserFormData = (form, fileDrafts, adminCompanyId) => {
   const fd = new FormData()
-  const skip = new Set(['id', 'portal_roles'])
+  const skip = new Set(['id', 'portal_roles', 'parent_name', 'parent_user_id'])
   const fileFields = new Set(USER_DOCUMENT_FIELDS.map((d) => d.key))
   Object.entries(form).forEach(([key, value]) => {
     if (skip.has(key) || fileFields.has(key)) return
@@ -361,7 +361,7 @@ const UserMaster = () => {
             <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
               <h5 className="card-title mb-0">Users</h5>
               <button type="button" className="btn btn-sm btn-primary" onClick={openCreate}>
-                <FiPlus className="me-1" /> Add user
+                <FiPlus className="me-1" /> Add DLE
               </button>
             </div>
             <div className="card-body border-bottom py-3">
@@ -422,6 +422,8 @@ const UserMaster = () => {
                     <thead className="table-light">
                       <tr>
                         <th className="ps-3">Name</th>
+                        <th>Type</th>
+                        <th>Team</th>
                         <th>Email</th>
                         <th>Contact</th>
                         <th>Company</th>
@@ -436,6 +438,10 @@ const UserMaster = () => {
                       {users.map((u) => (
                         <tr key={u.id}>
                           <td className="ps-3 fw-medium">{u.name}</td>
+                          <td className="fs-13">{roleLabel(u.role)}</td>
+                          <td className="fs-13">
+                            {Number(u.role) === USER_ROLE_VLE ? u.parent_name || '—' : '—'}
+                          </td>
                           <td className="text-muted fs-13">{u.email}</td>
                           <td className="fs-13">{u.contact_no || '—'}</td>
                           <td className="fs-13">{u.company_id || '—'}</td>
@@ -473,7 +479,7 @@ const UserMaster = () => {
                       ))}
                       {!users.length && (
                         <tr>
-                          <td colSpan={9} className="text-center text-muted py-5">
+                          <td colSpan={11} className="text-center text-muted py-5">
                             No users found.
                           </td>
                         </tr>
@@ -496,7 +502,11 @@ const UserMaster = () => {
         {mode === 'form' && (
           <form className="card stretch stretch-full" onSubmit={saveUser}>
             <div className="card-header d-flex justify-content-between align-items-center">
-              <h6 className="mb-0">{form.id ? 'Edit user' : 'Add user'}</h6>
+              <h6 className="mb-0">
+                {form.id
+                  ? `Edit ${Number(form.role) === USER_ROLE_VLE ? 'VLE' : 'DLE'}`
+                  : 'Add DLE'}
+              </h6>
               <button type="button" className="btn btn-light btn-sm" onClick={() => setMode('list')}>
                 Back to list
               </button>
@@ -536,8 +546,18 @@ const UserMaster = () => {
                   </p>
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">Role</label>
-                  <input className="form-control bg-light" value="Field user (2)" readOnly disabled />
+                  <label className="form-label">Type</label>
+                  <input
+                    className="form-control bg-light"
+                    value={Number(form.role) === USER_ROLE_VLE ? 'VLE' : 'DLE'}
+                    readOnly
+                    disabled
+                  />
+                  {Number(form.role) === USER_ROLE_VLE && (
+                    <p className="fs-11 text-muted mb-0 mt-1">
+                      On {form.parent_name || 'a DLE'}&apos;s team. A DLE can have up to 5 VLEs.
+                    </p>
+                  )}
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">
@@ -670,7 +690,15 @@ const UserMaster = () => {
                   />
                 ))}
 
-                {portalRoles.length > 0 && (
+                {Number(form.role) === USER_ROLE_VLE ? (
+                  <div className="col-12">
+                    <h6 className="fs-13 mb-2">Portal access</h6>
+                    <p className="fs-13 text-muted mb-0">
+                      This VLE uses the same portal access as {form.parent_name || 'their DLE'}.
+                      Change the DLE&apos;s role to change this VLE.
+                    </p>
+                  </div>
+                ) : portalRoles.length > 0 && (
                   <div className="col-12">
                     <h6 className="fs-13 mb-2">Portal roles (same company)</h6>
                     {portalRoles
@@ -699,7 +727,7 @@ const UserMaster = () => {
             <div className="card-footer">
               <button type="submit" className="btn btn-primary" disabled={saving || detailLoading}>
                 <FiSave className="me-1" />
-                {saving ? 'Saving…' : 'Save user'}
+                {saving ? 'Saving…' : form.id ? 'Save user' : 'Save DLE'}
               </button>
             </div>
           </form>

@@ -284,6 +284,18 @@ export const PORTAL_PERMISSION_CATALOG = [
 
   },
 
+  {
+
+    key: "portal.vle.add",
+
+    label: "Add VLE",
+
+    module: "vle",
+
+    description: "Add up to 5 VLEs on this DLE's team. Each VLE is saved as a user.",
+
+  },
+
 ];
 
 

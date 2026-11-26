@@ -14,6 +14,7 @@ import biharUlaPublicRoutes from "./DLE-Router/bihar-ula-public-router.js";
 import portalRbacRoutes from "./DLE-Router/portal-rbac-route.js";
 import portalIntegrationRoutes from "./DLE-Router/portal-integration-router.js";
 import userMasterRoutes from "./DLE-Router/user-master-route.js";
+import vleTeamRoutes from "./DLE-Router/vle-team-route.js";
 import { protect } from "../Middleware/authmiddleware.js";
 import { loadPortalPermissions } from "../Middleware/requirePortalPermission.js";
 import { requireActivePunchIn } from "../Middleware/requireActivePunchIn.js";
@@ -41,6 +42,7 @@ export const mountApiRoutes = (app) => {
   app.use("/api/portal/access", portalRbacRoutes);
   app.use("/api/portal/integration", portalIntegrationRoutes);
   app.use("/api/user-master", userMasterRoutes);
+  app.use("/api/team/vles", vleTeamRoutes);
 
   // AMC approval (public portal) + field routes (JWT + punch in)
   mountAmcWithPublicApproval(app, "/api/bihar/amc", "bihar", biharSslAmcRoutes);

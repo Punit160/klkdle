@@ -24,6 +24,7 @@ export const pages = {
   certificate: '/certificate',
   portalAccess: '/portal/access',
   userMaster: '/admin/users',
+  myTeam: '/my-team',
 
   bihar: {
     amcDashboard: '/bihar/amc',
@@ -41,6 +42,7 @@ export const pages = {
     ulaDashboard: '/bihar/ula/dashboard',
     ulaDetails: '/bihar/ula/details',
     ulaInspection: '/bihar/ula/inspection',
+    ulaInspectionDashboard: '/bihar/ula/inspection/dashboard',
     ulaInspectionList: '/bihar/ula/inspection/list',
     ulaInspectionDetails: '/bihar/ula/inspection/details',
   },
@@ -173,6 +175,10 @@ export const api = {
   userMaster: {
     users: '/api/user-master/users',
     user: (id) => `/api/user-master/users/${id}`,
+  },
+  team: {
+    vles: '/api/team/vles',
+    vle: (id) => `/api/team/vles/${id}`,
   },
   portal: {
     permissions: '/api/portal/access/permissions',

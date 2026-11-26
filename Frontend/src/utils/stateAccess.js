@@ -1,7 +1,7 @@
 import { pages } from '../api/routes'
 import { userCanManagePortalAccess } from './portalAccess'
 import { userCanAccessPagePath } from './portalModuleAccess'
-import { userIsAdmin } from './userRoles'
+import { userIsAdmin, userIsDle } from './userRoles'
 
 const STATE_GROUPS = {
   bihar: ['bihar', 'br', '2'],
@@ -68,6 +68,13 @@ export const filterMenuByUserState = (menuList, user) => {
       return group.id === 'bihar' || group.id === 'up'
     })
     .map((group) => {
+      if (group.id === 'account') {
+        const items = (group.items || []).filter((item) => {
+          if (item.dleOnly && !userIsDle(user) && !userIsAdmin(user)) return false
+          return !item.path || userCanAccessPagePath(user, item.path)
+        })
+        return { ...group, items }
+      }
       if (group.id !== 'bihar' && group.id !== 'up') return group
       const items = (group.items || [])
         .map((item) => filterMenuItemByPortal(user, item))
@@ -94,6 +101,7 @@ const stateHubConfig = {
       { label: 'ULA Dashboard', path: pages.bihar.ulaDashboard, desc: 'Your ULA work, or every site for admin' },
       { label: 'ULA Form', path: pages.bihar.ulaForm, desc: 'Submit Bihar ULA readings' },
       { label: 'ULA Site Inspection', path: pages.bihar.ulaInspection, desc: 'Inspect any Bihar ULA site' },
+      { label: 'ULA Inspection Dashboard', path: pages.bihar.ulaInspectionDashboard, desc: 'Inspection counts, approval, and districts' },
       { label: 'ULA Inspection Table', path: pages.bihar.ulaInspectionList, desc: 'View site inspections and open a site' },
       { label: 'ULA Data', path: pages.bihar.ulaList, desc: 'View ULA submissions' },
     ],

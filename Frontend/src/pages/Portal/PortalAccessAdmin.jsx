@@ -30,6 +30,7 @@ const MODULE_LABELS = {
   up_offgrid_amc: 'UP off grid AMC',
   up_ongrid_amc: 'UP on grid AMC',
   bihar_ula: 'Bihar ULA',
+  vle: 'VLE team',
   other: 'Other',
 }
 

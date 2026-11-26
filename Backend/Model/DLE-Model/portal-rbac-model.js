@@ -1,5 +1,5 @@
 import prisma from "../../Config/Prisma.js";
-import { USER_ROLE_ADMIN } from "../../Utils/userRoles.js";
+import { USER_ROLE_DLE, USER_ROLE_VLE } from "../../Utils/userRoles.js";
 import {
   PORTAL_PERMISSION_CATALOG,
   PORTAL_SUPER_PERMISSION,
@@ -208,7 +208,13 @@ export const getUserPortalRoleAssignments = async (userId, companyId) => {
 
 /** Role names per user id (list views; one query for many users). */
 export const getPortalRoleNamesByUserIds = async (userIds) => {
-  const ids = [...new Set(userIds.map((id) => String(id)).filter(Boolean))];
+  const ids = [
+    ...new Set(
+      (userIds || [])
+        .filter((id) => id != null && String(id).trim() !== "")
+        .map((id) => String(id))
+    ),
+  ];
   const map = new Map(ids.map((id) => [id, []]));
   if (!ids.length) return map;
 
@@ -259,14 +265,16 @@ export const setPortalRoleMembers = async (roleId, companyId, userIds) => {
     const users = await prisma.user.findMany({
       where: {
         id: { in: uniqueUserIds.map((id) => BigInt(id)) },
-        role: { not: USER_ROLE_ADMIN },
+        role: USER_ROLE_DLE,
         approval_status: 1,
         OR: [{ company_id: cid }, { company_id: null }, { company_id: "" }],
       },
       select: { id: true },
     });
     if (users.length !== uniqueUserIds.length) {
-      const error = new Error("Only approved users in this company can be assigned to a role.");
+      const error = new Error(
+        "Only an approved DLE in this company can be assigned to a role. A VLE uses that DLE's portal access."
+      );
       error.statusCode = 422;
       throw error;
     }
@@ -361,9 +369,27 @@ export const setUserPortalRoles = async (userId, companyId, roleIds) => {
 export const getUserPermissionKeys = async (userId, companyId) => {
   if (!userId) return [];
 
-  const where = { user_id: BigInt(userId) };
-  if (companyId) {
-    where.company_id = String(companyId);
+  let subjectId = String(userId);
+  let subjectCompanyId = companyId ? String(companyId) : "";
+
+  const user = await prisma.user.findUnique({
+    where: { id: BigInt(userId) },
+    select: { role: true, parent_user_id: true },
+  });
+  if (Number(user?.role) === USER_ROLE_VLE && user.parent_user_id) {
+    const parent = await prisma.user.findUnique({
+      where: { id: user.parent_user_id },
+      select: { id: true, role: true, company_id: true },
+    });
+    if (parent && Number(parent.role) === USER_ROLE_DLE) {
+      subjectId = parent.id.toString();
+      subjectCompanyId = String(parent.company_id || "").trim();
+    }
+  }
+
+  const where = { user_id: BigInt(subjectId) };
+  if (subjectCompanyId) {
+    where.company_id = subjectCompanyId;
   }
 
   const links = await prisma.userPortalRole.findMany({

@@ -33,6 +33,14 @@ export const menuList = [
                 icon: "feather-map",
                 dropdownMenu: false,
             },
+            {
+                id: 5,
+                name: "Add VLE",
+                path: pages.myTeam,
+                icon: "feather-users",
+                dropdownMenu: false,
+                dleOnly: true,
+            },
         ],
     },
     {
@@ -116,8 +124,9 @@ export const menuList = [
                 path: "#",
                 icon: "feather-clipboard",
                 dropdownMenu: [
-                    { id: 1, name: "Do inspection", path: pages.bihar.ulaInspection },
-                    { id: 2, name: "Inspection table", path: pages.bihar.ulaInspectionList },
+                    { id: 1, name: "Inspection dashboard", path: pages.bihar.ulaInspectionDashboard },
+                    { id: 2, name: "Do inspection", path: pages.bihar.ulaInspection },
+                    { id: 3, name: "Inspection table", path: pages.bihar.ulaInspectionList },
                 ],
             },
         ],
